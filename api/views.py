@@ -3,10 +3,10 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 
-from journalAPI.models import Campaign, Chain, Stage, TaskStageFiller, \
+from api.models import Campaign, Chain, Stage, TaskStageFiller, \
     WebHookStageFiller, ConditionalStageFiller, Case, \
     Task
-from journalAPI.serializer import CampaignSerializer, ChainSerializer, \
+from api.serializer import CampaignSerializer, ChainSerializer, \
     StageSerializer, TaskStageFillerSerializer, \
     WebHookStageFillerSerializer, ConditionalStageFillerSerializer, \
     CaseSerializer, TaskSerializer, TaskWithSchemaSerializer

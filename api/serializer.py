@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from journalAPI.models import Campaign, Chain, Stage, TaskStageFiller, \
+from api.models import Campaign, Chain, Stage, TaskStageFiller, \
     WebHookStageFiller, ConditionalStageFiller, Case, \
     Task
 
