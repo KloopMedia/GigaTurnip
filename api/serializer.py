@@ -57,7 +57,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class TaskWithSchemaSerializer(serializers.ModelSerializer):
-    stage = StageSerializer(read_only=True)
+    stage = TaskStageSerializer(read_only=True)
 
     class Meta:
         model = Task

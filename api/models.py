@@ -44,8 +44,8 @@ class Stage(PolymorphicModel, BaseModel):
                               on_delete=models.CASCADE,
                               related_name="stages")
 
-    out_stages = models.ManyToManyField("self",
-                                       related_name="in_stages",
+    in_stages = models.ManyToManyField("self",
+                                       related_name="out_stages",
                                        symmetrical=False,
                                        blank=True)
 
@@ -61,10 +61,6 @@ class TaskStage(Stage, SchemaProvider):
     displayed_prev_stages = models.ManyToManyField(Stage,
                                                    related_name="displayed_following_stages",
                                                    blank=True)
-
-    def __str__(self):
-        return str("Task Stage Filler for " +
-                   self.stage.__str__())
 
 
 class WebHookStage(Stage, SchemaProvider):

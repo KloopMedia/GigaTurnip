@@ -7,7 +7,7 @@ from api.models import Campaign, Chain, Stage, TaskStage, \
     WebHookStage, ConditionalStage, Case, \
     Task
 from api.serializer import CampaignSerializer, ChainSerializer, \
-    StageSerializer, TaskStageSerializer, \
+    TaskStageSerializer, \
     WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, TaskSerializer, TaskWithSchemaSerializer
 
@@ -73,36 +73,36 @@ class ChainView(APIView):
         return Response(status=status.HTTP_200_OK)
 
 
-class AllStages(ListAPIView):
+# class AllStages(ListAPIView):
+#
+#     queryset = Stage.objects.all()
+#     serializer_class = StageSerializer
+#
+#     def post(self, request, format=None):
+#         serializer = StageSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#
+#
+# class StageView(APIView):
+#
+#     def get(self, request, pk, format=None):
+#         try:
+#             item = Stage.objects.get(pk=pk)
+#             serializer = StageSerializer(item)
+#             return Response(serializer.data)
+#         except:
+#             return Response(status=status.HTTP_404_NOT_FOUND)
+#
+#     def delete(self, request, pk, format=None):
+#         item = Stage.objects.get(pk=pk)
+#         item.delete()
+#         return Response(status=status.HTTP_200_OK)
 
-    queryset = Stage.objects.all()
-    serializer_class = StageSerializer
 
-    def post(self, request, format=None):
-        serializer = StageSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class StageView(APIView):
-
-    def get(self, request, pk, format=None):
-        try:
-            item = Stage.objects.get(pk=pk)
-            serializer = StageSerializer(item)
-            return Response(serializer.data)
-        except:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-    def delete(self, request, pk, format=None):
-        item = Stage.objects.get(pk=pk)
-        item.delete()
-        return Response(status=status.HTTP_200_OK)
-
-
-class AllTaskStageFillers(ListAPIView):
+class AllTaskStage(ListAPIView):
 
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
@@ -115,7 +115,7 @@ class AllTaskStageFillers(ListAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class TaskStageFillerView(APIView):
+class TaskStageView(APIView):
 
     def get(self, request, pk, format=None):
         try:
