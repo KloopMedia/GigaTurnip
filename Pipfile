@@ -8,6 +8,7 @@ djangorestframework = "*"
 django = "*"
 django-rest-multiple-models = "*"
 django-cors-headers = "*"
+django-polymorphic = "*"
 
 [dev-packages]
 yapf = "*"

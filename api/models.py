@@ -1,4 +1,6 @@
 from django.db import models
+from polymorphic.models import PolymorphicModel
+
 
 # Create your models here.
 
@@ -37,13 +39,13 @@ class Chain(BaseModel):
                    self.campaign.__str__())
 
 
-class Stage(BaseModel):
+class Stage(PolymorphicModel, BaseModel):
     chain = models.ForeignKey(Chain,
                               on_delete=models.CASCADE,
                               related_name="stages")
 
-    in_stages = models.ManyToManyField("self",
-                                       related_name="out_stages",
+    out_stages = models.ManyToManyField("self",
+                                       related_name="in_stages",
                                        symmetrical=False,
                                        blank=True)
 
@@ -53,16 +55,7 @@ class Stage(BaseModel):
                    self.chain.__str__())
 
 
-class StageFiller(models.Model):
-    chain = models.ForeignKey(Chain, on_delete=models.CASCADE)
-
-    stage = models.OneToOneField(Stage, on_delete=models.CASCADE)
-
-    class Meta:
-        abstract = True
-
-
-class TaskStageFiller(StageFiller, SchemaProvider):
+class TaskStage(Stage, SchemaProvider):
 
     copy_input = models.BooleanField()
     displayed_prev_stages = models.ManyToManyField(Stage,
@@ -74,7 +67,7 @@ class TaskStageFiller(StageFiller, SchemaProvider):
                    self.stage.__str__())
 
 
-class WebHookStageFiller(StageFiller, SchemaProvider):
+class WebHookStage(Stage, SchemaProvider):
 
     web_hook_address = models.TextField()
 
@@ -82,7 +75,7 @@ class WebHookStageFiller(StageFiller, SchemaProvider):
         return str("Web Hook Stage Filler for " + self.stage.__str__())
 
 
-class ConditionalStageFiller(StageFiller):
+class ConditionalStage(Stage):
 
     conditions_schema = ""
     conditions = models.JSONField(null=True)
@@ -103,7 +96,7 @@ class Case(models.Model):
 
 
 class Task(models.Model):
-    stage = models.ForeignKey(TaskStageFiller,
+    stage = models.ForeignKey(TaskStage,
                               on_delete=models.CASCADE,
                               related_name="tasks")
     case = models.ForeignKey(Case,

@@ -3,12 +3,12 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 
-from api.models import Campaign, Chain, Stage, TaskStageFiller, \
-    WebHookStageFiller, ConditionalStageFiller, Case, \
+from api.models import Campaign, Chain, Stage, TaskStage, \
+    WebHookStage, ConditionalStage, Case, \
     Task
 from api.serializer import CampaignSerializer, ChainSerializer, \
-    StageSerializer, TaskStageFillerSerializer, \
-    WebHookStageFillerSerializer, ConditionalStageFillerSerializer, \
+    StageSerializer, TaskStageSerializer, \
+    WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, TaskSerializer, TaskWithSchemaSerializer
 
 
@@ -104,11 +104,11 @@ class StageView(APIView):
 
 class AllTaskStageFillers(ListAPIView):
 
-    queryset = TaskStageFiller.objects.all()
-    serializer_class = TaskStageFillerSerializer
+    queryset = TaskStage.objects.all()
+    serializer_class = TaskStageSerializer
 
     def post(self, request, format=None):
-        serializer = TaskStageFillerSerializer(data=request.data)
+        serializer = TaskStageSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -119,25 +119,25 @@ class TaskStageFillerView(APIView):
 
     def get(self, request, pk, format=None):
         try:
-            item = TaskStageFiller.objects.get(pk=pk)
-            serializer = TaskStageFillerSerializer(item)
+            item = TaskStage.objects.get(pk=pk)
+            serializer = TaskStageSerializer(item)
             return Response(serializer.data)
         except:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, pk, format=None):
-        item = TaskStageFiller.objects.get(pk=pk)
+        item = TaskStage.objects.get(pk=pk)
         item.delete()
         return Response(status=status.HTTP_200_OK)
 
 
 class AllWebHookStageFillers(ListAPIView):
 
-    queryset = WebHookStageFiller.objects.all()
-    serializer_class = WebHookStageFillerSerializer
+    queryset = WebHookStage.objects.all()
+    serializer_class = WebHookStageSerializer
 
     def post(self, request, format=None):
-        serializer = WebHookStageFillerSerializer(data=request.data)
+        serializer = WebHookStageSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -148,25 +148,25 @@ class WebHookStageFillerView(APIView):
 
     def get(self, request, pk, format=None):
         try:
-            item = WebHookStageFiller.objects.get(pk=pk)
-            serializer = WebHookStageFillerSerializer(item)
+            item = WebHookStage.objects.get(pk=pk)
+            serializer = WebHookStageSerializer(item)
             return Response(serializer.data)
         except:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, pk, format=None):
-        item = WebHookStageFiller.objects.get(pk=pk)
+        item = WebHookStage.objects.get(pk=pk)
         item.delete()
         return Response(status=status.HTTP_200_OK)
 
 
 class AllConditionalStageFillers(ListAPIView):
 
-    queryset = ConditionalStageFiller.objects.all()
-    serializer_class = ConditionalStageFillerSerializer
+    queryset = ConditionalStage.objects.all()
+    serializer_class = ConditionalStageSerializer
 
     def post(self, request, format=None):
-        serializer = ConditionalStageFillerSerializer(data=request.data)
+        serializer = ConditionalStageSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -177,14 +177,14 @@ class ConditionalStageFillerView(APIView):
 
     def get(self, request, pk, format=None):
         try:
-            item = ConditionalStageFiller.objects.get(pk=pk)
-            serializer = ConditionalStageFillerSerializer(item)
+            item = ConditionalStage.objects.get(pk=pk)
+            serializer = ConditionalStageSerializer(item)
             return Response(serializer.data)
         except:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, pk, format=None):
-        item = ConditionalStageFiller.objects.get(pk=pk)
+        item = ConditionalStage.objects.get(pk=pk)
         item.delete()
         return Response(status=status.HTTP_200_OK)
 

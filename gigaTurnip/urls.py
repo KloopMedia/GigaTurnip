@@ -26,17 +26,17 @@ urlpatterns = [
     path(r'api/v1/allchains/', turnip_app.AllChains.as_view()),
     re_path(r'api/v1/chain/(?P<pk>\d+)', turnip_app.ChainView.as_view()),
 
-    path(r'api/v1/allstages/', turnip_app.AllStages.as_view()),
-    re_path(r'api/v1/stage/(?P<pk>\d+)', turnip_app.StageView.as_view()),
+    # path(r'api/v1/allstages/', turnip_app.AllStages.as_view()),
+    # re_path(r'api/v1/stage/(?P<pk>\d+)', turnip_app.StageView.as_view()),
 
-    path(r'api/v1/alltaskstagefillers/', turnip_app.AllTaskStageFillers.as_view()),
-    re_path(r'api/v1/taskstagefiller/(?P<pk>\d+)', turnip_app.TaskStageFillerView.as_view()),
+    path(r'api/v1/alltaskstages/', turnip_app.AllTaskStageFillers.as_view()),
+    re_path(r'api/v1/taskstage/(?P<pk>\d+)', turnip_app.TaskStageFillerView.as_view()),
 
-    path(r'api/v1/allwebhookfillers/', turnip_app.AllWebHookStageFillers.as_view()),
-    re_path(r'api/v1/webhookfiller/(?P<pk>\d+)', turnip_app.WebHookStageFillerView.as_view()),
+    path(r'api/v1/allwebhookstages/', turnip_app.AllWebHookStageFillers.as_view()),
+    re_path(r'api/v1/webhookstage/(?P<pk>\d+)', turnip_app.WebHookStageFillerView.as_view()),
 
-    path(r'api/v1/allconditionalstagefillers/', turnip_app.AllConditionalStageFillers.as_view()),
-    re_path(r'api/v1/conditionalstagefillers/(?P<pk>\d+)', turnip_app.ConditionalStageFillerView.as_view()),
+    path(r'api/v1/allconditionalstages/', turnip_app.AllConditionalStageFillers.as_view()),
+    re_path(r'api/v1/conditionalstage/(?P<pk>\d+)', turnip_app.ConditionalStageFillerView.as_view()),
 
     path(r'api/v1/allcases/', turnip_app.AllCases.as_view()),
     re_path(r'api/v1/case/(?P<pk>\d+)', turnip_app.CaseView.as_view()),

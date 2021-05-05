@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from api.models import Campaign, Chain, Stage, TaskStageFiller, \
-    WebHookStageFiller, ConditionalStageFiller, Case, \
+from api.models import Campaign, Chain, Stage, TaskStage, \
+    WebHookStage, ConditionalStage, Case, \
     Task
 
 
@@ -19,27 +19,27 @@ class ChainSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class StageSerializer(serializers.ModelSerializer):
+# class StageSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Stage
+#         fields = '__all__'
+
+
+class TaskStageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Stage
+        model = TaskStage
         fields = '__all__'
 
 
-class TaskStageFillerSerializer(serializers.ModelSerializer):
+class WebHookStageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TaskStageFiller
+        model = WebHookStage
         fields = '__all__'
 
 
-class WebHookStageFillerSerializer(serializers.ModelSerializer):
+class ConditionalStageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = WebHookStageFiller
-        fields = '__all__'
-
-
-class ConditionalStageFillerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ConditionalStageFiller
+        model = ConditionalStage
         fields = '__all__'
 
 
