@@ -58,6 +58,9 @@ class Stage(PolymorphicModel, BaseModel):
 class TaskStage(Stage, SchemaProvider):
 
     copy_input = models.BooleanField()
+    allow_multiple_files = models.BooleanField(default=False)
+    is_creatable = models.BooleanField(default=False)
+    count_complete = models.BooleanField(default=False)
     displayed_prev_stages = models.ManyToManyField(Stage,
                                                    related_name="displayed_following_stages",
                                                    blank=True)
