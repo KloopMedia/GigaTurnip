@@ -9,6 +9,7 @@ django = "*"
 django-rest-multiple-models = "*"
 django-cors-headers = "*"
 django-polymorphic = "*"
+drf-firebase-auth = "*"
 
 [dev-packages]
 yapf = "*"

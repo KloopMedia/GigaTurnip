@@ -1,11 +1,12 @@
 from rest_framework import serializers
-
+from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, Stage, TaskStage, \
     WebHookStage, ConditionalStage, Case, \
     Task
 
 
 class CampaignSerializer(serializers.ModelSerializer):
+    user = CurrentUserDefault()
 
     class Meta:
         model = Campaign
