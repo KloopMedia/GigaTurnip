@@ -57,16 +57,6 @@ class Stage(PolymorphicModel, BaseModel):
 
 class TaskStage(Stage, SchemaProvider):
 
-    class NodeTypes(models.TextChoices):
-        STAGE = 'STAGE', 'Stage'
-        LOGIC = 'LOGIC', 'Logic'
-        PONG = 'PONG', 'Ping-pong'
-
-    node_type = models.TextField(
-        choices=NodeTypes.choices,
-        default=NodeTypes.STAGE,
-    )
-
     x_pos = models.DecimalField(max_digits=17, decimal_places=14)
     y_pos = models.DecimalField(max_digits=17, decimal_places=14)
     copy_input = models.BooleanField(default=False)
@@ -89,10 +79,12 @@ class WebHookStage(Stage, SchemaProvider):
 class ConditionalStage(Stage):
 
     conditions_schema = ""
+    x_pos = models.DecimalField(max_digits=17, decimal_places=14)
+    y_pos = models.DecimalField(max_digits=17, decimal_places=14)
     conditions = models.JSONField(null=True)
 
-    def __str__(self):
-        return str("Conditional Stage Filler for " + self.stage__str__())
+    # def __str__(self):
+    #     return str("Conditional Stage Filler for " + self.stage__str__())
 
 
 class Case(models.Model):
