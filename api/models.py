@@ -57,7 +57,19 @@ class Stage(PolymorphicModel, BaseModel):
 
 class TaskStage(Stage, SchemaProvider):
 
-    copy_input = models.BooleanField()
+    class NodeTypes(models.TextChoices):
+        STAGE = 'STAGE', 'Stage'
+        LOGIC = 'LOGIC', 'Logic'
+        PONG = 'PONG', 'Ping-pong'
+
+    node_type = models.TextField(
+        choices=NodeTypes.choices,
+        default=NodeTypes.STAGE,
+    )
+
+    x_pos = models.DecimalField(max_digits=17, decimal_places=14)
+    y_pos = models.DecimalField(max_digits=17, decimal_places=14)
+    copy_input = models.BooleanField(default=False)
     allow_multiple_files = models.BooleanField(default=False)
     is_creatable = models.BooleanField(default=False)
     count_complete = models.BooleanField(default=False)
