@@ -9,10 +9,13 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-
+import ast
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+from drf_firebase_auth.utils import map_firebase_uid_to_username
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -41,7 +44,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_multiple_model',
     'corsheaders',
-    'polymorphic'
+    'polymorphic',
+    'drf_firebase_auth'
 
 ]
 
@@ -134,4 +138,41 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000'
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'drf_firebase_auth.authentication.FirebaseAuthentication',
+    ]
+}
+
+DRF_FIREBASE_AUTH = {
+    # allow anonymous requests without Authorization header set
+    'ALLOW_ANONYMOUS_REQUESTS': os.getenv('ALLOW_ANONYMOUS_REQUESTS', False),
+    # path to JSON file with firebase secrets
+    'FIREBASE_SERVICE_ACCOUNT_KEY':
+        ast.literal_eval(os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY', '')),
+    # allow creation of new local user in db
+    'FIREBASE_CREATE_LOCAL_USER':
+        os.getenv('FIREBASE_CREATE_LOCAL_USER', True),
+    # attempt to split firebase user.display_name and set local user
+    # first_name and last_name
+    'FIREBASE_ATTEMPT_CREATE_WITH_DISPLAY_NAME':
+        os.getenv('FIREBASE_ATTEMPT_CREATE_WITH_DISPLAY_NAME', True),
+    # commonly JWT or Bearer (e.g. JWT <token>)
+    'FIREBASE_AUTH_HEADER_PREFIX':
+        os.getenv('FIREBASE_AUTH_HEADER_PREFIX', 'JWT'),
+    # verify that JWT has not been revoked
+    'FIREBASE_CHECK_JWT_REVOKED':
+        os.getenv('FIREBASE_CHECK_JWT_REVOKED', True),
+    # require that firebase user.email_verified is True
+    'FIREBASE_AUTH_EMAIL_VERIFICATION':
+        os.getenv('FIREBASE_AUTH_EMAIL_VERIFICATION', False),
+    # function should accept firebase_admin.auth.UserRecord as argument
+    # and return str
+    'FIREBASE_USERNAME_MAPPING_FUNC': map_firebase_uid_to_username
+}
 
