@@ -20,22 +20,30 @@ class ChainSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+base_model_fields = ['id', 'name', 'description']
+stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
+schema_provider_fields = ['json_schema', 'ui_schema', 'library']
+
+
 class TaskStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
-        fields = '__all__'
+        fields = base_model_fields + stage_fields + schema_provider_fields + \
+                 ['copy_input', 'allow_multiple_files', 'is_creatable',
+                  'count_complete', 'displayed_prev_stages']
 
 
 class WebHookStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = WebHookStage
-        fields = '__all__'
+        fields = base_model_fields + stage_fields + schema_provider_fields + \
+                 ['web_hook_address', ]
 
 
 class ConditionalStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConditionalStage
-        fields = '__all__'
+        fields = base_model_fields + stage_fields + ['conditions', ]
 
 
 class CaseSerializer(serializers.ModelSerializer):

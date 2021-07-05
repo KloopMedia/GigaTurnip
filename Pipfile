@@ -10,6 +10,7 @@ django-rest-multiple-models = "*"
 django-cors-headers = "*"
 django-polymorphic = "*"
 drf-firebase-auth = "*"
+drf-access-policy = "*"
 
 [dev-packages]
 yapf = "*"

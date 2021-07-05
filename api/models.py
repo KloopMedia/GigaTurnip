@@ -3,8 +3,6 @@ from django.db import models
 from polymorphic.models import PolymorphicModel
 
 
-# Create your models here.
-
 class CustomUser(AbstractUser):
     pass
 
@@ -44,6 +42,8 @@ class Chain(BaseModel):
 
 
 class Stage(PolymorphicModel, BaseModel):
+    x_pos = models.DecimalField(max_digits=17, decimal_places=14)
+    y_pos = models.DecimalField(max_digits=17, decimal_places=14)
     chain = models.ForeignKey(Chain,
                               on_delete=models.CASCADE,
                               related_name="stages")
@@ -60,9 +60,6 @@ class Stage(PolymorphicModel, BaseModel):
 
 
 class TaskStage(Stage, SchemaProvider):
-
-    x_pos = models.DecimalField(max_digits=17, decimal_places=14)
-    y_pos = models.DecimalField(max_digits=17, decimal_places=14)
     copy_input = models.BooleanField(default=False)
     allow_multiple_files = models.BooleanField(default=False)
     is_creatable = models.BooleanField(default=False)
@@ -81,10 +78,6 @@ class WebHookStage(Stage, SchemaProvider):
 
 
 class ConditionalStage(Stage):
-
-    conditions_schema = ""
-    x_pos = models.DecimalField(max_digits=17, decimal_places=14)
-    y_pos = models.DecimalField(max_digits=17, decimal_places=14)
     conditions = models.JSONField(null=True)
 
     # def __str__(self):

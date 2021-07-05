@@ -15,7 +15,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, re_path
+from rest_framework.routers import DefaultRouter
+
 import api.views as turnip_app
+
+router = DefaultRouter()
+router.register(r'campaigns', turnip_app.CampaignViewSet, basename='campaign')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -41,4 +47,4 @@ urlpatterns = [
     path(r'api/v1/tasks/', turnip_app.TaskList.as_view()),
     re_path(r'api/v1/tasks/(?P<pk>\d+)', turnip_app.TaskDetail.as_view()),
 
-]
+] + router.urls

@@ -1,4 +1,4 @@
-from rest_framework import generics
+from rest_framework import generics, viewsets
 
 from api.models import Campaign, Chain, TaskStage, \
     WebHookStage, ConditionalStage, Case, Task
@@ -75,6 +75,30 @@ class TaskList(generics.ListCreateAPIView):
 class TaskDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+
+
+class CampaignViewSet(viewsets.ModelViewSet):
+
+    serializer_class = CampaignSerializer
+    queryset = Campaign.objects.all()
+
+    # def list(self, request):
+    #     pass
+    #
+    # def create(self, request):
+    #     pass
+    #
+    # def retrieve(self, request, pk=None):
+    #     pass
+    #
+    # def update(self, request, pk=None):
+    #     pass
+    #
+    # def partial_update(self, request, pk=None):
+    #     pass
+    #
+    # def destroy(self, request, pk=None):
+    #     pass
 
 
 
