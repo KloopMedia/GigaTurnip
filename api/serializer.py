@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.fields import CurrentUserDefault
-from api.models import Campaign, Chain, Stage, TaskStage, \
+from api.models import Campaign, Chain, TaskStage, \
     WebHookStage, ConditionalStage, Case, \
     Task
 
@@ -18,12 +18,6 @@ class ChainSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chain
         fields = '__all__'
-
-
-# class StageSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Stage
-#         fields = '__all__'
 
 
 class TaskStageSerializer(serializers.ModelSerializer):
