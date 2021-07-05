@@ -7,105 +7,40 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     CaseSerializer, TaskSerializer
 from api.permissions import CampaignAccessPolicy
 
-class CampaignList(generics.ListCreateAPIView):
-    queryset = Campaign.objects.all()
-    serializer_class = CampaignSerializer
-
-
-class CampaignDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Campaign.objects.all()
-    serializer_class = CampaignSerializer
-
-
-class ChainList(generics.ListCreateAPIView):
-    queryset = Chain.objects.all()
-    serializer_class = ChainSerializer
-
-
-class ChainDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Chain.objects.all()
-    serializer_class = ChainSerializer
-
-
-class TaskStageList(generics.ListCreateAPIView):
-    queryset = TaskStage.objects.all()
-    serializer_class = TaskStageSerializer
-
-
-class TaskStageDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = TaskStage.objects.all()
-    serializer_class = TaskStageSerializer
-
-
-class WebHookStageList(generics.ListCreateAPIView):
-    queryset = WebHookStage.objects.all()
-    serializer_class = WebHookStageSerializer
-
-
-class WebHookStageDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = WebHookStage.objects.all()
-    serializer_class = WebHookStageSerializer
-
-
-class ConditionalStageList(generics.ListCreateAPIView):
-    queryset = ConditionalStage.objects.all()
-    serializer_class = ConditionalStageSerializer
-
-
-class ConditionalStageDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ConditionalStage.objects.all()
-    serializer_class = ConditionalStageSerializer
-
-
-class CaseList(generics.ListCreateAPIView):
-    queryset = Case.objects.all()
-    serializer_class = CaseSerializer
-
-
-class CaseDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Case.objects.all()
-    serializer_class = CaseSerializer
-
-
-class TaskList(generics.ListCreateAPIView):
-    queryset = Task.objects.all()
-    serializer_class = TaskSerializer
-
-
-class TaskDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Task.objects.all()
-    serializer_class = TaskSerializer
-
 
 class CampaignViewSet(viewsets.ModelViewSet):
 
     serializer_class = CampaignSerializer
     queryset = Campaign.objects.all()
 
-    permission_classes = (CampaignAccessPolicy,)
-
-    # def list(self, request):
-    #     pass
-    #
-    # def create(self, request):
-    #     pass
-    #
-    # def retrieve(self, request, pk=None):
-    #     pass
-    #
-    # def update(self, request, pk=None):
-    #     pass
-    #
-    # def partial_update(self, request, pk=None):
-    #     pass
-    #
-    # def destroy(self, request, pk=None):
-    #     pass
+    # permission_classes = (CampaignAccessPolicy,)
 
 
+class ChainViewSet(viewsets.ModelViewSet):
+    serializer_class = ChainSerializer
+    queryset = Chain.objects.all()
 
 
+class TaskStageViewSet(viewsets.ModelViewSet):
+    queryset = TaskStage.objects.all()
+    serializer_class = TaskStageSerializer
 
 
+class WebHookStageViewSet(viewsets.ModelViewSet):
+    queryset = WebHookStage.objects.all()
+    serializer_class = WebHookStageSerializer
 
 
+class ConditionalStageViewSet(viewsets.ModelViewSet):
+    queryset = ConditionalStage.objects.all()
+    serializer_class = ConditionalStageSerializer
+
+
+class CaseViewSet(viewsets.ModelViewSet):
+    queryset = Case.objects.all()
+    serializer_class = CaseSerializer
+
+
+class TaskViewSet(viewsets.ModelViewSet):
+    queryset = Task.objects.all()
+    serializer_class = TaskSerializer
