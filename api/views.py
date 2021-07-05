@@ -5,7 +5,7 @@ from api.models import Campaign, Chain, TaskStage, \
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, TaskSerializer
-
+from api.permissions import CampaignAccessPolicy
 
 class CampaignList(generics.ListCreateAPIView):
     queryset = Campaign.objects.all()
@@ -81,6 +81,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     serializer_class = CampaignSerializer
     queryset = Campaign.objects.all()
+
+    permission_classes = (CampaignAccessPolicy,)
 
     # def list(self, request):
     #     pass
