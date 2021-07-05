@@ -47,4 +47,4 @@ router.register(api_v1 + r'tasks',
                 turnip_app.CampaignViewSet,
                 basename='task')
 
-urlpatterns = router.urls
+urlpatterns = [path('admin/', admin.site.urls), ] + router.urls
