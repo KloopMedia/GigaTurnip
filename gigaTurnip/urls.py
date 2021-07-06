@@ -26,25 +26,25 @@ router.register(api_v1 + r'campaigns',
                 turnip_app.CampaignViewSet,
                 basename='campaign')
 router.register(api_v1 + r'chains',
-                turnip_app.CampaignViewSet,
+                turnip_app.TaskViewSet,
                 basename='chain')
 router.register(api_v1 + r'chains',
-                turnip_app.CampaignViewSet,
+                turnip_app.ChainViewSet,
                 basename='chain')
 router.register(api_v1 + r'taskstages',
-                turnip_app.CampaignViewSet,
+                turnip_app.TaskStageViewSet,
                 basename='taskstage')
 router.register(api_v1 + r'webhookstages',
-                turnip_app.CampaignViewSet,
+                turnip_app.WebHookStageViewSet,
                 basename='webhookstage')
 router.register(api_v1 + r'conditionalstages',
-                turnip_app.CampaignViewSet,
+                turnip_app.ConditionalStageViewSet,
                 basename='conditionalstage')
 router.register(api_v1 + r'cases',
-                turnip_app.CampaignViewSet,
+                turnip_app.CaseViewSet,
                 basename='case')
 router.register(api_v1 + r'tasks',
-                turnip_app.CampaignViewSet,
+                turnip_app.TaskViewSet,
                 basename='task')
 
 urlpatterns = [path('admin/', admin.site.urls), ] + router.urls

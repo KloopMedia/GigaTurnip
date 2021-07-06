@@ -141,9 +141,9 @@ CORS_ORIGIN_WHITELIST = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     'rest_framework.permissions.IsAuthenticated',
+    # ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'drf_firebase_auth.authentication.FirebaseAuthentication',
@@ -176,4 +176,6 @@ DRF_FIREBASE_AUTH = {
     # and return str
     'FIREBASE_USERNAME_MAPPING_FUNC': map_firebase_uid_to_username
 }
+
+ALLOWED_HOSTS = ['*']
 
