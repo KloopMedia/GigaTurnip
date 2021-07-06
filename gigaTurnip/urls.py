@@ -24,10 +24,7 @@ api_v1 = r'api/v1/'
 router = DefaultRouter()
 router.register(api_v1 + r'campaigns',
                 turnip_app.CampaignViewSet,
-                basename='campaign')
-router.register(api_v1 + r'chains',
-                turnip_app.TaskViewSet,
-                basename='chain')
+                basename='campaign'),
 router.register(api_v1 + r'chains',
                 turnip_app.ChainViewSet,
                 basename='chain')
