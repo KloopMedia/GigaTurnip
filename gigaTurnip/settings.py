@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-7n1&zuwh^_mk==hho2aj3x%hy@vh!681-e_-@=_@et^lz^x=_)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'api.CustomUser'
 
@@ -176,6 +176,4 @@ DRF_FIREBASE_AUTH = {
     # and return str
     'FIREBASE_USERNAME_MAPPING_FUNC': map_firebase_uid_to_username
 }
-
-ALLOWED_HOSTS = ['*']
 
