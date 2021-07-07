@@ -23,7 +23,8 @@ class ChainViewSet(viewsets.ModelViewSet):
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['chain', ]
+    filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
+                        'ranks__users']
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
 
