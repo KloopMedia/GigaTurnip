@@ -14,5 +14,6 @@ requirements.txt
 static
 
 __pycache__/
+ *.pyc
 
-.gitignore
+
