@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     'drf_multiple_model',
     'corsheaders',
     'polymorphic',
-    'drf_firebase_auth'
+    'drf_firebase_auth',
+    'django_filters'
 
 ]
 
@@ -156,7 +157,8 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'drf_firebase_auth.authentication.FirebaseAuthentication',
-    ]
+    ],
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
 }
 
 DRF_FIREBASE_AUTH = {

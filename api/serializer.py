@@ -2,11 +2,10 @@ from rest_framework import serializers
 from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     WebHookStage, ConditionalStage, Case, \
-    Task
+    Task, Rank, RankLimit, Track
 
 
 class CampaignSerializer(serializers.ModelSerializer):
-    user = CurrentUserDefault()
 
     class Meta:
         model = Campaign
@@ -29,8 +28,8 @@ class TaskStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['copy_input', 'allow_multiple_files', 'is_creatable',
-                  'count_complete', 'displayed_prev_stages']
+                 ['copy_input', 'allow_multiple_files',
+                  'is_creatable', 'displayed_prev_stages']
 
 
 class WebHookStageSerializer(serializers.ModelSerializer):
@@ -43,7 +42,7 @@ class WebHookStageSerializer(serializers.ModelSerializer):
 class ConditionalStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConditionalStage
-        fields = base_model_fields + stage_fields + ['conditions', ]
+        fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
 
 
 class CaseSerializer(serializers.ModelSerializer):
@@ -53,15 +52,29 @@ class CaseSerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
+    stage = TaskStageSerializer(read_only=True)
 
     class Meta:
         model = Task
         fields = '__all__'
 
 
-class TaskWithSchemaSerializer(serializers.ModelSerializer):
-    stage = TaskStageSerializer(read_only=True)
+class RankSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Task
+        model = Rank
+        fields = '__all__'
+
+
+class RankLimitSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RankLimit
+        fields = '__all__'
+
+
+class TrackSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Track
         fields = '__all__'
