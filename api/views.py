@@ -46,7 +46,7 @@ class CaseViewSet(viewsets.ModelViewSet):
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['stage', ]
+    filterset_fields = ['stage', 'assignee', 'complete']
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
 
