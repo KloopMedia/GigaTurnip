@@ -96,9 +96,10 @@ else:
     }
 
 if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
+    DATABASES = {"default": ast.literal_eval(os.getenv('DB'))}
+
     DATABASES["default"]["HOST"] = "127.0.0.1"
     DATABASES["default"]["PORT"] = 3306
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators

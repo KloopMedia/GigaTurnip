@@ -11,3 +11,4 @@ env
 app.yaml
 main.py
 requirements.txt
+static
