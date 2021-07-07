@@ -6,7 +6,6 @@ from api.models import Campaign, Chain, TaskStage, \
 
 
 class CampaignSerializer(serializers.ModelSerializer):
-    user = CurrentUserDefault()
 
     class Meta:
         model = Campaign
