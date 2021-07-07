@@ -17,21 +17,25 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
 
 class ChainViewSet(viewsets.ModelViewSet):
+    filterset_fields = ['campaign', ]
     serializer_class = ChainSerializer
     queryset = Chain.objects.all()
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
+    filterset_fields = ['chain', ]
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
 
 
 class WebHookStageViewSet(viewsets.ModelViewSet):
+    filterset_fields = ['chain', ]
     queryset = WebHookStage.objects.all()
     serializer_class = WebHookStageSerializer
 
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
+    filterset_fields = ['chain', ]
     queryset = ConditionalStage.objects.all()
     serializer_class = ConditionalStageSerializer
 
@@ -42,6 +46,7 @@ class CaseViewSet(viewsets.ModelViewSet):
 
 
 class TaskViewSet(viewsets.ModelViewSet):
+    filterset_fields = ['stage', ]
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
 
@@ -52,6 +57,7 @@ class RankViewSet(viewsets.ModelViewSet):
 
 
 class RankLimitViewSet(viewsets.ModelViewSet):
+    filterset_fields = ['rank', ]
     queryset = RankLimit.objects.all()
     serializer_class = RankLimitSerializer
 
