@@ -123,7 +123,7 @@ class Task(models.Model):
 class Rank(BaseModel):
     stages = models.ManyToManyField(TaskStage,
                                     related_name="ranks",
-                                    through="RankStageLimits")
+                                    through="RankLimit")
 
 
 class Track(BaseModel):
@@ -142,7 +142,7 @@ class RankRecord(models.Model):
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
 
 
-class RankStageLimits(models.Model):
+class RankLimit(models.Model):
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
     stage = models.ForeignKey(TaskStage, on_delete=models.CASCADE)
     open_limit = models.IntegerField(default=0)

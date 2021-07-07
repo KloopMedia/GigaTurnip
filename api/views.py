@@ -1,10 +1,10 @@
 from rest_framework import generics, viewsets
 
 from api.models import Campaign, Chain, TaskStage, \
-    WebHookStage, ConditionalStage, Case, Task
+    WebHookStage, ConditionalStage, Case, Task, Rank, RankLimit, Track
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, TaskSerializer
+    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, TrackSerializer
 from api.permissions import CampaignAccessPolicy
 
 
@@ -44,3 +44,18 @@ class CaseViewSet(viewsets.ModelViewSet):
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+
+
+class RankViewSet(viewsets.ModelViewSet):
+    queryset = Rank.objects.all()
+    serializer_class = RankSerializer
+
+
+class RankLimitViewSet(viewsets.ModelViewSet):
+    queryset = RankLimit.objects.all()
+    serializer_class = RankLimitSerializer
+
+
+class TrackViewSet(viewsets.ModelViewSet):
+    queryset = Track.objects.all()
+    serializer_class = TrackSerializer
