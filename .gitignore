@@ -12,3 +12,7 @@ app.yaml
 main.py
 requirements.txt
 static
+
+__pycache__/
+
+.gitignore
