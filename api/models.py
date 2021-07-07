@@ -103,6 +103,11 @@ class Case(models.Model):
 
 
 class Task(models.Model):
+    assignee = models.ForeignKey(CustomUser,
+                                 on_delete=models.CASCADE,
+                                 related_name="tasks",
+                                 blank=True,
+                                 null=True)
     stage = models.ForeignKey(TaskStage,
                               on_delete=models.CASCADE,
                               related_name="tasks")
