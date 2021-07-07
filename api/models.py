@@ -149,9 +149,12 @@ class RankRecord(models.Model):
 
 class RankLimit(models.Model):
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
-    stage = models.ForeignKey(TaskStage, on_delete=models.CASCADE)
+    stage = models.ForeignKey(TaskStage,
+                              on_delete=models.CASCADE,
+                              related_name="ranklimits")
     open_limit = models.IntegerField(default=0)
     total_limit = models.IntegerField(default=0)
-    list_permission = models.BooleanField(default=False)
-    close_submission = models.BooleanField(default=False)
-    close_selection = models.BooleanField(default=False)
+    is_listing_allowed = models.BooleanField(default=False)
+    is_submission_open = models.BooleanField(default=True)
+    is_selection_open = models.BooleanField(default=True)
+    is_creation_open = models.BooleanField(default=True)
