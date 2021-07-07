@@ -4,7 +4,9 @@ from polymorphic.models import PolymorphicModel
 
 
 class CustomUser(AbstractUser):
-    pass
+    ranks = models.ManyToManyField("Rank",
+                                   through='RankRecord',
+                                   related_name="users")
 
 
 class BaseModel(models.Model):
@@ -25,6 +27,11 @@ class SchemaProvider(models.Model):
 
 
 class Campaign(BaseModel):
+    default_track = models.ForeignKey("Track",
+                                      on_delete=models.CASCADE,
+                                      blank=True,
+                                      null=True,
+                                      related_name="default_campaign")
 
     def __str__(self):
         return str("Campaign: " + self.name)
@@ -79,6 +86,7 @@ class WebHookStage(Stage, SchemaProvider):
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True)
+    pingpong = models.BooleanField(default=False)
 
     # def __str__(self):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
@@ -110,3 +118,35 @@ class Task(models.Model):
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
+
+
+class Rank(BaseModel):
+    stages = models.ManyToManyField(TaskStage,
+                                    related_name="ranks",
+                                    through="RankStageLimits")
+
+
+class Track(BaseModel):
+    campaign = models.ForeignKey(Campaign,
+                                 related_name="ranks",
+                                 on_delete=models.CASCADE)
+    ranks = models.ManyToManyField(Rank, related_name="tracks")
+    default_rank = models.ForeignKey(Rank,
+                                     on_delete=models.CASCADE,
+                                     blank=True,
+                                     null=True)
+
+
+class RankRecord(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
+
+
+class RankStageLimits(models.Model):
+    rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
+    stage = models.ForeignKey(TaskStage, on_delete=models.CASCADE)
+    open_limit = models.IntegerField(default=0)
+    total_limit = models.IntegerField(default=0)
+    list_permission = models.BooleanField(default=False)
+    close_submission = models.BooleanField(default=False)
+    close_selection = models.BooleanField(default=False)

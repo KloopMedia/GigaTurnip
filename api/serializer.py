@@ -43,7 +43,7 @@ class WebHookStageSerializer(serializers.ModelSerializer):
 class ConditionalStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConditionalStage
-        fields = base_model_fields + stage_fields + ['conditions', ]
+        fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
 
 
 class CaseSerializer(serializers.ModelSerializer):
