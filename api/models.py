@@ -18,8 +18,8 @@ class BaseModel(models.Model):
 
 
 class SchemaProvider(models.Model):
-    json_schema = models.JSONField(null=True)
-    ui_schema = models.JSONField(null=True)
+    json_schema = models.JSONField(null=True, blank=True)
+    ui_schema = models.JSONField(null=True, blank=True)
     library = models.CharField(max_length=200, blank=True)
 
     class Meta:
