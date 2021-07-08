@@ -5,7 +5,7 @@ from polymorphic.models import PolymorphicModel
 
 class CustomUser(AbstractUser):
     ranks = models.ManyToManyField("Rank",
-                                   through='RankRecord',
+                                   through="RankRecord",
                                    related_name="users")
 
 
@@ -131,6 +131,8 @@ class Rank(BaseModel):
     stages = models.ManyToManyField(TaskStage,
                                     related_name="ranks",
                                     through="RankLimit")
+    def __str__(self):
+        return self.name
 
 
 class Track(BaseModel):

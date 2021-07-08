@@ -3,10 +3,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
-    WebHookStage, ConditionalStage, Case, Task, Rank, RankLimit, Track
+    WebHookStage, ConditionalStage, Case, Task, Rank, RankLimit, Track, RankRecord
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, TrackSerializer, TaskSerializerWithStage
+    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, TrackSerializer, TaskSerializerWithStage, \
+    RankRecordSerializer
 from api.permissions import CampaignAccessPolicy
 
 
@@ -34,7 +35,9 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def user_relevant(self, request):
-        stages = TaskStage.objects.filter(ranks__users=request.user.id)
+        stages = TaskStage.objects\
+            .filter(is_creatable=False)\
+            .filter(ranks__users=request.user.id)
         serializer = self.get_serializer(stages, many=True)
         return Response(serializer.data)
 
@@ -70,6 +73,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 class RankViewSet(viewsets.ModelViewSet):
     queryset = Rank.objects.all()
     serializer_class = RankSerializer
+
+
+class RankRecordViewSet(viewsets.ModelViewSet):
+    queryset = RankRecord.objects.all()
+    serializer_class = RankRecordSerializer
 
 
 class RankLimitViewSet(viewsets.ModelViewSet):

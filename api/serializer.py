@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     WebHookStage, ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track
+    Task, Rank, RankLimit, Track, RankRecord
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -71,6 +71,13 @@ class RankSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Rank
+        fields = '__all__'
+
+
+class RankRecordSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RankRecord
         fields = '__all__'
 
 
