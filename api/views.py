@@ -35,7 +35,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def user_relevant(self, request):
-        stages = TaskStage.objects\
+        stages = self.filter_queryset(self.get_queryset())\
             .filter(is_creatable=True)\
             .filter(ranks__users=request.user.id)
         serializer = self.get_serializer(stages, many=True)
