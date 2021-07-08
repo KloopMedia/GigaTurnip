@@ -28,10 +28,10 @@ class SchemaProvider(models.Model):
 
 class Campaign(BaseModel):
     default_track = models.ForeignKey("Track",
-                                      on_delete=models.CASCADE,
+                                      on_delete=models.CASCADE, # TODO Change deletion metgod
                                       blank=True,
                                       null=True,
-                                      related_name="default_campaign")
+                                      related_name="default_campaigns")
 
     def __str__(self):
         return str("Campaign: " + self.name)
@@ -104,7 +104,7 @@ class Case(models.Model):
 
 class Task(models.Model):
     assignee = models.ForeignKey(CustomUser,
-                                 on_delete=models.CASCADE,
+                                 on_delete=models.CASCADE, # TODO Change deletion
                                  related_name="tasks",
                                  blank=True,
                                  null=True)
@@ -133,9 +133,9 @@ class Rank(BaseModel):
 
 class Track(BaseModel):
     campaign = models.ForeignKey(Campaign,
-                                 related_name="ranks",
+                                 related_name="tracks",
                                  on_delete=models.CASCADE)
-    ranks = models.ManyToManyField(Rank, related_name="tracks")
+    ranks = models.ManyToManyField(Rank, related_name="ranks")
     default_rank = models.ForeignKey(Rank,
                                      on_delete=models.CASCADE,
                                      blank=True,
