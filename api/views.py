@@ -1,10 +1,12 @@
 from rest_framework import generics, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
     WebHookStage, ConditionalStage, Case, Task, Rank, RankLimit, Track
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, TrackSerializer
+    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, TrackSerializer, TaskSerializerWithStage
 from api.permissions import CampaignAccessPolicy
 
 
@@ -30,6 +32,12 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
 
+    @action(detail=False)
+    def user_relevant(self, request):
+        stages = TaskStage.objects.filter(ranks__users=request.user.id)
+        serializer = self.get_serializer(stages, many=True)
+        return Response(serializer.data)
+
 
 class WebHookStageViewSet(viewsets.ModelViewSet):
     filterset_fields = ['chain', ]
@@ -51,7 +59,12 @@ class CaseViewSet(viewsets.ModelViewSet):
 class TaskViewSet(viewsets.ModelViewSet):
     filterset_fields = ['stage', 'assignee', 'complete', 'assignee__username']
     queryset = Task.objects.all()
-    serializer_class = TaskSerializer
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return TaskSerializer
+        else:
+            return TaskSerializerWithStage
 
 
 class RankViewSet(viewsets.ModelViewSet):

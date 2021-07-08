@@ -52,6 +52,13 @@ class CaseSerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+
+
+class TaskSerializerWithStage(serializers.ModelSerializer):
     stage = TaskStageSerializer(read_only=True)
 
     class Meta:
