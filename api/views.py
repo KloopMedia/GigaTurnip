@@ -1,3 +1,4 @@
+from django.db.models import Count
 from rest_framework import generics, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -26,10 +27,20 @@ class ChainViewSet(viewsets.ModelViewSet):
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
-                        'ranks__users', 'ranklimits__open_limit',
-                        'ranklimits__total_limit',
-                        'ranklimits__is_creation_open']
+    # filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
+    #                     'ranks__users', 'ranklimits__open_limit',
+    #                     'ranklimits__total_limit',
+    #                     'ranklimits__is_creation_open']
+    filterset_fields = {
+        'chain': ['exact'],
+        'chain__campaign': ['exact'],
+        'is_creatable': ['exact'],
+        'ranks': ['exact'],
+        'ranks__users': ['exact'],
+        'ranklimits__is_creation_open': ['exact'],
+        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
+        'ranklimits__open_limit': ['exact', 'lt', 'gt']
+    }
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
 
@@ -37,7 +48,14 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     def user_relevant(self, request):
         stages = self.filter_queryset(self.get_queryset())\
             .filter(is_creatable=True)\
-            .filter(ranks__users=request.user.id)
+            .filter(ranks__users=request.user.id)\
+            .filter(ranklimits__is_creation_open=True)\
+            .distinct()
+        tasks = Task.objects.filter(assignee=request.user.id)\
+            .filter(stage__in=stages).distinct()
+        tasks_count = tasks.values('stage', 'complete')\
+            .annotate(count=Count('id'))
+        print(tasks_count)
         serializer = self.get_serializer(stages, many=True)
         return Response(serializer.data)
 
