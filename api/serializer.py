@@ -52,10 +52,10 @@ class CaseSerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Task
         fields = '__all__'
+        read_only_fields = ['case', 'in_tasks']
 
 
 class TaskSerializerWithStage(serializers.ModelSerializer):
@@ -64,6 +64,7 @@ class TaskSerializerWithStage(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
+        read_only_fields = ['case', 'in_tasks']
 
 
 class RankSerializer(serializers.ModelSerializer):

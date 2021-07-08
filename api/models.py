@@ -113,7 +113,9 @@ class Task(models.Model):
                               related_name="tasks")
     case = models.ForeignKey(Case,
                              on_delete=models.CASCADE,
-                             related_name="tasks")
+                             related_name="tasks",
+                             blank=True,
+                             null=True)
     responses = models.JSONField(null=True)
     in_tasks = models.ManyToManyField("self",
                                       related_name="out_tasks",
