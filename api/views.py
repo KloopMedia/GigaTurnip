@@ -68,6 +68,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     serializer_class = ChainSerializer
     queryset = Chain.objects.all()
 
+    permission_classes = (ChainAccessPolicy,)
 
 class TaskStageViewSet(viewsets.ModelViewSet):
     """
@@ -278,13 +279,12 @@ class TaskViewSet(viewsets.ModelViewSet):
     """
 
     filterset_fields = ['stage',
-                        'case',
                         'stage__chain__campaign',
                         'assignee',
                         'complete']
     queryset = Task.objects.all()
     permission_classes = (TaskAccessPolicy,)
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return TaskCreateSerializer
