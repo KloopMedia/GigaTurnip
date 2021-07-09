@@ -93,8 +93,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        elif self.action == 'release_assignment':
-            return TaskRequestAssignmentSerializer
         else:
             return TaskDefaultSerializer
 
