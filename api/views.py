@@ -269,6 +269,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'assignee',
                         'complete']
     queryset = Task.objects.all()
+    permission_classes = (TaskAccessPolicy,)
 
     def get_serializer_class(self):
         if self.action == 'create':
