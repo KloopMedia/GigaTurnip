@@ -55,11 +55,7 @@ class CaseSerializer(serializers.ModelSerializer):
 class TaskEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = '__all__'
-        read_only_fields = ['case',
-                            'in_tasks',
-                            'assignee',
-                            'stage']
+        fields = ['complete', 'responses']
 
 
 class TaskDefaultSerializer(serializers.ModelSerializer):
