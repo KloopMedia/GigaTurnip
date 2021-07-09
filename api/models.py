@@ -28,13 +28,29 @@ class SchemaProvider(models.Model):
 
 class Campaign(BaseModel):
     default_track = models.ForeignKey("Track",
-                                      on_delete=models.CASCADE, # TODO Change deletion metgod
+                                      on_delete=models.CASCADE,  # TODO Change deletion metgod
                                       blank=True,
                                       null=True,
                                       related_name="default_campaigns")
+    managers = models.ManyToManyField(CustomUser,
+                                      through="CampaignManagement",
+                                      related_name="managed_campaigns")
 
     def __str__(self):
         return str("Campaign: " + self.name)
+
+
+class CampaignManagement(models.Model):
+    user = models.ForeignKey(CustomUser,
+                             on_delete=models.CASCADE,
+                             related_name="campaign_managements")
+    campaign = models.ForeignKey(Campaign,
+                                 on_delete=models.CASCADE,
+                                 related_name="campaign_managements")
+
+    class Meta:
+        unique_together = ['user', 'campaign']
+
 
 
 class Chain(BaseModel):
