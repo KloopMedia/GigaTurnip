@@ -165,6 +165,9 @@ class RankRecord(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
 
+    class Meta:
+        unique_together = ['user', 'rank']
+
 
 class RankLimit(models.Model):
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
@@ -177,6 +180,9 @@ class RankLimit(models.Model):
     is_submission_open = models.BooleanField(default=True)
     is_selection_open = models.BooleanField(default=True)
     is_creation_open = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['rank', 'stage']
 
     def __str__(self):
         return str("Rank limit: " + self.rank.__str__() + " " + self.stage.__str__())
