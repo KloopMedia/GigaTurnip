@@ -8,8 +8,9 @@ from api.models import Campaign, Chain, TaskStage, \
     RankLimit, Track, RankRecord
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
-    TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
+    CaseSerializer, RankSerializer, RankLimitSerializer, \
+    TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
+    TaskDefaultSerializer
 from api.permissions import CampaignAccessPolicy
 
 
@@ -87,9 +88,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'create':
-            return TaskSerializer
+            return TaskCreateSerializer
+        elif self.action == 'update' or self.action == 'partial_update':
+            return TaskEditSerializer
         else:
-            return TaskSerializerWithStage
+            return TaskDefaultSerializer
 
     @action(detail=False)
     def user_relevant(self, request):

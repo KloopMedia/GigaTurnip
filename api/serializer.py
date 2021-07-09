@@ -52,20 +52,39 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class TaskEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
-        read_only_fields = ['case', 'in_tasks']
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee',
+                            'stage']
 
 
-class TaskSerializerWithStage(serializers.ModelSerializer):
+class TaskDefaultSerializer(serializers.ModelSerializer):
     stage = TaskStageSerializer(read_only=True)
 
     class Meta:
         model = Task
         fields = '__all__'
-        read_only_fields = ['case', 'in_tasks']
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee',
+                            'stage',
+                            'responses',
+                            'complete']
+
+
+class TaskCreateSerializer(serializers.ModelSerializer):
+    assignee = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee']
 
 
 class RankSerializer(serializers.ModelSerializer):
