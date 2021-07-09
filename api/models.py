@@ -147,7 +147,7 @@ class Task(models.Model):
                              related_name="tasks",
                              blank=True,
                              null=True)
-    responses = models.JSONField(null=True)
+    responses = models.JSONField(null=True, blank=True)
     in_tasks = models.ManyToManyField("self",
                                       related_name="out_tasks",
                                       blank=True,

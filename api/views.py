@@ -101,6 +101,18 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
+    @action(detail=False)
+    def user_selectable(self, request):
+        tasks = self.filter_queryset(self.get_queryset()) \
+            .filter(complete=False) \
+            .filter(assignee__isnull=True) \
+            .filter(stage__ranks__users=request.user.id) \
+            .filter(stage__ranklimits__is_selection_open=True) \
+            .filter(stage__ranklimits__is_listing_allowed=True) \
+            .distinct()
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
+
 
 class RankViewSet(viewsets.ModelViewSet):
     queryset = Rank.objects.all()
