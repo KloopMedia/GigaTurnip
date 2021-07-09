@@ -40,7 +40,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
     serializer_class = CampaignSerializer
     queryset = Campaign.objects.all()
 
-    # permission_classes = (CampaignAccessPolicy,)
+    permission_classes = (CampaignAccessPolicy,)
 
 
 class ChainViewSet(viewsets.ModelViewSet):
