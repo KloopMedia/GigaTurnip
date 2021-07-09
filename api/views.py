@@ -98,6 +98,16 @@ class TaskViewSet(viewsets.ModelViewSet):
         else:
             return TaskDefaultSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            data = serializer.data
+            # data.update({'pid': pid})  # attaching key-value to the dictionary
+            return Response(data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False)
     def user_relevant(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
