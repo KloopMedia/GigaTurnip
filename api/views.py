@@ -133,7 +133,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(task, request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({'status': 'assignment granted'})
+            return Response({'status': 'assignment granted', 'id': task.id})
         else:
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
