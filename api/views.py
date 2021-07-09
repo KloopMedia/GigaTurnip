@@ -11,7 +11,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
-from api.permissions import CampaignAccessPolicy, ChainAccessPolicy
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -110,7 +110,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'assignee',
                         'complete']
     queryset = Task.objects.all()
-
+    permission_classes = (TaskAccessPolicy,)
+    
     def get_serializer_class(self):
         if self.action == 'create':
             return TaskCreateSerializer
