@@ -162,3 +162,6 @@ class RankLimit(models.Model):
     is_submission_open = models.BooleanField(default=True)
     is_selection_open = models.BooleanField(default=True)
     is_creation_open = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str("Rank limit: " + self.rank.__str__() + " " + self.stage.__str__())
