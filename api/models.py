@@ -123,9 +123,6 @@ class ConditionalStage(Stage):
 
 
 class Case(models.Model):
-    chain = models.ForeignKey(Chain,
-                              on_delete=models.CASCADE,
-                              related_name="cases")
 
     def __str__(self):
         return str("Case #" +

@@ -101,9 +101,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            case = Case.objects.create()
+            serializer.save(case=case)
             data = serializer.data
-            # data.update({'pid': pid})  # attaching key-value to the dictionary
             return Response(data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
