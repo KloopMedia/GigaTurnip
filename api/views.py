@@ -1,5 +1,5 @@
 from django.db.models import Count
-from rest_framework import generics, viewsets
+from rest_framework import generics, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -10,7 +10,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
-    TaskDefaultSerializer
+    TaskDefaultSerializer, TaskRequestAssignmentSerializer
 from api.permissions import CampaignAccessPolicy
 
 
@@ -91,6 +91,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskCreateSerializer
         elif self.action == 'update' or self.action == 'partial_update':
             return TaskEditSerializer
+        elif self.action == 'request_assignment':
+            return TaskRequestAssignmentSerializer
+        elif self.action == 'release_assignment':
+            return TaskRequestAssignmentSerializer
         else:
             return TaskDefaultSerializer
 
@@ -112,6 +116,24 @@ class TaskViewSet(viewsets.ModelViewSet):
             .distinct()
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post', 'get'])
+    def request_assignment(self, request, pk=None): # TODO: Add permissions to block changing assignee
+        task = self.get_object()
+        serializer = self.get_serializer(task, request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'status': 'assignment granted'})
+        else:
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post', 'get'])
+    def release_assignment(self, request, pk=None):  # TODO: Add permissions to block changing assignee
+        task = self.get_object()
+        task.assignee = None
+        task.save()
+        return Response({'status': 'assignment released'})
 
 
 class RankViewSet(viewsets.ModelViewSet):

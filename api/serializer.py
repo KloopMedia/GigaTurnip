@@ -87,6 +87,20 @@ class TaskCreateSerializer(serializers.ModelSerializer):
                             'assignee']
 
 
+class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
+    assignee = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee',
+                            'stage',
+                            'responses',
+                            'complete']
+
+
 class RankSerializer(serializers.ModelSerializer):
 
     class Meta:
