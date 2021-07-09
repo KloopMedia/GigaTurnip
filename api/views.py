@@ -9,11 +9,9 @@ from api.models import Campaign, Chain, TaskStage, \
     RankLimit, Track, RankRecord
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, RankSerializer, RankLimitSerializer, \
-    TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
-    TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
-from api.asyncstuff import process_completed_task
-#from api.permissions import CampaignAccessPolicy
+    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
+    TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
