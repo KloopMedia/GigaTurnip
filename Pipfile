@@ -12,6 +12,7 @@ django-polymorphic = "*"
 drf-firebase-auth = "*"
 drf-access-policy = "*"
 django-filter = "*"
+django-q = "*"
 
 [dev-packages]
 yapf = "*"

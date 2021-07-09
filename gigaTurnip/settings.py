@@ -47,8 +47,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'polymorphic',
     'drf_firebase_auth',
-    'django_filters'
-
+    'django_filters',
+    'django_q'
 ]
 
 MIDDLEWARE = [
@@ -187,5 +187,16 @@ DRF_FIREBASE_AUTH = {
     # function should accept firebase_admin.auth.UserRecord as argument
     # and return str
     'FIREBASE_USERNAME_MAPPING_FUNC': map_firebase_uid_to_username
+}
+
+Q_CLUSTER = {
+    'name': 'DjangORM',
+    'workers': 4,
+    'timeout': 90,
+    'retry': 120,
+    'queue_limit': 50,
+    'bulk': 10,
+    'orm': 'default',
+    'save_limit': 25000
 }
 

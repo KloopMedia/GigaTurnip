@@ -5,7 +5,7 @@ from polymorphic.models import PolymorphicModel
 
 class CustomUser(AbstractUser):
     ranks = models.ManyToManyField("Rank",
-                                   through='RankRecord',
+                                   through="RankRecord",
                                    related_name="users")
 
 
@@ -18,8 +18,8 @@ class BaseModel(models.Model):
 
 
 class SchemaProvider(models.Model):
-    json_schema = models.JSONField(null=True)
-    ui_schema = models.JSONField(null=True)
+    json_schema = models.JSONField(null=True, blank=True)
+    ui_schema = models.JSONField(null=True, blank=True)
     library = models.CharField(max_length=200, blank=True)
 
     class Meta:
@@ -28,10 +28,10 @@ class SchemaProvider(models.Model):
 
 class Campaign(BaseModel):
     default_track = models.ForeignKey("Track",
-                                      on_delete=models.CASCADE,
+                                      on_delete=models.CASCADE, # TODO Change deletion metgod
                                       blank=True,
                                       null=True,
-                                      related_name="default_campaign")
+                                      related_name="default_campaigns")
 
     def __str__(self):
         return str("Campaign: " + self.name)
@@ -104,7 +104,7 @@ class Case(models.Model):
 
 class Task(models.Model):
     assignee = models.ForeignKey(CustomUser,
-                                 on_delete=models.CASCADE,
+                                 on_delete=models.CASCADE, # TODO Change deletion
                                  related_name="tasks",
                                  blank=True,
                                  null=True)
@@ -113,7 +113,9 @@ class Task(models.Model):
                               related_name="tasks")
     case = models.ForeignKey(Case,
                              on_delete=models.CASCADE,
-                             related_name="tasks")
+                             related_name="tasks",
+                             blank=True,
+                             null=True)
     responses = models.JSONField(null=True)
     in_tasks = models.ManyToManyField("self",
                                       related_name="out_tasks",
@@ -129,13 +131,15 @@ class Rank(BaseModel):
     stages = models.ManyToManyField(TaskStage,
                                     related_name="ranks",
                                     through="RankLimit")
+    def __str__(self):
+        return self.name
 
 
 class Track(BaseModel):
     campaign = models.ForeignKey(Campaign,
-                                 related_name="ranks",
+                                 related_name="tracks",
                                  on_delete=models.CASCADE)
-    ranks = models.ManyToManyField(Rank, related_name="tracks")
+    ranks = models.ManyToManyField(Rank, related_name="ranks")
     default_rank = models.ForeignKey(Rank,
                                      on_delete=models.CASCADE,
                                      blank=True,
@@ -149,9 +153,15 @@ class RankRecord(models.Model):
 
 class RankLimit(models.Model):
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
-    stage = models.ForeignKey(TaskStage, on_delete=models.CASCADE)
+    stage = models.ForeignKey(TaskStage,
+                              on_delete=models.CASCADE,
+                              related_name="ranklimits")
     open_limit = models.IntegerField(default=0)
     total_limit = models.IntegerField(default=0)
-    list_permission = models.BooleanField(default=False)
-    close_submission = models.BooleanField(default=False)
-    close_selection = models.BooleanField(default=False)
+    is_listing_allowed = models.BooleanField(default=False)
+    is_submission_open = models.BooleanField(default=True)
+    is_selection_open = models.BooleanField(default=True)
+    is_creation_open = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str("Rank limit: " + self.rank.__str__() + " " + self.stage.__str__())
