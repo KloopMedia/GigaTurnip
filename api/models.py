@@ -18,8 +18,8 @@ class BaseModel(models.Model):
 
 
 class SchemaProvider(models.Model):
-    json_schema = models.JSONField(null=True, blank=True)
-    ui_schema = models.JSONField(null=True, blank=True)
+    json_schema = models.TextField(null=True, blank=True)
+    ui_schema = models.TextField(null=True, blank=True)
     library = models.CharField(max_length=200, blank=True)
 
     class Meta:
@@ -28,13 +28,29 @@ class SchemaProvider(models.Model):
 
 class Campaign(BaseModel):
     default_track = models.ForeignKey("Track",
-                                      on_delete=models.CASCADE, # TODO Change deletion metgod
+                                      on_delete=models.CASCADE,  # TODO Change deletion metgod
                                       blank=True,
                                       null=True,
                                       related_name="default_campaigns")
+    managers = models.ManyToManyField(CustomUser,
+                                      through="CampaignManagement",
+                                      related_name="managed_campaigns")
 
     def __str__(self):
         return str("Campaign: " + self.name)
+
+
+class CampaignManagement(models.Model):
+    user = models.ForeignKey(CustomUser,
+                             on_delete=models.CASCADE,
+                             related_name="campaign_managements")
+    campaign = models.ForeignKey(Campaign,
+                                 on_delete=models.CASCADE,
+                                 related_name="campaign_managements")
+
+    class Meta:
+        unique_together = ['user', 'campaign']
+
 
 
 class Chain(BaseModel):
@@ -73,6 +89,21 @@ class TaskStage(Stage, SchemaProvider):
     displayed_prev_stages = models.ManyToManyField(Stage,
                                                    related_name="displayed_following_stages",
                                                    blank=True)
+
+    RANK = 'RA'
+    STAGE = 'ST'
+    ASSIGN_BY_CHOICES = [
+        (RANK, 'Rank'),
+        (STAGE, 'Stage')
+    ]
+    assign_user_by = models.CharField(max_length=2,
+                                      choices=ASSIGN_BY_CHOICES,
+                                      default=RANK)
+    assign_user_from_stage = models.ForeignKey(Stage,
+                                               on_delete=models.CASCADE,
+                                               related_name="assign_user_to_stages",
+                                               blank=True,
+                                               null=True)
 
 
 class WebHookStage(Stage, SchemaProvider):
@@ -116,7 +147,7 @@ class Task(models.Model):
                              related_name="tasks",
                              blank=True,
                              null=True)
-    responses = models.JSONField(null=True)
+    responses = models.JSONField(null=True, blank=True)
     in_tasks = models.ManyToManyField("self",
                                       related_name="out_tasks",
                                       blank=True,
@@ -150,6 +181,9 @@ class RankRecord(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
 
+    class Meta:
+        unique_together = ['user', 'rank']
+
 
 class RankLimit(models.Model):
     rank = models.ForeignKey(Rank, on_delete=models.CASCADE)
@@ -162,6 +196,9 @@ class RankLimit(models.Model):
     is_submission_open = models.BooleanField(default=True)
     is_selection_open = models.BooleanField(default=True)
     is_creation_open = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['rank', 'stage']
 
     def __str__(self):
         return str("Rank limit: " + self.rank.__str__() + " " + self.stage.__str__())
