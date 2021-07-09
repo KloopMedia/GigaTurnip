@@ -1,6 +1,5 @@
 from rest_access_policy import AccessPolicy
 
-
 class CampaignAccessPolicy(AccessPolicy):
     statements = [
         {
@@ -32,4 +31,16 @@ class CampaignAccessPolicy(AccessPolicy):
 
         return request.user in managers
 
-
+class ChainAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        },
+        {
+            "action": ["create"],
+            "principal": ["group:campaign_creator"],
+            "effect": "allow"
+        }
+    ]

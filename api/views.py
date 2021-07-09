@@ -10,7 +10,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
-from api.permissions import CampaignAccessPolicy
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -26,6 +26,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     serializer_class = ChainSerializer
     queryset = Chain.objects.all()
 
+    permission_classes = (ChainAccessPolicy,)
 
 class TaskStageViewSet(viewsets.ModelViewSet):
     # filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
