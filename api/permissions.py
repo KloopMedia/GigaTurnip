@@ -25,7 +25,10 @@ class CampaignAccessPolicy(AccessPolicy):
             "condition": "is_manager"
         }
     ]
-from api.models import Stage
+
+    def is_manager(self, request, view, action) -> bool:
+        campaign = view.get_object()
+        managers = campaign.managers.all()
 
 #
 # class CampaignAccessPolicy(AccessPolicy):
