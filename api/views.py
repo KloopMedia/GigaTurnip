@@ -79,7 +79,10 @@ class CaseViewSet(viewsets.ModelViewSet):
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['stage', 'assignee', 'complete', 'assignee__username']
+    filterset_fields = ['stage',
+                        'stage__chain__campaign',
+                        'assignee',
+                        'complete']
     queryset = Task.objects.all()
 
     def get_serializer_class(self):
@@ -87,6 +90,13 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskSerializer
         else:
             return TaskSerializerWithStage
+
+    @action(detail=False)
+    def user_relevant(self, request):
+        tasks = self.filter_queryset(self.get_queryset()) \
+            .filter(assignee=request.user)
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
 
 
 class RankViewSet(viewsets.ModelViewSet):
