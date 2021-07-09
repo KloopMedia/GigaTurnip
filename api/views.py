@@ -4,11 +4,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
-    WebHookStage, ConditionalStage, Case, Task, Rank, RankLimit, Track, RankRecord
+    WebHookStage, ConditionalStage, Case, Task, Rank, \
+    RankLimit, Track, RankRecord
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, TrackSerializer, TaskSerializerWithStage, \
-    RankRecordSerializer
+    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
+    TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
 from api.permissions import CampaignAccessPolicy
 
 
