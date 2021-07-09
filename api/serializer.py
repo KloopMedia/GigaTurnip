@@ -28,8 +28,9 @@ class TaskStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['copy_input', 'allow_multiple_files',
-                  'is_creatable', 'displayed_prev_stages']
+                 ['copy_input', 'allow_multiple_files', 'is_creatable',
+                  'displayed_prev_stages', 'assign_user_by',
+                  'assign_user_from_stage']
 
 
 class WebHookStageSerializer(serializers.ModelSerializer):

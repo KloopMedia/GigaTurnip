@@ -74,6 +74,21 @@ class TaskStage(Stage, SchemaProvider):
                                                    related_name="displayed_following_stages",
                                                    blank=True)
 
+    RANK = 'RA'
+    STAGE = 'ST'
+    ASSIGN_BY_CHOICES = [
+        (RANK, 'Rank'),
+        (STAGE, 'Stage')
+    ]
+    assign_user_by = models.CharField(max_length=2,
+                                      choices=ASSIGN_BY_CHOICES,
+                                      default=RANK)
+    assign_user_from_stage = models.ForeignKey(Stage,
+                                               on_delete=models.CASCADE,
+                                               related_name="assign_user_to_stages",
+                                               blank=True,
+                                               null=True)
+
 
 class WebHookStage(Stage, SchemaProvider):
 
