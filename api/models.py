@@ -7,6 +7,8 @@ class CustomUser(AbstractUser):
     ranks = models.ManyToManyField("Rank",
                                    through="RankRecord",
                                    related_name="users")
+    def __str__(self):
+        return self.email + " " + self.last_name
 
 
 class BaseModel(models.Model):
@@ -179,6 +181,9 @@ class RankRecord(models.Model):
 
     class Meta:
         unique_together = ['user', 'rank']
+
+    def __str__(self):
+        return str(self.rank.__str__() + " " + self.user.__str__())
 
 
 class RankLimit(models.Model):
