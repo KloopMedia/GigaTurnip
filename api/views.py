@@ -11,7 +11,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
-from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskAccessPolicy
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskAccessPolicy, TaskStageAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -51,6 +51,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     }
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
+    permission_classes = (TaskStageAccessPolicy,)
 
     @action(detail=False)
     def user_relevant(self, request):
