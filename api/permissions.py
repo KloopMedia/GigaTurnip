@@ -1,7 +1,5 @@
-from django.http import Http404, HttpResponseForbidden
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, Track, TaskStage, Task, RankLimit
-from api import utils
+from api.models import Campaign
 
 
 class CampaignAccessPolicy(AccessPolicy):
