@@ -83,6 +83,7 @@ class CaseViewSet(viewsets.ModelViewSet):
 
 class TaskViewSet(viewsets.ModelViewSet):
     filterset_fields = ['stage',
+                        'case',
                         'stage__chain__campaign',
                         'assignee',
                         'complete']
