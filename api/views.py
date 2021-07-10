@@ -74,10 +74,10 @@ class TaskStageViewSet(viewsets.ModelViewSet):
             for ranklimit in ranklimits:
                 print(ranklimit.total_limit)
                 print(ranklimit.open_limit)
-                if ((ranklimit.open_limit >= incomplete and ranklimit.total_limit >= total) or
-                        (ranklimit.open_limit == 0 and ranklimit.total_limit == total) or
-                        (ranklimit.open_limit >= incomplete and ranklimit.total_limit == total) or
-                        (ranklimit.open_limit == 0 and ranklimit.total_limit >= total)
+                if ((ranklimit.open_limit > incomplete and ranklimit.total_limit > total) or
+                        (ranklimit.open_limit == 0 and ranklimit.total_limit > total) or
+                        (ranklimit.open_limit > incomplete and ranklimit.total_limit == 0) or
+                        (ranklimit.open_limit == 0 and ranklimit.total_limit == 0)
                 ):
                     filtered_stages |= TaskStage.objects.filter(pk=stage.pk)
 
