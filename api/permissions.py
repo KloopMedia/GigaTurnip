@@ -45,7 +45,6 @@ class ChainAccessPolicy(AccessPolicy):
         }
     ]
 
-
 class TaskAccessPolicy(AccessPolicy):
     statements = [
         {
@@ -68,3 +67,19 @@ class TaskAccessPolicy(AccessPolicy):
     def not_complete(self, request, view, action):
         task = view.get_object()
         return task.complete is False
+
+class TaskStageAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+        }
+    ]
+
+    def is_manager(self, request, view, action) -> bool:
+        task_stage = view.get_object()
+        managers = task_stage.managers.all()
+
+        return request.user in managers
