@@ -21,8 +21,9 @@ def process_completed_task(task):
         out_task_stages = TaskStage.objects \
             .filter(in_stages=current_stage)
         out_conditional_stages = ConditionalStage.objects \
-            .filter(in_stages=current_stage) \
-            .filter(Q(instance_of=ConditionalStage))
+            .filter(in_stages=current_stage)
+        for stage in out_conditional_stages:
+            process_conditional(stage, task)
         for stage in out_task_stages:
             create_new_task(stage, task)
 
@@ -39,7 +40,30 @@ def create_new_task(stage, in_task):
     new_task.in_tasks.set([in_task])
 
 
+def process_conditional(stage, in_task):
+    if evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
+        out_task_stages = TaskStage.objects \
+            .filter(in_stages=stage)
+        out_conditional_stages = ConditionalStage.objects \
+            .filter(in_stages=stage)
+        for stage in out_conditional_stages:
+            process_conditional(stage, in_task)
+        for stage in out_task_stages:
+            create_new_task(stage, in_task)
+    elif stage.pingpong:
+        out_task_stages = TaskStage.objects \
+            .filter(in_stages=stage)
+        for stage in out_task_stages:
+            out_tasks = Task.objects.filter(in_tasks=in_task).filter(stage=stage)
+            if len(out_tasks) > 0:
+                for out_task in out_tasks:
+                    out_task.complete = False
+                    out_task.save()
+            else:
+                create_new_task(stage, in_task)
+
+
 def evaluate_conditional_stage(stage, task):
-    return True
+    return False
 
 
