@@ -1,4 +1,5 @@
 from django.db.models import Count
+from django_q.tasks import async_task, result
 from rest_framework import generics, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,6 +12,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
     TaskDefaultSerializer, TaskRequestAssignmentSerializer
+from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy
 
 
@@ -102,6 +104,12 @@ class TaskViewSet(viewsets.ModelViewSet):
             case = Case.objects.create()
             serializer.save(case=case)
             data = serializer.data
+            process_completed_task(self.get_object())
+            # if data['complete']:
+            #     result(async_task(process_completed_task,
+            #                       data['id'],
+            #                       task_name='process_completed_task',
+            #                       group='follow_chain'))
             return Response(data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -120,6 +128,12 @@ class TaskViewSet(viewsets.ModelViewSet):
                 instance._prefetched_objects_cache = {}
             data = serializer.data
             data['id'] = instance.id
+            process_completed_task(instance)
+            # if data['complete']:
+            #     result(async_task(process_completed_task,
+            #                data['id'],
+            #                task_name='process_completed_task',
+            #                group='follow_chain'))
             return Response(data, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
