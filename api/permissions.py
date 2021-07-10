@@ -167,3 +167,42 @@ class RankAccessPolicy(AccessPolicy):
 			if request.user in managers:
 				return True
 		return False
+
+
+class RankLimitAccessPolicy(AccessPolicy):
+	statements = [
+		{
+			"action": ["list"],
+			"principal": "authenticated",
+			"effect": "allow"
+		},
+		{
+			"action": ["create"],
+			"principal": "group:rank_creator",
+			"effect": "allow"
+		},
+		{
+			"action": ["retrieve", "partial_update"],
+			"principal": ["authenticated"],
+			"effect": "allow",
+			"condition": "is_manager"
+
+		},
+		{
+			"action": ["destroy"],
+			"principal": ["authenticated"],
+			"effect": "deny"
+		}
+	]
+
+	def is_manager(self, request, view, action) -> bool:
+
+		rank_Limit = view.get_object()
+
+		tracks = Track.objects.filter(ranks__in=[rank_Limit.rank_id]).all()
+		for track in tracks:
+			campaign = Campaign.objects.get(id=track.campaign_id)
+			managers = campaign.managers.all()
+			if request.user in managers:
+				return True
+		return False
