@@ -25,6 +25,8 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'library']
 
 
 class TaskStageSerializer(serializers.ModelSerializer):
+    chain = ChainSerializer(read_only=True)
+
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
