@@ -123,14 +123,10 @@ class ConditionalStage(Stage):
 
 
 class Case(models.Model):
-    chain = models.ForeignKey(Chain,
-                              on_delete=models.CASCADE,
-                              related_name="cases")
 
     def __str__(self):
         return str("Case #" +
-                   str(self.id) + " " +
-                   self.chain.__str__())
+                   str(self.id))
 
 
 class Task(models.Model):

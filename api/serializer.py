@@ -25,6 +25,8 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'library']
 
 
 class TaskStageSerializer(serializers.ModelSerializer):
+    chain = ChainSerializer(read_only=True)
+
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
@@ -55,11 +57,7 @@ class CaseSerializer(serializers.ModelSerializer):
 class TaskEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = '__all__'
-        read_only_fields = ['case',
-                            'in_tasks',
-                            'assignee',
-                            'stage']
+        fields = ['complete', 'responses']
 
 
 class TaskDefaultSerializer(serializers.ModelSerializer):
