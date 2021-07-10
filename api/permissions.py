@@ -1,6 +1,5 @@
 from rest_access_policy import AccessPolicy
 
-
 class CampaignAccessPolicy(AccessPolicy):
     statements = [
         {
@@ -32,7 +31,6 @@ class CampaignAccessPolicy(AccessPolicy):
 
         return request.user in managers
 
-
 class ChainAccessPolicy(AccessPolicy):
     statements = [
         {
@@ -51,7 +49,13 @@ class ChainAccessPolicy(AccessPolicy):
 class TaskAccessPolicy(AccessPolicy):
     statements = [
         {
-            "action": ["retrieve"],
+            "action": ["update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_assignee" and "not_complete"
+        },
+        {
+            "action": ["partial_update"],
             "principal": "authenticated",
             "effect": "allow",
             "condition": "is_assignee" and "not_complete"
