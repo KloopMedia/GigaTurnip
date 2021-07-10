@@ -4,120 +4,123 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
-    WebHookStage, ConditionalStage, Case, Task, Rank, \
-    RankLimit, Track, RankRecord
+	WebHookStage, ConditionalStage, Case, Task, Rank, \
+	RankLimit, Track, RankRecord
 from api.serializer import CampaignSerializer, ChainSerializer, \
-    TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
-    TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
-from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskAccessPolicy, TaskStageAccessPolicy
+	TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
+	CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
+	TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskAccessPolicy, TaskStageAccessPolicy, \
+	RankAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
+	serializer_class = CampaignSerializer
+	queryset = Campaign.objects.all()
 
-    serializer_class = CampaignSerializer
-    queryset = Campaign.objects.all()
-
-    permission_classes = (CampaignAccessPolicy,)
+	permission_classes = (CampaignAccessPolicy,)
 
 
 class ChainViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['campaign', ]
-    serializer_class = ChainSerializer
-    queryset = Chain.objects.all()
+	filterset_fields = ['campaign', ]
+	serializer_class = ChainSerializer
+	queryset = Chain.objects.all()
 
-    permission_classes = (ChainAccessPolicy,)
+	permission_classes = (ChainAccessPolicy,)
+
 
 class TaskStageViewSet(viewsets.ModelViewSet):
-    # filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
-    #                     'ranks__users', 'ranklimits__open_limit',
-    #                     'ranklimits__total_limit',
-    #                     'ranklimits__is_creation_open']
-    filterset_fields = {
-        'chain': ['exact'],
-        'chain__campaign': ['exact'],
-        'is_creatable': ['exact'],
-        'ranks': ['exact'],
-        'ranks__users': ['exact'],
-        'ranklimits__is_creation_open': ['exact'],
-        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
-        'ranklimits__open_limit': ['exact', 'lt', 'gt']
-    }
-    queryset = TaskStage.objects.all()
-    serializer_class = TaskStageSerializer
-    permission_classes = (TaskStageAccessPolicy,)
+	# filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
+	#                     'ranks__users', 'ranklimits__open_limit',
+	#                     'ranklimits__total_limit',
+	#                     'ranklimits__is_creation_open']
+	filterset_fields = {
+		'chain': ['exact'],
+		'chain__campaign': ['exact'],
+		'is_creatable': ['exact'],
+		'ranks': ['exact'],
+		'ranks__users': ['exact'],
+		'ranklimits__is_creation_open': ['exact'],
+		'ranklimits__total_limit': ['exact', 'lt', 'gt'],
+		'ranklimits__open_limit': ['exact', 'lt', 'gt']
+	}
+	queryset = TaskStage.objects.all()
+	serializer_class = TaskStageSerializer
+	permission_classes = (TaskStageAccessPolicy,)
 
-    @action(detail=False)
-    def user_relevant(self, request):
-        stages = self.filter_queryset(self.get_queryset())\
-            .filter(is_creatable=True)\
-            .filter(ranks__users=request.user.id)\
-            .filter(ranklimits__is_creation_open=True)\
-            .distinct()
-        tasks = Task.objects.filter(assignee=request.user.id)\
-            .filter(stage__in=stages).distinct()
-        tasks_count = tasks.values('stage', 'complete')\
-            .annotate(count=Count('id'))
-        print(tasks_count)
-        serializer = self.get_serializer(stages, many=True)
-        return Response(serializer.data)
+	@action(detail=False)
+	def user_relevant(self, request):
+		stages = self.filter_queryset(self.get_queryset()) \
+			.filter(is_creatable=True) \
+			.filter(ranks__users=request.user.id) \
+			.filter(ranklimits__is_creation_open=True) \
+			.distinct()
+		tasks = Task.objects.filter(assignee=request.user.id) \
+			.filter(stage__in=stages).distinct()
+		tasks_count = tasks.values('stage', 'complete') \
+			.annotate(count=Count('id'))
+		print(tasks_count)
+		serializer = self.get_serializer(stages, many=True)
+		return Response(serializer.data)
 
 
 class WebHookStageViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['chain', ]
-    queryset = WebHookStage.objects.all()
-    serializer_class = WebHookStageSerializer
+	filterset_fields = ['chain', ]
+	queryset = WebHookStage.objects.all()
+	serializer_class = WebHookStageSerializer
 
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['chain', ]
-    queryset = ConditionalStage.objects.all()
-    serializer_class = ConditionalStageSerializer
+	filterset_fields = ['chain', ]
+	queryset = ConditionalStage.objects.all()
+	serializer_class = ConditionalStageSerializer
 
 
 class CaseViewSet(viewsets.ModelViewSet):
-    queryset = Case.objects.all()
-    serializer_class = CaseSerializer
+	queryset = Case.objects.all()
+	serializer_class = CaseSerializer
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['stage',
-                        'stage__chain__campaign',
-                        'assignee',
-                        'complete']
-    queryset = Task.objects.all()
-    permission_classes = (TaskAccessPolicy,)
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return TaskSerializer
-        else:
-            return TaskSerializerWithStage
+	filterset_fields = ['stage',
+						'stage__chain__campaign',
+						'assignee',
+						'complete']
+	queryset = Task.objects.all()
+	permission_classes = (TaskAccessPolicy,)
 
-    @action(detail=False)
-    def user_relevant(self, request):
-        tasks = self.filter_queryset(self.get_queryset()) \
-            .filter(assignee=request.user)
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+	def get_serializer_class(self):
+		if self.action == 'create':
+			return TaskSerializer
+		else:
+			return TaskSerializerWithStage
+
+	@action(detail=False)
+	def user_relevant(self, request):
+		tasks = self.filter_queryset(self.get_queryset()) \
+			.filter(assignee=request.user)
+		serializer = self.get_serializer(tasks, many=True)
+		return Response(serializer.data)
 
 
 class RankViewSet(viewsets.ModelViewSet):
-    queryset = Rank.objects.all()
-    serializer_class = RankSerializer
+	queryset = Rank.objects.all()
+	serializer_class = RankSerializer
+
+	permission_classes = (RankAccessPolicy,)
 
 
 class RankRecordViewSet(viewsets.ModelViewSet):
-    queryset = RankRecord.objects.all()
-    serializer_class = RankRecordSerializer
+	queryset = RankRecord.objects.all()
+	serializer_class = RankRecordSerializer
 
 
 class RankLimitViewSet(viewsets.ModelViewSet):
-    filterset_fields = ['rank', ]
-    queryset = RankLimit.objects.all()
-    serializer_class = RankLimitSerializer
+	filterset_fields = ['rank', ]
+	queryset = RankLimit.objects.all()
+	serializer_class = RankLimitSerializer
 
 
 class TrackViewSet(viewsets.ModelViewSet):
-    queryset = Track.objects.all()
-    serializer_class = TrackSerializer
+	queryset = Track.objects.all()
+	serializer_class = TrackSerializer

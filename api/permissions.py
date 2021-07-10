@@ -1,5 +1,5 @@
 from rest_access_policy import AccessPolicy
-from api.models import Campaign
+from api.models import Campaign, Track
 
 
 class CampaignAccessPolicy(AccessPolicy):
@@ -44,28 +44,28 @@ class ChainAccessPolicy(AccessPolicy):
 		},
 		{
 			"action": ["create"],
-			"principal": "*",
+			"principal": "authenticated",
 			"effect": "allow",
 			"condition": "is_manager_create"
 
 		},
 		{
 			"action": ["retrieve"],
-			"principal": "*",
+			"principal": "authenticated",
 			"effect": "allow",
 			"condition": "is_manager_create"
 
 		},
 		{
 			"action": ["partial_update"],
-			"principal": ["*"],
+			"principal": ["authenticated"],
 			"effect": "allow",
 			"condition": "is_manager"
 
 		},
 		{
 			"action": ["destroy"],
-			"principal": ["*"],
+			"principal": ["authenticated"],
 			"effect": "deny"
 		}
 	]
@@ -128,3 +128,42 @@ class TaskStageAccessPolicy(AccessPolicy):
 		managers = task_stage.managers.all()
 
 		return request.user in managers
+
+
+class RankAccessPolicy(AccessPolicy):
+	statements = [
+		{
+			"action": ["list"],
+			"principal": "authenticated",
+			"effect": "allow"
+		},
+		{
+			"action": ["create"],
+			"principal": "group:rank_creator",
+			"effect": "allow"
+		},
+		{
+			"action": ["retrieve", "partial_update"],
+			"principal": ["authenticated"],
+			"effect": "allow",
+			"condition": "is_manager"
+
+		},
+		{
+			"action": ["destroy"],
+			"principal": ["authenticated"],
+			"effect": "deny"
+		}
+	]
+
+	def is_manager(self, request, view, action) -> bool:
+
+		rank = view.get_object()
+
+		tracks = Track.objects.filter(ranks__in=[rank.id]).all()
+		for track in tracks:
+			campaign = Campaign.objects.get(id=track.campaign_id)
+			managers = campaign.managers.all()
+			if request.user in managers:
+				return True
+		return False
