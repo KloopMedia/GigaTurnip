@@ -64,6 +64,52 @@ def process_conditional(stage, in_task):
 
 
 def evaluate_conditional_stage(stage, task):
-    return False
+    """Checks each response
+       Returns True if all responses exist and fit to the conditions
+    """
+    rules = stage.conditions
+    responses = task.responses
+    results = list()
+
+    if responses is None:
+        return False
+
+    for rule in rules:
+
+        control_value = rule["value"]
+        condition = rule["condition"]
+        actual_value = get_value_from_dotted(rule["field"], responses)
+
+        if condition == "==":
+            results.append(control_value == actual_value)
+        elif condition == "!=":
+            results.append(control_value != actual_value)
+        elif condition == ">":
+            results.append(control_value > actual_value)
+        elif condition == "<":
+            results.append(control_value < actual_value)
+        elif condition == ">=":
+            results.append(control_value >= actual_value)
+        elif condition == "<=":
+            results.append(control_value <= actual_value)
+        elif condition == "ARRAY-CONTAINS":
+            results.append(control_value in actual_value)
+        elif condition == "ARRAY-CONTAINS-NOT":
+            results.append(control_value not in actual_value)
+
+    return all(results)
+
+
+def get_value_from_dotted(dotted_path, source_dict):
+    """Turns dotted_path into regular dict keys and returns the value.
+    """
+    fields = dotted_path.split(".")
+    result = source_dict
+    for field in fields:
+        try:
+            result = result[field]
+        except KeyError:
+            return None
+    return result
 
 
