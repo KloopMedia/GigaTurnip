@@ -70,7 +70,7 @@ class TaskEditSerializer(serializers.ModelSerializer):
 
 
 class TaskDefaultSerializer(serializers.ModelSerializer):
-    stage = TaskStageSerializer(read_only=True)
+    stage = TaskStageReadSerializer(read_only=True)
 
     class Meta:
         model = Task
