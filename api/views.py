@@ -55,12 +55,30 @@ class TaskStageViewSet(viewsets.ModelViewSet):
             .filter(ranks__users=request.user.id)\
             .filter(ranklimits__is_creation_open=True)\
             .distinct()
-        tasks = Task.objects.filter(assignee=request.user.id)\
-            .filter(stage__in=stages).distinct()
-        tasks_count = tasks.values('stage', 'complete')\
-            .annotate(count=Count('id'))
-        print(tasks_count)
-        serializer = self.get_serializer(stages, many=True)
+        filtered_stages = TaskStage.objects.none()
+        for stage in stages:
+            tasks = Task.objects.filter(assignee=request.user.id)\
+                .filter(stage=stage).distinct()
+            total = len(tasks)
+            print(total)
+            incomplete = len(tasks.filter(complete=False))
+            print(incomplete)
+            ranklimits = RankLimit.objects.filter(stage=stage) \
+                .filter(rank__rankrecord__user__id=request.user.id)
+            for ranklimit in ranklimits:
+                print(ranklimit.total_limit)
+                print(ranklimit.open_limit)
+                if ((ranklimit.open_limit > incomplete and ranklimit.total_limit > total) or
+                        (ranklimit.open_limit == 0 and ranklimit.total_limit == total) or
+                        (ranklimit.open_limit > incomplete and ranklimit.total_limit == total) or
+                        (ranklimit.open_limit == 0 and ranklimit.total_limit > total)
+                ):
+                    filtered_stages |= TaskStage.objects.filter(pk=stage.pk)
+
+        # tasks_count = tasks.values('stage', 'complete')\
+        #     .annotate(count=Count('id'))
+        # print(tasks_count)
+        serializer = self.get_serializer(filtered_stages.distinct(), many=True)
         return Response(serializer.data)
 
 
