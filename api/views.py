@@ -120,6 +120,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     }
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
+    permission_classes = (TaskStageAccessPolicy,)
 
     @action(detail=False)
     def user_relevant(self, request):
