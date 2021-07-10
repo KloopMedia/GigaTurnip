@@ -11,7 +11,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
 	CaseSerializer, TaskSerializer, RankSerializer, RankLimitSerializer, \
 	TrackSerializer, TaskSerializerWithStage, RankRecordSerializer
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskAccessPolicy, TaskStageAccessPolicy, \
-	RankAccessPolicy, RankLimitAccessPolicy
+	RankAccessPolicy, RankLimitAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -114,6 +114,8 @@ class RankRecordViewSet(viewsets.ModelViewSet):
 	queryset = RankRecord.objects.all()
 	serializer_class = RankRecordSerializer
 
+	permission_classes = (RankRecordAccessPolicy,)
+
 
 class RankLimitViewSet(viewsets.ModelViewSet):
 	filterset_fields = ['rank', ]
@@ -126,3 +128,6 @@ class RankLimitViewSet(viewsets.ModelViewSet):
 class TrackViewSet(viewsets.ModelViewSet):
 	queryset = Track.objects.all()
 	serializer_class = TrackSerializer
+
+	permission_classes = (TrackAccessPolicy,)
+
