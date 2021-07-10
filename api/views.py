@@ -70,7 +70,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     serializer_class = ChainSerializer
     queryset = Chain.objects.all()
 
-    permission_classes = (ChainAccessPolicy,)
+	permission_classes = (ChainAccessPolicy,)
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
