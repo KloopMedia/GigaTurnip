@@ -205,11 +205,11 @@ class TaskStageAccessPolicy(AccessPolicy):
 		}
 	]
 
-	def is_manager(self, request, view, action) -> bool:
-		task_stage = view.get_object()
-		managers = task_stage.managers.all()
+    def is_manager(self, request, view, action) -> bool:
+        task_stage = view.get_object()
+        managers = task_stage.managers.all()
 
-		return request.user in managers
+        return request.user in managers
 
 
 class RankAccessPolicy(AccessPolicy):
