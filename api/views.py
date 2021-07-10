@@ -104,7 +104,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             case = Case.objects.create()
             serializer.save(case=case)
             data = serializer.data
-            process_completed_task(self.get_object())
+            if data['complete']:
+                process_completed_task(self.get_object())
             # if data['complete']:
             #     result(async_task(process_completed_task,
             #                       data['id'],
@@ -128,7 +129,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                 instance._prefetched_objects_cache = {}
             data = serializer.data
             data['id'] = instance.id
-            process_completed_task(instance)
+            if data['complete']:
+                process_completed_task(instance)
             # if data['complete']:
             #     result(async_task(process_completed_task,
             #                data['id'],
