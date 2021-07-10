@@ -11,7 +11,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
-    TaskDefaultSerializer, TaskRequestAssignmentSerializer
+    TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy
 
@@ -31,6 +31,12 @@ class ChainViewSet(viewsets.ModelViewSet):
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
+    def get_serializer_class(self):
+        if self.action == 'create' or self.action == 'update' or self.action == 'partial_update':
+            return TaskStageSerializer
+        else:
+            return TaskStageReadSerializer
+
     # filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
     #                     'ranks__users', 'ranklimits__open_limit',
     #                     'ranklimits__total_limit',
