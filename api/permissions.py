@@ -34,6 +34,8 @@ class CampaignAccessPolicy(AccessPolicy):
 
 		return request.user in managers
 
+	def is_manager_exist(self, request, view, action) -> bool:
+		return bool(Campaign.objects.get(managers=request.user))
 
 class ChainAccessPolicy(AccessPolicy):
 	statements = [
@@ -88,6 +90,8 @@ class ChainAccessPolicy(AccessPolicy):
 
 		return request.user in managers
 
+	def is_manager_exist(self, request, view, action) -> bool:
+		return bool(Campaign.objects.get(managers=request.user))
 
 class TaskAccessPolicy(AccessPolicy):
 	statements = [
