@@ -8,7 +8,7 @@ class CampaignAccessPolicy(AccessPolicy):
 			"action": ["list"],
 			"principal": "authenticated",
 			"effect": "allow",
-
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
@@ -40,7 +40,8 @@ class ChainAccessPolicy(AccessPolicy):
 		{
 			"action": ["list"],
 			"principal": "authenticated",
-			"effect": "allow"
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
@@ -53,7 +54,7 @@ class ChainAccessPolicy(AccessPolicy):
 			"action": ["retrieve"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager_create"
+			"condition": "is_manager"
 
 		},
 		{
@@ -135,12 +136,14 @@ class RankAccessPolicy(AccessPolicy):
 		{
 			"action": ["list"],
 			"principal": "authenticated",
-			"effect": "allow"
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
-			"principal": "group:rank_creator",
-			"effect": "allow"
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["retrieve", "partial_update"],
@@ -155,6 +158,9 @@ class RankAccessPolicy(AccessPolicy):
 			"effect": "deny"
 		}
 	]
+
+	def is_manager_exist(self, request, view, action) -> bool:
+		return bool(Campaign.objects.get(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 
@@ -174,12 +180,14 @@ class RankLimitAccessPolicy(AccessPolicy):
 		{
 			"action": ["list"],
 			"principal": "authenticated",
-			"effect": "allow"
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
-			"principal": "group:rank_creator",
-			"effect": "allow"
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["retrieve", "partial_update"],
@@ -195,11 +203,14 @@ class RankLimitAccessPolicy(AccessPolicy):
 		}
 	]
 
+	def is_manager_exist(self, request, view, action) -> bool:
+		return bool(Campaign.objects.get(managers=request.user))
+
 	def is_manager(self, request, view, action) -> bool:
 
-		rank_Limit = view.get_object()
+		rank_limit = view.get_object()
 
-		tracks = Track.objects.filter(ranks__in=[rank_Limit.rank_id]).all()
+		tracks = Track.objects.filter(ranks__in=[rank_limit.rank_id]).all()
 		for track in tracks:
 			campaign = Campaign.objects.get(id=track.campaign_id)
 			managers = campaign.managers.all()
@@ -213,12 +224,14 @@ class RankRecordAccessPolicy(AccessPolicy):
 		{
 			"action": ["list"],
 			"principal": "authenticated",
-			"effect": "allow"
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
-			"principal": "group:rank_creator",
-			"effect": "allow"
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["retrieve", "partial_update"],
@@ -233,6 +246,9 @@ class RankRecordAccessPolicy(AccessPolicy):
 			"effect": "deny"
 		}
 	]
+
+	def is_manager_exist(self, request, view, action) -> bool:
+		return bool(Campaign.objects.get(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 
@@ -252,12 +268,14 @@ class TrackAccessPolicy(AccessPolicy):
 		{
 			"action": ["list"],
 			"principal": "authenticated",
-			"effect": "allow"
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
-			"principal": "group:rank_creator",
-			"effect": "allow"
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["retrieve", "partial_update"],
@@ -272,6 +290,9 @@ class TrackAccessPolicy(AccessPolicy):
 			"effect": "deny"
 		}
 	]
+
+	def is_manager_exist(self, request, view, action) -> bool:
+		return bool(Campaign.objects.get(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 		track = view.get_object()
