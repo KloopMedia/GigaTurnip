@@ -13,7 +13,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
     TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
 from api.asyncstuff import process_completed_task
-from api.permissions import CampaignAccessPolicy
+#from api.permissions import CampaignAccessPolicy
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
