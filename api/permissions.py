@@ -247,3 +247,36 @@ class RankRecordAccessPolicy(AccessPolicy):
 		return False
 
 
+class TrackAccessPolicy(AccessPolicy):
+	statements = [
+		{
+			"action": ["list"],
+			"principal": "authenticated",
+			"effect": "allow"
+		},
+		{
+			"action": ["create"],
+			"principal": "group:rank_creator",
+			"effect": "allow"
+		},
+		{
+			"action": ["retrieve", "partial_update"],
+			"principal": ["authenticated"],
+			"effect": "allow",
+			"condition": "is_manager"
+
+		},
+		{
+			"action": ["destroy"],
+			"principal": ["*"],
+			"effect": "deny"
+		}
+	]
+
+	def is_manager(self, request, view, action) -> bool:
+		track = view.get_object()
+
+		campaign = Campaign.objects.get(id=track.campaign_id)
+		managers = campaign.managers.all()
+
+		return request.user in managers
