@@ -96,16 +96,10 @@ class ChainAccessPolicy(AccessPolicy):
 class TaskAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["update"],
+			"action": ["update", "partial_update"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_assignee" and "not_complete"
-		},
-		{
-			"action": ["partial_update"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_assignee" and "not_complete"
+			"condition_expression": "is_assignee and not_complete"
 		}
 	]
 
