@@ -24,7 +24,9 @@ stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
 schema_provider_fields = ['json_schema', 'ui_schema', 'library']
 
 
-class TaskStageSerializer(serializers.ModelSerializer):
+class TaskStageReadSerializer(serializers.ModelSerializer):
+    chain = ChainSerializer(read_only=True)
+
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
@@ -32,6 +34,15 @@ class TaskStageSerializer(serializers.ModelSerializer):
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage']
 
+
+class TaskStageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TaskStage
+        fields = base_model_fields + stage_fields + schema_provider_fields + \
+                 ['copy_input', 'allow_multiple_files', 'is_creatable',
+                  'displayed_prev_stages', 'assign_user_by',
+                  'assign_user_from_stage']
 
 class WebHookStageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -52,20 +63,49 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class TaskEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ['complete', 'responses']
+
+
+class TaskDefaultSerializer(serializers.ModelSerializer):
+    stage = TaskStageReadSerializer(read_only=True)
+
     class Meta:
         model = Task
         fields = '__all__'
-        read_only_fields = ['case', 'in_tasks']
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee',
+                            'stage',
+                            'responses',
+                            'complete']
 
 
-class TaskSerializerWithStage(serializers.ModelSerializer):
-    stage = TaskStageSerializer(read_only=True)
+class TaskCreateSerializer(serializers.ModelSerializer):
+    assignee = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = Task
         fields = '__all__'
-        read_only_fields = ['case', 'in_tasks']
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee']
+
+
+class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
+    assignee = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+        read_only_fields = ['case',
+                            'in_tasks',
+                            'assignee',
+                            'stage',
+                            'responses',
+                            'complete']
 
 
 class RankSerializer(serializers.ModelSerializer):

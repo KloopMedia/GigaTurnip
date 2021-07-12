@@ -7,6 +7,8 @@ class CustomUser(AbstractUser):
     ranks = models.ManyToManyField("Rank",
                                    through="RankRecord",
                                    related_name="users")
+    def __str__(self):
+        return self.email + " " + self.last_name
 
 
 class BaseModel(models.Model):
@@ -18,8 +20,8 @@ class BaseModel(models.Model):
 
 
 class SchemaProvider(models.Model):
-    json_schema = models.JSONField(null=True, blank=True)
-    ui_schema = models.JSONField(null=True, blank=True)
+    json_schema = models.TextField(null=True, blank=True)
+    ui_schema = models.TextField(null=True, blank=True)
     library = models.CharField(max_length=200, blank=True)
 
     class Meta:
@@ -123,14 +125,10 @@ class ConditionalStage(Stage):
 
 
 class Case(models.Model):
-    chain = models.ForeignKey(Chain,
-                              on_delete=models.CASCADE,
-                              related_name="cases")
 
     def __str__(self):
         return str("Case #" +
-                   str(self.id) + " " +
-                   self.chain.__str__())
+                   str(self.id))
 
 
 class Task(models.Model):
@@ -147,7 +145,7 @@ class Task(models.Model):
                              related_name="tasks",
                              blank=True,
                              null=True)
-    responses = models.JSONField(null=True)
+    responses = models.JSONField(null=True, blank=True)
     in_tasks = models.ManyToManyField("self",
                                       related_name="out_tasks",
                                       blank=True,
@@ -183,6 +181,9 @@ class RankRecord(models.Model):
 
     class Meta:
         unique_together = ['user', 'rank']
+
+    def __str__(self):
+        return str(self.rank.__str__() + " " + self.user.__str__())
 
 
 class RankLimit(models.Model):
