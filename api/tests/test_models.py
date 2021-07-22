@@ -9,19 +9,25 @@ from api.models import CustomUser, BaseModel, SchemaProvider, Campaign, \
 
 
 class CustomUserModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		cls.user = CustomUser.objects.create(username="Test custom user", email='example@inbox.com')
 
+	def test_object_name(self):
+		expected_object_name = str(self.user.email + " " + self.user.last_name)
+		self.assertEqual(expected_object_name, str(self.user))
+
+	def test_custom_user_can_be_attached_to_multiple_ranks(self):
+		ranks = [Rank.objects.create(name=_) for _ in range(3)]
+
+		for rank in ranks:
+			rank.users.add(self.user)
+
+		self.assertEqual(len(ranks), self.user.ranks.count())
+		for rank in ranks:
+			self.assertIn(rank, self.user.ranks.all())
 
 class BaseModelModelTest(TestCase):
-	# @classmethod
-	# def setUpTestData(cls):
-	# 	BaseModel.objects.create(name="Test basemodel")
-	#
-	# def test_labels(self):
-	# 	base_model = BaseModel.objects.get(id=1)
-	#
-	# 	field_name = base_model._meta.get_field('name').verbose_name
-	# 	field_description = base_model._meta.get_field('name').verbose_name
 	pass
 
 
@@ -59,12 +65,14 @@ class CampaignModelTest(TestCase):
 
 	def test_campaign_can_be_attached_to_multiple_managers(self):
 
-		managers = [CustomUser.objects.create(username=_) for _ in range(3)]
+		managers = [CustomUser.objects.create(username=i) for i in range(3)]
 
 		for manager in managers:
 			manager.managed_campaigns.add(self.campaign)
 
 		self.assertEqual(len(managers), self.campaign.managers.count())
+		for manager in managers:
+			self.assertIn(manager, self.campaign.managers.all())
 
 class CampaignManagementModelTest(TestCase):
 	pass
