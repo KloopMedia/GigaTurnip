@@ -1,4 +1,6 @@
 from django.test import TestCase
+import django
+django.setup()
 from api.models import CustomUser, BaseModel, SchemaProvider, Campaign, \
 	CampaignManagement, Chain, Stage, TaskStage, \
 	WebHookStage, ConditionalStage, Case, Task, \
@@ -18,7 +20,14 @@ class SchemaProviderModelTest(TestCase):
 
 
 class CampaignModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		Campaign.objects.create(name="Test campaign")
+
+	def test_name(self):
+		campaign = Campaign.objects.get(id=1)
+		field_name = campaign._meta.get_field('name').verbose_name
+		self.assertEqual(field_name, 'name')
 
 
 class CampaignManagementModelTest(TestCase):
