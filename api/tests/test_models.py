@@ -1,5 +1,6 @@
 from django.test import TestCase
 import django
+
 django.setup()
 from api.models import CustomUser, BaseModel, SchemaProvider, Campaign, \
 	CampaignManagement, Chain, Stage, TaskStage, \
@@ -23,6 +24,7 @@ class BaseModelModelTest(TestCase):
 	# 	field_description = base_model._meta.get_field('name').verbose_name
 	pass
 
+
 class SchemaProviderModelTest(TestCase):
 	pass
 
@@ -30,36 +32,30 @@ class SchemaProviderModelTest(TestCase):
 class CampaignModelTest(TestCase):
 	@classmethod
 	def setUpTestData(cls):
-		Campaign.objects.create(name="Test campaign")
+		cls.campaign = Campaign.objects.create(name="Test campaign")
 
 	def test_labels(self):
-		campaign = Campaign.objects.get(id=1)
-
-		field_name = campaign._meta.get_field('name').verbose_name
-		field_description = campaign._meta.get_field('description').verbose_name
-		field_default_track = campaign._meta.get_field('default_track').verbose_name
-		field_managers = campaign._meta.get_field('managers').verbose_name
+		field_name = self.campaign._meta.get_field('name').verbose_name
+		field_description = self.campaign._meta.get_field('description').verbose_name
+		field_default_track = self.campaign._meta.get_field('default_track').verbose_name
+		field_managers = self.campaign._meta.get_field('managers').verbose_name
 
 		self.assertEqual(field_name, 'name')
 		self.assertEqual(field_description, 'description')
 		self.assertEqual(field_default_track, 'default track')
 		self.assertEqual(field_managers, 'managers')
 
-
 	def test_description_is_blank(self):
-		campaign = Campaign.objects.get(id=1)
-		is_blank = campaign._meta.get_field('description').blank
-		self.assertEqual(is_blank, True)
+		is_blank = self.campaign._meta.get_field('description').blank
+		self.assertTrue(is_blank)
 
 	def test_default_track_is_blank(self):
-		campaign = Campaign.objects.get(id=1)
-		is_blank = campaign._meta.get_field('default_track').blank
-		self.assertEqual(is_blank, True)
+		is_blank = self.campaign._meta.get_field('default_track').blank
+		self.assertTrue(is_blank)
 
 	def test_object_name(self):
-		campaign = Campaign.objects.get(id=1)
-		expected_object_name = str("Campaign: " + campaign.name)
-		self.assertEqual(expected_object_name, str(campaign))
+		expected_object_name = str("Campaign: " + self.campaign.name)
+		self.assertEqual(expected_object_name, str(self.campaign))
 
 
 class CampaignManagementModelTest(TestCase):
@@ -108,4 +104,3 @@ class RankRecordModelTest(TestCase):
 
 class RankLimitModelTest(TestCase):
 	pass
-
