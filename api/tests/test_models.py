@@ -57,6 +57,14 @@ class CampaignModelTest(TestCase):
 		expected_object_name = str("Campaign: " + self.campaign.name)
 		self.assertEqual(expected_object_name, str(self.campaign))
 
+	def test_campaign_can_be_attached_to_multiple_managers(self):
+
+		managers = [CustomUser.objects.create(username=_) for _ in range(3)]
+
+		for manager in managers:
+			manager.managed_campaigns.add(self.campaign)
+
+		self.assertEqual(len(managers), self.campaign.managers.count())
 
 class CampaignManagementModelTest(TestCase):
 	pass
