@@ -411,8 +411,65 @@ class TrackModelTest(TestCase):
 
 
 class RankRecordModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		user = CustomUser.objects.create(username="Test custom user", email='example@inbox.com')
+		rank = Rank.objects.create(name='My rank 12324!')
+		cls.rank_record = RankRecord.objects.create(user=user, rank=rank)
 
+	def test_labels(self):
+		field_user = self.rank_record._meta.get_field('user').verbose_name
+		field_rank = self.rank_record._meta.get_field('rank').verbose_name
+
+		self.assertEqual(field_user, 'user')
+		self.assertEqual(field_rank, 'rank')
+
+	def test_foreign_field_user(self):
+		self.assertEqual(self.rank_record.user.username, "Test custom user")
+		self.assertEqual(self.rank_record.user.email, 'example@inbox.com')
+
+	def test_foreign_field_rank(self):
+		self.assertEqual(self.rank_record.rank.name, 'My rank 12324!')
+
+	def test_object_name(self):
+		expected_name = str(self.rank_record.rank) + " " + str(self.rank_record.user)
+		self.assertEqual(expected_name, str(self.rank_record))
 
 class RankLimitModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		campaign = Campaign.objects.create(name="Test campaign 12324!")
+		chain = Chain.objects.create(name="New chain for tests 12324!", campaign=campaign)
+		task_stage = TaskStage.objects.create(chain=chain, x_pos=1, y_pos=1)
+		rank = Rank.objects.create(name='My rank 12324!')
+		cls.rank_limit = RankLimit.objects.create(stage=task_stage, rank=rank)
+
+	def test_labels(self):
+		field_rank = self.rank_limit._meta.get_field('rank').verbose_name
+		field_stage = self.rank_limit._meta.get_field('stage').verbose_name
+		field_open_limit = self.rank_limit._meta.get_field('open_limit').verbose_name
+		field_total_limit = self.rank_limit._meta.get_field('total_limit').verbose_name
+		field_is_listing_allowed = self.rank_limit._meta.get_field('is_listing_allowed').verbose_name
+		field_is_submission_open = self.rank_limit._meta.get_field('is_submission_open').verbose_name
+		field_is_selection_open = self.rank_limit._meta.get_field('is_selection_open').verbose_name
+		field_is_creation_open = self.rank_limit._meta.get_field('is_creation_open').verbose_name
+
+		self.assertEqual(field_rank, "rank")
+		self.assertEqual(field_stage, "stage")
+		self.assertEqual(field_open_limit, "open limit")
+		self.assertEqual(field_total_limit, "total limit")
+		self.assertEqual(field_is_listing_allowed, "is listing allowed")
+		self.assertEqual(field_is_submission_open, "is submission open")
+		self.assertEqual(field_is_selection_open, "is selection open")
+		self.assertEqual(field_is_creation_open, "is creation open")
+
+	def	test_foreign_field_rank(self):
+		self.assertEqual(self.rank_limit.rank.name, 'My rank 12324!')
+
+	def	test_foreign_field_stage(self):
+		self.assertEqual(self.rank_limit.stage.chain.name,"New chain for tests 12324!")
+		self.assertEqual(self.rank_limit.stage.chain.campaign.name, "Test campaign 12324!")
+
+	def test_object_name(self):
+		expected_name = str("Rank limit: " + self.rank_limit.rank.__str__() + " " + self.rank_limit.stage.__str__())
+		self.assertEqual(str(self.rank_limit), expected_name)
