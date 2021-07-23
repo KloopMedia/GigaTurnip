@@ -1,5 +1,6 @@
 from django.test import TestCase
 import django
+from django.db import connection
 
 django.setup()
 from api.models import CustomUser, BaseModel, SchemaProvider, Campaign, \
@@ -27,18 +28,19 @@ class CustomUserModelTest(TestCase):
 		for rank in ranks:
 			self.assertIn(rank, self.user.ranks.all())
 
+
 class BaseModelModelTest(TestCase):
-	pass
+	pass  # TODO: how test abstract model
 
 
 class SchemaProviderModelTest(TestCase):
-	pass
+	pass  # TODO: how test abstract model
 
 
 class CampaignModelTest(TestCase):
 	@classmethod
 	def setUpTestData(cls):
-		cls.campaign = Campaign.objects.create(name="Test campaign")
+		cls.campaign = Campaign.objects.create(name="Test campaign!!!AAAAAAA IM IN TESTS")
 
 	def test_labels(self):
 		field_name = self.campaign._meta.get_field('name').verbose_name
@@ -74,12 +76,51 @@ class CampaignModelTest(TestCase):
 		for manager in managers:
 			self.assertIn(manager, self.campaign.managers.all())
 
+
 class CampaignManagementModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		new_user = CustomUser.objects.create(username="Test custom user", email='example12324@inbox.com')
+		new_campaign = Campaign.objects.create(name="Test campaign 12324!")
+		cls.campaign_management = CampaignManagement.objects.create(user=new_user, campaign=new_campaign)
+
+	def test_labels(self):
+		field_user = self.campaign_management._meta.get_field('user').verbose_name
+		field_campaing = self.campaign_management._meta.get_field('campaign').verbose_name
+
+		self.assertEqual(field_user, 'user')
+		self.assertEqual(field_campaing, 'campaign')
+
+	def test_foreign_field_user(self):
+		self.assertEqual(self.campaign_management.user.email, 'example12324@inbox.com')
+
+	def test_foreign_field_campaign(self):
+		self.assertEqual(self.campaign_management.campaign.name, 'Test campaign 12324!')
 
 
 class ChainModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		campaign = Campaign.objects.create(name="Test campaign 12324!")
+		cls.chain = Chain.objects.create(name="New chain for tests 12324!", campaign=campaign)
+
+	def test_labels(self):
+		field_name = self.chain._meta.get_field('name').verbose_name
+		field_description = self.chain._meta.get_field('description').verbose_name
+		field_campaign = self.chain._meta.get_field('campaign').verbose_name
+
+		self.assertEqual(field_name, 'name')
+		self.assertEqual(field_description, 'description')
+		self.assertEqual(field_campaign, 'campaign')
+
+	def test_foreign_key_campaign(self):
+		self.assertEqual(self.chain.campaign.name, "Test campaign 12324!")
+
+	def test_object_name(self):
+		chain_name = "Chain: " + self.chain.name
+		campaign_str = self.chain.campaign.__str__()
+		expected_object_name = str(chain_name + " " + campaign_str)
+		self.assertEqual(expected_object_name, str(self.chain))
 
 
 class StageModelTest(TestCase):
