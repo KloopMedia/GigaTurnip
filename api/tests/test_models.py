@@ -324,7 +324,34 @@ class TaskModelTest(TestCase):
 
 
 class RankModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		cls.rank = Rank.objects.create(name='My rank 12324!')
+
+	def test_labels(self):
+		field_name = self.rank._meta.get_field("name").verbose_name
+		field_description = self.rank._meta.get_field("description").verbose_name
+		field_stages = self.rank._meta.get_field("stages").verbose_name
+
+		self.assertEqual(field_name,'name')
+		self.assertEqual(field_description,'description')
+		self.assertEqual(field_stages,'stages')
+
+	def test_rank_can_be_attached_to_multiple_stages(self):
+		campaign = Campaign.objects.create(name="Test campaign 12324!")
+		chain = Chain.objects.create(name="New chain for tests 12324!", campaign=campaign)
+
+		stages = [TaskStage.objects.create(chain=chain, x_pos=1, y_pos=1) for i in range(3)]
+
+		for stage in stages:
+			stage.ranks.add(self.rank)
+
+		self.assertEqual(len(stages), self.rank.stages.count())
+		for stage in stages:
+			self.assertIn(stage, self.rank.stages.all())
+
+	def test_object_name(self):
+		self.assertEqual(str(self.rank), self.rank.name)
 
 
 class TrackModelTest(TestCase):
