@@ -333,9 +333,9 @@ class RankModelTest(TestCase):
 		field_description = self.rank._meta.get_field("description").verbose_name
 		field_stages = self.rank._meta.get_field("stages").verbose_name
 
-		self.assertEqual(field_name,'name')
-		self.assertEqual(field_description,'description')
-		self.assertEqual(field_stages,'stages')
+		self.assertEqual(field_name, 'name')
+		self.assertEqual(field_description, 'description')
+		self.assertEqual(field_stages, 'stages')
 
 	def test_rank_can_be_attached_to_multiple_stages(self):
 		campaign = Campaign.objects.create(name="Test campaign 12324!")
@@ -355,7 +355,59 @@ class RankModelTest(TestCase):
 
 
 class TrackModelTest(TestCase):
-	pass
+	@classmethod
+	def setUpTestData(cls):
+		campaign = Campaign.objects.create(name="Test campaign 12324!")
+		rank = Rank.objects.create(name='My rank 12324!')
+		default_rank = Rank.objects.create(name='My default rank 42321!')
+		cls.track = Track.objects.create(name='My track 12324!',
+										 campaign=campaign,
+										 default_rank=default_rank
+										 )
+		cls.track.ranks.add(rank)
+
+		cls.track_without_ranks = Track.objects.create(name='My track 12324!',
+										campaign=campaign)
+	def test_labels(self):
+		field_name = self.track._meta.get_field("name").verbose_name
+		field_description = self.track._meta.get_field("description").verbose_name
+		field_campaign = self.track._meta.get_field("campaign").verbose_name
+		field_default_rank = self.track._meta.get_field("default_rank").verbose_name
+		field_ranks = self.track._meta.get_field("ranks").verbose_name
+
+		self.assertEqual(field_name, "name")
+		self.assertEqual(field_description, "description")
+		self.assertEqual(field_campaign, "campaign")
+		self.assertEqual(field_default_rank, "default rank")
+		self.assertEqual(field_ranks, "ranks")
+
+	def test_foreign_field_campaign(self):
+		self.assertEqual(self.track.campaign.name, "Test campaign 12324!")
+
+	def test_foreign_field_default_rank(self):
+		self.assertEqual(self.track.default_rank.name, 'My default rank 42321!')
+
+	def test_track_can_be_attach_to_multiple_ranks(self):
+
+		ranks = [Rank.objects.create(name=f"My new Rank #{i}") for i in range(3)]
+
+		for rank in ranks:
+			self.track_without_ranks.ranks.add(rank)
+
+		self.assertEqual(len(ranks), self.track_without_ranks.ranks.count())
+		for rank in ranks:
+			self.assertIn(rank, self.track_without_ranks.ranks.all())
+
+	def test_tracks_append_existing_ranks(self):
+		ranks = [Rank.objects.create(name=f"My new Rank #{i}") for i in range(3)]
+
+		for _ in range(2):
+			for rank in ranks:
+				self.track_without_ranks.ranks.add(rank)
+
+		self.assertEqual(len(ranks), self.track_without_ranks.ranks.count())
+		for rank in ranks:
+			self.assertIn(rank, self.track_without_ranks.ranks.all())
 
 
 class RankRecordModelTest(TestCase):
