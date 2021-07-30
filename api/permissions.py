@@ -1,3 +1,4 @@
+from django.http import Http404
 from rest_access_policy import AccessPolicy
 from api.models import Campaign, Track
 
@@ -17,11 +18,17 @@ class CampaignAccessPolicy(AccessPolicy):
 		},
 		{
 			"action": ["destroy"],
-			"principal": ["group:campaign_creator"],
-			"effect": "allow"
+			"principal": ["*"],
+			"effect": "deny"
 		},
 		{
 			"action": ["partial_update"],
+			"principal": ["*"],
+			"effect": "allow",
+			"condition": "is_manager"
+		},
+		{
+			"action": ["retrieve"],
 			"principal": ["*"],
 			"effect": "allow",
 			"condition": "is_manager"
@@ -35,7 +42,10 @@ class CampaignAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		return bool(Campaign.objects.get(managers=request.user))
+		try:
+			return bool(Campaign.objects.get(managers=request.user))
+		except Campaign.DoesNotExist:
+			raise Http404("Product Couldn't be found")
 
 class ChainAccessPolicy(AccessPolicy):
 	statements = [
