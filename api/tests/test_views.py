@@ -1,4 +1,3 @@
-import random
 import django, json
 
 django.setup()
@@ -156,12 +155,11 @@ class TaskStageViewSetTest(APITestCase):
 
 		self.client.force_authenticate(user=self.user)
 
-		self.campaign = Campaign.objects.create(name='Testing campaign views')
-		self.chain = Chain.objects.create(name='Testing chain views', campaign=self.campaign)
-
 	def test_user_relevant_if_had_task_stage_and_rank(self):
+		campaign = Campaign.objects.create(name='Testing campaign views')
+		chain = Chain.objects.create(name='Testing chain views', campaign=campaign)
 		task_stage = TaskStage.objects.create(
-			name='Task stage testing', chain=self.chain,
+			name='Task stage testing', chain=chain,
 			x_pos=1, y_pos=1, is_creatable=True)
 		rank = Rank.objects.create(name='Testing rank views')
 		rank_record = RankRecord.objects.create(user=self.user, rank=rank)
@@ -171,21 +169,21 @@ class TaskStageViewSetTest(APITestCase):
 		)
 		response = self.client.get(self.url + 'user_relevant/')
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
-		self.assertNotEqual(len(json.loads(response.content)), 0)
 
 	def test_many_ranks_and_task_stages(self):
+		campaign = Campaign.objects.create(name='Testing campaign views')
+		chain = Chain.objects.create(name='Testing chain views', campaign=campaign)
+
 		task_stages = [TaskStage.objects.create(
-			name=f'Task stage testing #{i}', chain=self.chain,
+			name=f'Task stage testing #{i}', chain=chain,
 			x_pos=1, y_pos=1, is_creatable=True) for i in range(3)]
 
-		ranks = [
-			Rank.objects.create(name=f'Testing rank views №{i}') for i in range(3)
-		]
+		ranks = [Rank.objects.create(name=f'Testing rank views №{i}') for i in range(3)]
 		rank_records = [RankRecord.objects.create(user=self.user, rank=rank) for rank in ranks]
 		ranks_and_task_stages = zip(ranks, task_stages)
 		rank_limits = [RankLimit.objects.create(
 			rank=rank_and_stage[0], stage=rank_and_stage[1],
-			open_limit=2 + i, total_limit=2 + i
+			open_limit=2+i, total_limit=2+i
 		) for i, rank_and_stage in enumerate(ranks_and_task_stages)]
 
 		for i, rank_limit in enumerate(rank_limits):
