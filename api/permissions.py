@@ -47,6 +47,7 @@ class CampaignAccessPolicy(AccessPolicy):
 		except Campaign.DoesNotExist:
 			raise Http404("Product Couldn't be found")
 
+
 class ChainAccessPolicy(AccessPolicy):
 	statements = [
 		{
@@ -103,6 +104,7 @@ class ChainAccessPolicy(AccessPolicy):
 	def is_manager_exist(self, request, view, action) -> bool:
 		return bool(Campaign.objects.get(managers=request.user))
 
+
 class TaskAccessPolicy(AccessPolicy):
 	statements = [
 		{
@@ -125,6 +127,11 @@ class TaskAccessPolicy(AccessPolicy):
 class TaskStageAccessPolicy(AccessPolicy):
 	statements = [
 		{
+			"action": ["user_relevant"],
+			"principal": "authenticated",
+			"effect": "allow",
+		},
+		{
 			"action": ["create"],
 			"principal": "authenticated",
 			"effect": "allow",
@@ -137,7 +144,6 @@ class TaskStageAccessPolicy(AccessPolicy):
 		managers = task_stage.managers.all()
 
 		return request.user in managers
-
 
 class RankAccessPolicy(AccessPolicy):
 	statements = [
