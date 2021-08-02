@@ -149,7 +149,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'drf_firebase_auth.authentication.FirebaseAuthentication',
     ],
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema'
 }
 
 DRF_FIREBASE_AUTH = {
