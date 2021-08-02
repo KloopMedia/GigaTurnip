@@ -16,6 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, re_path
 from rest_framework.routers import DefaultRouter
+from rest_framework.documentation import include_docs_urls
 
 import api.views as turnip_app
 
@@ -57,4 +58,6 @@ router.register(api_v1 + r'rankrecords',
                 basename='rankrecord')
 
 
-urlpatterns = [path('admin/', admin.site.urls), ] + router.urls
+urlpatterns = [path('admin/', admin.site.urls),
+               path('docs/', include_docs_urls(title='Giga Turnip API Documentation'))
+               ] + router.urls
