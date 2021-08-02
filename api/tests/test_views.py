@@ -492,7 +492,7 @@ class TaskViewSetTest(APITestCase):
 	def test_user_relevant_tasks(self):
 		"""
 		According to permissions, returns 200 OK only if the user is manager or
-		there are tasks assigned to the user. See is_manager_or_have_assignee_task 
+		there are tasks assigned to the user. See is_manager_or_have_assignee_task
 
 		"""
 		#response = self.client.get(self.url + "user_relevant/")
@@ -571,7 +571,7 @@ class ConditionalStageViewSetTest(APITestCase):
 		self.campaign = Campaign.objects.create(name='Test campaign view')
 		self.chain = Chain.objects.create(name='Test chain view', campaign=self.campaign)
 		self.view = ConditionalStageViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
-	
+
 	def test_conditional_stage_page_loads_fail(self):
 		response = self.client.get('/conditionalstage-list/api/test/')
 		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -590,7 +590,7 @@ class ConditionalStageViewSetTest(APITestCase):
 		conditional_stage = ConditionalStage.objects.create(
 			name='conditional stage test',
 			chain=self.chain,
-			x_pos=1, y_pos=1, 
+			x_pos=1, y_pos=1,
 			conditions=conditions
 		)
 		response = self.client.get(self.url)
@@ -598,11 +598,11 @@ class ConditionalStageViewSetTest(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertIn(data, json.loads(response.content))
 		self.assertNotEqual(len(json.loads(response.content)), 0)
-		
+
 	def test_conditional_stage_created(self):
 		data_to_create = {
-    	"name": "Test", 
-    	"x_pos": "34.20000000000000", 
+    	"name": "Test",
+    	"x_pos": "34.20000000000000",
     	"y_pos": "21.10000000000000",
 		'chain': 1,
 		}
@@ -631,7 +631,7 @@ class RankViewSetTest(APITestCase):
 			username='test',
 			email='test@mail.ru',
 			password='test'
-		)	
+		)
 
 		self.client.force_authenticate(user=self.user)
 		self.rank = Rank.objects.create(name='test rank')
@@ -713,7 +713,7 @@ class RankViewSetTest(APITestCase):
 		response = self.client.delete(url)
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-	
+
 class RankLimitViewSetTest(APITestCase):
 	def setUp(self):
 		self.url = reverse('ranklimit-list')
@@ -729,8 +729,8 @@ class RankLimitViewSetTest(APITestCase):
 		self.campaign = create_campaign()
 		self.chain = Chain.objects.create(name='chain test', campaign=self.campaign)
 		self.task_stage = TaskStage.objects.create(
-		name=f'Task stage testing ', 
-		chain=self.chain,x_pos=1, y_pos=1, 
+		name=f'Task stage testing ',
+		chain=self.chain,x_pos=1, y_pos=1,
 		is_creatable=True)
 		self.rank_limit = RankLimit.objects.create(
 			rank=self.rank,
@@ -750,8 +750,8 @@ class RankLimitViewSetTest(APITestCase):
 		test_rank = create_rank()
 		test_chain = Chain.objects.create(name='chain test 2', campaign=self.campaign)
 		test_task_stage = TaskStage.objects.create(
-		name=f'Task stage test 2', 
-		chain=test_chain,x_pos=2, y_pos=3, 
+		name=f'Task stage test 2',
+		chain=test_chain,x_pos=2, y_pos=3,
 		is_creatable=True)
 		data_to_create = {
 			'rank': test_rank.id,
@@ -765,8 +765,8 @@ class RankLimitViewSetTest(APITestCase):
 		test_rank = create_rank()
 		test_chain = Chain.objects.create(name='chain test 2', campaign=self.campaign)
 		test_task_stage = TaskStage.objects.create(
-		name=f'Task stage test 2', 
-		chain=test_chain,x_pos=2, y_pos=3, 
+		name=f'Task stage test 2',
+		chain=test_chain,x_pos=2, y_pos=3,
 		is_creatable=True)
 		self.user.managed_campaigns.add(self.campaign)
 		data_to_create = {
@@ -884,7 +884,7 @@ class RankRecordViewSetTest(APITestCase):
 		}
 		self.user.managed_campaigns.add(self.campaign)
 		response = self.client.post(self.url, data_to_create)
-		self.assertEqual(response.status_code, status.HTTP_201_CREATED)	
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 	def test_partial_update_if_not_manager(self):
 		new_track = Track.objects.create(name='test track', campaign=self.campaign, default_rank=self.rank)
@@ -899,8 +899,8 @@ class RankRecordViewSetTest(APITestCase):
 		new_track.ranks.add(self.rank)
 		url = self.url + str(self.rank_record.id) + '/'
 		reponse = self.client.patch(url, {'user':1})
-		self.assertEqual(reponse.status_code, status.HTTP_200_OK)		
-					
+		self.assertEqual(reponse.status_code, status.HTTP_200_OK)
+
 	def test_destroy(self):
 		self.user.managed_campaigns.add(self.campaign)
 		url = self.url + str(self.rank_record.id) + '/'
@@ -937,10 +937,10 @@ class TrackViewSetTest(APITestCase):
 			'name': 'test track 2',
 			'campaign': self.campaign.id,
 			'ranks': [
-				1, 
+				1,
 			]
 		}
-		
+
 		self.user.managed_campaigns.add(self.campaign)
 		response = self.client.post(self.url, data_to_create)
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -953,10 +953,10 @@ class TrackViewSetTest(APITestCase):
 			'name': 'test track 2',
 			'campaign': self.campaign.id,
 			'ranks': [
-				1, 
+				1,
 			]
 		}
-		
+
 		response = self.client.post(self.url, data_to_create)
 		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -983,7 +983,7 @@ class TrackViewSetTest(APITestCase):
 		url = self.url + str(self.new_track.id) + '/'
 		response = self.client.get(url)
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
-		
+
 	def test_destroy(self):
 		self.user.managed_campaigns.add(self.campaign)
 		url = self.url + str(self.new_track.id) + '/'
