@@ -174,6 +174,11 @@ class Track(BaseModel):
                                      blank=True,
                                      null=True)
 
+    def __str__(self):
+        name = self.campaign.__str__()
+        name += " " + self.ranks.__str__()
+        name += " " + self.default_rank.__str__()
+        return name
 
 class RankRecord(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
