@@ -1,4 +1,4 @@
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from rest_access_policy import AccessPolicy
 from api.models import Campaign, Track
 
@@ -102,11 +102,34 @@ class ChainAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		return bool(Campaign.objects.get(managers=request.user))
+		try:
+			return bool(Campaign.objects.get(managers=request.user))
+		except Campaign.DoesNotExist:
+			return False
 
 
 class TaskAccessPolicy(AccessPolicy):
 	statements = [
+		{
+			"action": ["destroy"],
+			"principal": "*",
+			"effect": "deny",
+		},
+		{
+			"action": ["list", "create"],
+			"principal": "authenticated",
+			"effect": "allow",
+		},
+		{
+			"action": ["user_selectable", "user_relevant"],
+			"principal": "authenticated",
+			"effect": "allow",
+		},
+		{
+			"action": ["request_assignment", "release_assignment"],
+			"principal": "*",
+			"effect": "deny",
+		},
 		{
 			"action": ["update", "partial_update"],
 			"principal": "authenticated",
