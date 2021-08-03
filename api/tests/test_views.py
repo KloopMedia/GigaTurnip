@@ -155,9 +155,10 @@ class TaskStageViewSetTest(APITestCase):
 
 		self.client.force_authenticate(user=self.user)
 
+		self.campaign = Campaign.objects.create(name='Testing campaign views')
+		self.chain = Chain.objects.create(name='Testing chain views', campaign=self.campaign)
+
 	def test_user_relevant_if_had_task_stage_and_rank(self):
-		campaign = Campaign.objects.create(name='Testing campaign views')
-		chain = Chain.objects.create(name='Testing chain views', campaign=campaign)
 		task_stage = TaskStage.objects.create(
 			name='Task stage testing', chain=chain,
 			x_pos=1, y_pos=1, is_creatable=True)
@@ -169,16 +170,16 @@ class TaskStageViewSetTest(APITestCase):
 		)
 		response = self.client.get(self.url + 'user_relevant/')
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertNotEqual(len(json.loads(response.content)), 0)
 
 	def test_many_ranks_and_task_stages(self):
-		campaign = Campaign.objects.create(name='Testing campaign views')
-		chain = Chain.objects.create(name='Testing chain views', campaign=campaign)
-
 		task_stages = [TaskStage.objects.create(
 			name=f'Task stage testing #{i}', chain=chain,
 			x_pos=1, y_pos=1, is_creatable=True) for i in range(3)]
 
-		ranks = [Rank.objects.create(name=f'Testing rank views №{i}') for i in range(3)]
+		ranks = [
+			Rank.objects.create(name=f'Testing rank views №{i}') for i in range(3)
+				]
 		rank_records = [RankRecord.objects.create(user=self.user, rank=rank) for rank in ranks]
 		ranks_and_task_stages = zip(ranks, task_stages)
 		rank_limits = [RankLimit.objects.create(
