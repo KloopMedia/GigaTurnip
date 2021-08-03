@@ -1,3 +1,4 @@
+import random
 import django, json
 
 django.setup()
@@ -7,8 +8,8 @@ from django.contrib.auth.models import Group
 from api.models import CustomUser, Campaign, TaskStage, Task, Chain, Rank, RankLimit, RankRecord
 from django.db.models import Q
 from rest_framework import status
-from api.views import CampaignViewSet, TaskStageViewSet, TaskViewSet
-from api.serializer import TaskStageSerializer, TaskStageReadSerializer
+from api.views import CampaignViewSet, TaskStageViewSet, TaskViewSet, ChainViewSet
+from api.serializer import TaskStageSerializer, TaskStageReadSerializer, ChainSerializer
 
 
 class CampaignViewSetTest(APITestCase):
@@ -76,6 +77,74 @@ class CampaignViewSetTest(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
+class ChainViewSetTest(APITestCase):
+	def setUp(self):
+		self.url = reverse('chain-list')
+		self.factory = APIRequestFactory()
+		self.user = CustomUser.objects.create_user(
+			username='test',
+			email='test@email.com',
+			password='test')
+		self.campaign_creator = Group.objects.get(name='campaign_creator')
+		self.client.force_authenticate(user=self.user)
+
+		self.campaign = Campaign.objects.create(name='My testing campaign')
+		self.chain = Chain.objects.create(name='My testing chain ChainViewSet',
+											campaign=self.campaign)
+		self.view = ChainViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
+
+
+	def test_get_all_list_not_manager(self):
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_get_all_list_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		response = self.client.get(self.url)
+		expected_instance = ChainSerializer(self.chain).data
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertIn(expected_instance, json.loads(response.content))
+
+	def test_create_new_chain_with_existing_campaign_and_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		data_to_create = {
+			"name": "new chain created in test",
+			"campaign": self.campaign.id
+		}
+		request = self.factory.post(self.url, data_to_create)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		response_data = response.data
+		for key in data_to_create.keys():
+			self.assertEqual(data_to_create[key], data_to_create[key])
+
+	def test_create_new_chain_with_existing_campaign_and_not_manager(self):
+		data_to_create = {
+			"name": "new chain created in test",
+			"campaign": self.campaign.id
+		}
+		request = self.factory.post(self.url, data_to_create)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_create_new_chain_with_manager_and_no_existing_campaign(self):
+		self.user.managed_campaigns.add(self.campaign)
+		existing_ids = [i[0] for i in Campaign.objects.values_list('id') ]
+		not_existing_id = existing_ids[0]
+		while not_existing_id not in existing_ids:
+			not_existing_id = random.randint(1,10000000)
+		data_to_create = {
+			"name": "new chain created in test with not existing campaign",
+			"campaign": not_existing_id
+		}
+		request = self.factory.post(self.url, data_to_create)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class TaskStageViewSetTest(APITestCase):
 	def setUp(self):
 		self.url = reverse('taskstage-list')
@@ -111,7 +180,7 @@ class TaskStageViewSetTest(APITestCase):
 
 		ranks = [
 			Rank.objects.create(name=f'Testing rank views №{i}') for i in range(3)
-				]
+		]
 		rank_records = [RankRecord.objects.create(user=self.user, rank=rank) for rank in ranks]
 		ranks_and_task_stages = zip(ranks, task_stages)
 		rank_limits = [RankLimit.objects.create(
@@ -141,3 +210,38 @@ class TaskStageViewSetTest(APITestCase):
 		self.client.force_authenticate(user=self.user)
 		response = self.client.get(self.url + 'user_relevant/', format='json')
 		self.assertEqual(len(response.data), 0)
+
+
+class TaskViewSetTest(APITestCase):
+	def setUp(self):
+		self.url = reverse('task-list')
+		self.factory = APIRequestFactory()
+		self.user = CustomUser.objects.create_user(
+			username='test',
+			email='test@email.com',
+			password='test')
+
+		self.client.force_authenticate(user=self.user)
+
+		self.campaign = Campaign.objects.create(name='Testing campaign views')
+		self.chain = Chain.objects.create(name='Testing chain views', campaign=self.campaign)
+
+	def test_block_release_and_request_assignment(self):
+		task_stages = [TaskStage.objects.create(
+			name=f'Task stage testing #{i}', chain=self.chain,
+			x_pos=1, y_pos=1, is_creatable=True) for i in range(3)]
+		tasks = [Task.objects.create(
+			assignee=self.user,
+			stage=task_stages[i])
+			for i in range(3)]
+
+		for task in tasks:
+			response = self.client.get(self.url + f"{task.id}/release_assignment/")
+			self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+		tasks = [Task.objects.create(
+			stage=task_stages[i])
+			for i in range(3)]
+		for task in tasks:
+			response = self.client.get(self.url + f"{task.id}/request_assignment/")
+			self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
