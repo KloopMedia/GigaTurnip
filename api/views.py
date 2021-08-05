@@ -22,8 +22,6 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     serializer_class = CampaignSerializer
     queryset = Campaign.objects.all()
-    serializer_class = CampaignSerializer
-    queryset = Campaign.objects.all()
 
     permission_classes = (CampaignAccessPolicy,)
 
@@ -59,18 +57,6 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     }
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
-    filterset_fields = {
-        'chain': ['exact'],
-        'chain__campaign': ['exact'],
-        'is_creatable': ['exact'],
-        'ranks': ['exact'],
-        'ranks__users': ['exact'],
-        'ranklimits__is_creation_open': ['exact'],
-        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
-        'ranklimits__open_limit': ['exact', 'lt', 'gt']
-    }
-
-    permission_classes = (TaskStageAccessPolicy,)
 
     @action(detail=False)
     def user_relevant(self, request):
