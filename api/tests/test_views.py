@@ -194,25 +194,21 @@ class ChainViewSetTest(APITestCase):
 		response = self.view(request)
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-	"""def test_create_new_chain_with_manager_and_no_existing_campaign(self):
+	def test_create_new_chain_with_manager_and_no_existing_campaign(self):
 		self.user.managed_campaigns.add(self.campaign)
-		existing_ids = [i[0] for i in Campaign.objects.values_list('id')]
-		not_existing_id = existing_ids[-1] + random.randint(1, 10000000)
-		print("NOT EXISTING CAMPAIGNS: ", not_existing_id)
-		# Did not understand the following lines:
-
-		#while not_existing_id not in existing_ids:
-		#	not_existing_id = random.randint(1, 10000000)
+		existing_ids = [i[0] for i in Campaign.objects.values_list('id') ]
+		not_existing_id = existing_ids[0]
+		while not_existing_id not in existing_ids:
+			not_existing_id = random.randint(1,10000000)
 		data_to_create = {
 			"name": "new chain created in test with not existing campaign",
 			"campaign": not_existing_id
 		}
 		request = self.factory.post(self.url, data_to_create)
 		force_authenticate(request=request, user=self.user)
-		#response = self.view(request)
-		self.assertRaises("DoesNotExist", self.view(request), 'test')
-		#self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-	"""
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class TaskStageViewSetTest(APITestCase):
 	def setUp(self):
@@ -224,6 +220,7 @@ class TaskStageViewSetTest(APITestCase):
 			password='test')
 
 		self.client.force_authenticate(user=self.user)
+
 		self.campaign = Campaign.objects.create(name='Testing campaign views')
 		self.chain = Chain.objects.create(name='Testing chain views', campaign=self.campaign)
 

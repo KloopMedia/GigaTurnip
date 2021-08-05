@@ -124,6 +124,17 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     }
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
+    filterset_fields = {
+        'chain': ['exact'],
+        'chain__campaign': ['exact'],
+        'is_creatable': ['exact'],
+        'ranks': ['exact'],
+        'ranks__users': ['exact'],
+        'ranklimits__is_creation_open': ['exact'],
+        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
+        'ranklimits__open_limit': ['exact', 'lt', 'gt']
+    }
+
     permission_classes = (TaskStageAccessPolicy,)
 
     @action(detail=False)
@@ -277,7 +288,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'complete']
     queryset = Task.objects.all()
     permission_classes = (TaskAccessPolicy,)
-
+    
     def get_serializer_class(self):
         if self.action == 'create':
             return TaskCreateSerializer
