@@ -1,3 +1,4 @@
+import random
 import django, json
 
 django.setup()
@@ -95,7 +96,7 @@ class ChainViewSetTest(APITestCase):
 
 	def test_get_all_list_not_manager(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 	def test_get_all_list_manager(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -160,7 +161,7 @@ class TaskStageViewSetTest(APITestCase):
 
 	def test_user_relevant_if_had_task_stage_and_rank(self):
 		task_stage = TaskStage.objects.create(
-			name='Task stage testing', chain=chain,
+			name='Task stage testing', chain=self.chain,
 			x_pos=1, y_pos=1, is_creatable=True)
 		rank = Rank.objects.create(name='Testing rank views')
 		rank_record = RankRecord.objects.create(user=self.user, rank=rank)
@@ -174,7 +175,7 @@ class TaskStageViewSetTest(APITestCase):
 
 	def test_many_ranks_and_task_stages(self):
 		task_stages = [TaskStage.objects.create(
-			name=f'Task stage testing #{i}', chain=chain,
+			name=f'Task stage testing #{i}', chain=self.chain,
 			x_pos=1, y_pos=1, is_creatable=True) for i in range(3)]
 
 		ranks = [
@@ -244,3 +245,5 @@ class TaskViewSetTest(APITestCase):
 		for task in tasks:
 			response = self.client.get(self.url + f"{task.id}/request_assignment/")
 			self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	# todo: test update and partial update
