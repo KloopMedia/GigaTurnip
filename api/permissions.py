@@ -126,7 +126,7 @@ class TaskAccessPolicy(AccessPolicy):
 			"action": ["retrieve"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": 'is_assignee'
+			"condition_expression": 'is_assignee or is_manager_of_campaign'
 		},
 		{
 			"action": ["create"],
@@ -138,7 +138,7 @@ class TaskAccessPolicy(AccessPolicy):
 			"action": ["user_selectable"],
 			"principal": "*",
 			"effect": "allow",
-			"condition": "is_user_can_select"
+			"condition": "is_user_can_request_assignment"
 		},
 		{
 			"action": ["user_relevant"],
@@ -155,7 +155,7 @@ class TaskAccessPolicy(AccessPolicy):
 			"action": ["request_assignment"],
 			"principal": "*",
 			"effect": "allow",
-			"condition": "is_user_can_select"
+			"condition": "is_user_can_request_assignment"
 		},
 		{
 			"action": ["update", "partial_update"],
@@ -173,11 +173,11 @@ class TaskAccessPolicy(AccessPolicy):
 		task = view.get_object()
 		return task.complete is False
 
-	def is_user_can_select(self, request, view, action):
+	def is_user_can_request_assignment(self, request, view, action):
 		is_have_access = utils.filter_for_user_selectable_tasks(view.queryset, request)
 		return bool(is_have_access)
 
-	# создавать может тот у кого есть релевантные стэйджи
+	# if user have relevant task stages
 	def is_can_create(self, request, view, action):
 		queryset = TaskStage.objects.all()
 		relevant_stages = utils.filter_for_user_creatable_stages(queryset, request)
@@ -188,6 +188,12 @@ class TaskAccessPolicy(AccessPolicy):
 		is_manager = bool(utils.filter_tasks_for_manager(view.queryset, request))
 		is_have_assignee = bool(utils.filter_assignee_tasks(view.queryset, request))
 		return is_have_assignee or is_manager
+
+	def is_manager_of_campaign(self, request, view, action):
+		managed_campaigns = utils.filter_managed_campaigns(request)
+		task = view.get_object()
+		task_campaign = task.stage.chain.campaign
+		return task_campaign in managed_campaigns
 
 
 class TaskStageAccessPolicy(AccessPolicy):
