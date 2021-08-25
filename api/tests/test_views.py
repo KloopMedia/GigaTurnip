@@ -1,5 +1,4 @@
-import random
-import django, json
+import django, json, random
 
 django.setup()
 from rest_framework.reverse import reverse
@@ -9,7 +8,67 @@ from api.models import CustomUser, Campaign, TaskStage, Task, Chain, Rank, RankL
 from django.db.models import Q
 from rest_framework import status
 from api.views import CampaignViewSet, TaskStageViewSet, TaskViewSet, ChainViewSet
-from api.serializer import TaskStageSerializer, TaskStageReadSerializer, ChainSerializer
+from api.serializer import TaskStageSerializer, TaskStageReadSerializer, ChainSerializer, \
+	TaskRequestAssignmentSerializer, TaskDefaultSerializer
+from api import utils
+
+
+def create_campaign(name='Testing campaign views', description=''):
+	campaign = Campaign.objects.create(name=name, description=description)
+	return campaign
+
+
+def create_chain(campaign, name='Testing chain views'):
+	chain = Chain.objects.create(name=name, campaign=campaign)
+	return chain
+
+
+def create_rank(name='Rank for test request assign', description=''):
+	rank = Rank.objects.create(name=name, description=description)
+	return rank
+
+
+def create_rank_record(user, rank):
+	return RankRecord.objects.create(user=user, rank=rank)
+
+
+def create_task_stage(chain):
+	return TaskStage.objects.create(
+		name=f'Task stage testing ', chain=chain,
+		x_pos=1, y_pos=1, is_creatable=True)
+
+
+def create_task(task_stage,
+				assignee=None,
+				case=None,
+				responses=None,
+				in_tasks=None,
+				complete=False):
+	task = Task.objects.create(stage=task_stage,
+							   assignee=assignee,
+							   case=case,
+							   responses=responses,
+							   complete=complete,
+							   )
+	if in_tasks:
+		for in_task in in_tasks:
+			task.in_tasks.add(in_task)
+	return task
+
+
+def create_rank_limit(
+	rank, task_stage, open_limit=3, total_limit=3,
+	is_listing_allowed=False, is_submission_open=True,
+	is_selection_open=True, is_creation_open=True):
+	rank_limit = RankLimit.objects.create(
+		rank=rank, stage=task_stage,
+		open_limit=open_limit, total_limit=total_limit,
+		is_listing_allowed=is_listing_allowed,
+		is_submission_open=is_submission_open,
+		is_selection_open=is_selection_open,
+		is_creation_open=is_creation_open
+	)
+	return rank_limit
 
 
 class CampaignViewSetTest(APITestCase):
@@ -45,7 +104,7 @@ class CampaignViewSetTest(APITestCase):
 		request = self.factory.post(self.url, {"name": "created in test"})
 		force_authenticate(request=request, user=self.user)
 		response = self.view(request)
-		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 	def test_retrieve_not_my_campaign(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -90,9 +149,8 @@ class ChainViewSetTest(APITestCase):
 
 		self.campaign = Campaign.objects.create(name='My testing campaign')
 		self.chain = Chain.objects.create(name='My testing chain ChainViewSet',
-											campaign=self.campaign)
+										  campaign=self.campaign)
 		self.view = ChainViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
-
 
 	def test_get_all_list_not_manager(self):
 		response = self.client.get(self.url)
@@ -131,10 +189,10 @@ class ChainViewSetTest(APITestCase):
 
 	def test_create_new_chain_with_manager_and_no_existing_campaign(self):
 		self.user.managed_campaigns.add(self.campaign)
-		existing_ids = [i[0] for i in Campaign.objects.values_list('id') ]
+		existing_ids = [i[0] for i in Campaign.objects.values_list('id')]
 		not_existing_id = existing_ids[0]
 		while not_existing_id not in existing_ids:
-			not_existing_id = random.randint(1,10000000)
+			not_existing_id = random.randint(1, 10000000)
 		data_to_create = {
 			"name": "new chain created in test with not existing campaign",
 			"campaign": not_existing_id
@@ -180,12 +238,12 @@ class TaskStageViewSetTest(APITestCase):
 
 		ranks = [
 			Rank.objects.create(name=f'Testing rank views №{i}') for i in range(3)
-				]
+		]
 		rank_records = [RankRecord.objects.create(user=self.user, rank=rank) for rank in ranks]
 		ranks_and_task_stages = zip(ranks, task_stages)
 		rank_limits = [RankLimit.objects.create(
 			rank=rank_and_stage[0], stage=rank_and_stage[1],
-			open_limit=2+i, total_limit=2+i
+			open_limit=2 + i, total_limit=2 + i
 		) for i, rank_and_stage in enumerate(ranks_and_task_stages)]
 
 		for i, rank_limit in enumerate(rank_limits):
@@ -223,8 +281,10 @@ class TaskViewSetTest(APITestCase):
 
 		self.client.force_authenticate(user=self.user)
 
-		self.campaign = Campaign.objects.create(name='Testing campaign views')
-		self.chain = Chain.objects.create(name='Testing chain views', campaign=self.campaign)
+		self.rank = create_rank()
+		self.campaign = create_campaign()
+		self.chain = create_chain(campaign=self.campaign)
+		self.view = TaskViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
 
 	def test_block_release_and_request_assignment(self):
 		task_stages = [TaskStage.objects.create(
@@ -246,4 +306,234 @@ class TaskViewSetTest(APITestCase):
 			response = self.client.get(self.url + f"{task.id}/request_assignment/")
 			self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-	# todo: test update and partial update
+	def test_list_if_rank_and_not_assignee(self):
+		rank_record = create_rank_record(self.user, self.rank)
+
+		task_stage = create_task_stage(self.chain)
+
+		rank_limit = create_rank_limit(self.rank, task_stage, open_limit=4, total_limit=5, is_listing_allowed=True)
+
+		tasks = [create_task(task_stage) for i in range(3)]
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_list_if_rank_and_assignee(self):
+		rank_record = create_rank_record(self.user, self.rank)
+
+		task_stage = create_task_stage(self.chain)
+
+		rank_limit = create_rank_limit(self.rank, task_stage, open_limit=4, total_limit=5, is_listing_allowed=True)
+
+		tasks = [create_task(task_stage, assignee=self.user) for i in range(3)]
+		response = self.client.get(self.url)
+		response.render()
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+		expected_tasks = TaskDefaultSerializer(tasks, many=True).data
+		self.assertEqual(expected_tasks, json.loads(response.content))
+		for expected_task in expected_tasks:
+			self.assertIn(expected_task, json.loads(response.content))
+
+	def test_list_if_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+
+		rank_record = create_rank_record(self.user, self.rank)
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(self.rank, task_stage, open_limit=4, total_limit=5, is_listing_allowed=True)
+		tasks = [create_task(task_stage) for i in range(3)]
+
+		response = self.client.get(self.url)
+		response.render()
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+		expected_tasks = TaskDefaultSerializer(tasks, many=True).data
+		self.assertEqual(expected_tasks, json.loads(response.content))
+		for expected_task in expected_tasks:
+			self.assertIn(expected_task, json.loads(response.content))
+
+	def test_list_if_not_manager(self):
+		rank_record = create_rank_record(self.user, self.rank)
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(self.rank, task_stage, open_limit=4, total_limit=5, is_listing_allowed=True)
+		tasks = [create_task(task_stage) for i in range(3)]
+
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_retrieve_if_assignee_or_not(self):
+		rank_record = create_rank_record(user=self.user, rank=self.rank)
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(self.rank, task_stage)
+		tasks = [create_task(task_stage) for i in range(3)]
+
+		# if not assignee
+		for task in tasks:
+			response = self.client.get(self.url + f"{task.id}/")
+			self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+		# if assignee
+		for i, task in enumerate(tasks):
+			task.assignee = self.user
+			task.save()
+			response = self.client.get(self.url + f"{task.id}/")
+			response.render()
+			self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+			expected_task = TaskDefaultSerializer(task).data
+			self.assertEqual(expected_task, json.loads(response.content))
+
+	def test_retrieve_if_manager_of_asked_campaign(self):
+		self.user.managed_campaigns.add(self.campaign)
+		task_stage = create_task_stage(self.chain)
+		tasks = [create_task(task_stage) for i in range(3)]
+
+		for i, task in enumerate(tasks):
+			response = self.client.get(self.url + f"{task.id}/")
+			response.render()
+			self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+			expected_task = TaskDefaultSerializer(task).data
+			self.assertEqual(expected_task, json.loads(response.content))
+
+	def test_retrieve_if_manager_not_this_campaign(self):
+		another_campaign = create_campaign(name="campaign not for using")
+		self.user.managed_campaigns.add(another_campaign)
+		task_stage = create_task_stage(self.chain)
+		tasks = [create_task(task_stage) for i in range(3)]
+
+		for i, task in enumerate(tasks):
+			response = self.client.get(self.url + f"{task.id}/")
+			response.render()
+			self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_create_relevant_task_stages(self):
+		task_stage = create_task_stage(self.chain)
+		create_rank_limit(rank=self.rank, task_stage=task_stage)
+		create_rank_record(user=self.user, rank=self.rank)
+		task = {
+			'stage': task_stage.id,
+		}
+		request = self.factory.post(self.url, data=task)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+	def test_user_no_relevant_task_stages(self):
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(rank=self.rank, task_stage=task_stage)
+		rank_record = create_rank_record(user=self.user, rank=self.rank)
+
+		tasks = [create_task(task_stage=task_stage,
+							 assignee=self.user)
+				 for i in range(rank_limit.total_limit)]
+
+		task = {
+			'stage': task_stage.id,
+			'assignee': self.user.id
+		}
+		request = self.factory.post(self.url, data=task)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_create_tasks_dua_requests_if_relevan_stages(self):
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(rank=self.rank, task_stage=task_stage)
+		rank_record = create_rank_record(user=self.user, rank=self.rank)
+
+		for i in range(rank_limit.total_limit):
+			task = {
+				'stage': task_stage.id,
+				'assignee': self.user.id
+			}
+			request = self.factory.post(self.url, data=task)
+			force_authenticate(request=request, user=self.user)
+			response = self.view(request)
+			self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+	def test_update_assigned_task(self):
+		task_stage = create_task_stage(self.chain)
+		create_rank_limit(rank=self.rank, task_stage=task_stage)
+		create_rank_record(user=self.user, rank=self.rank)
+
+		task = create_task(task_stage=task_stage, assignee=self.user)
+		updated_task = {
+			'complete': True
+		}
+		response = self.client.patch(self.url + f'{task.id}/', updated_task)
+		response.render()
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertEqual(json.loads(response.content), {"complete": True, "responses": None, "id": task.id})
+
+	def test_update_not_assigned_task(self):
+		task_stage = create_task_stage(self.chain)
+		create_rank_limit(rank=self.rank, task_stage=task_stage)
+		create_rank_record(user=self.user, rank=self.rank)
+
+		task = create_task(task_stage=task_stage)
+		updated_task = {
+			'complete': True
+		}
+		response = self.client.patch(self.url + f'{task.id}/', updated_task)
+		response.render()
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_user_selectable_and_relevant_tasks(self):
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(
+			rank=self.rank,
+			task_stage=task_stage,
+			is_listing_allowed=True
+		)
+		rank_record = create_rank_record(user=self.user, rank=self.rank)
+
+		tasks = [create_task(task_stage=task_stage) for i in range(4)]
+		response = self.client.get(self.url + "user_selectable/")
+		content = json.loads(response.content)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertEqual(len(content), len(tasks))
+		for task in tasks:
+			expected_task = TaskDefaultSerializer(task).data
+			self.assertIn(expected_task, content)
+
+	def test_user_selectable_no_relevant_tasks(self):
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(
+			rank=self.rank,
+			task_stage=task_stage,
+			# is_listing_allowed=True #if uncomment would be relevant tasks
+		)
+		rank_record = create_rank_record(user=self.user, rank=self.rank)
+
+		tasks = [create_task(task_stage=task_stage) for i in range(4)]
+		response = self.client.get(self.url + "user_selectable/")
+
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+	def test_user_selectable_and_relevant_tasks_if_no_rank_record(self):
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(
+			rank=self.rank,
+			task_stage=task_stage,
+			is_listing_allowed=True
+		)
+
+		tasks = [create_task(task_stage=task_stage) for i in range(4)]
+		response = self.client.get(self.url + "user_selectable/")
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_user_selectable_and_relevant_tasks_if_no_tasks(self):
+		task_stage = create_task_stage(self.chain)
+		rank_limit = create_rank_limit(
+			rank=self.rank,
+			task_stage=task_stage,
+			is_listing_allowed=True
+		)
+		rank_record = create_rank_record(user=self.user, rank=self.rank)
+
+		response = self.client.get(self.url + "user_selectable/")
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+
