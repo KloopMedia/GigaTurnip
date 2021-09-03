@@ -79,10 +79,11 @@ class CampaignViewSetTest(APITestCase):
 			username='test',
 			email='test@email.com',
 			password='test')
-		self.campaign_creator = Group.objects.get(name='campaign_creator')
+		self.campaign_creator_group, created = Group.objects.get_or_create(name='campaign_creator')
 		self.client.force_authenticate(user=self.user)
 		self.campaign = Campaign.objects.create(name='My testing campaign')
 		self.view = CampaignViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
+		self.campaign_creator_group.user_set.add(self.user)
 
 	def test_get_list_of_campaigns_if_user_is_not_manager_of_any_campaign(self):
 		response = self.client.get(self.url)
@@ -94,21 +95,21 @@ class CampaignViewSetTest(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 	def test_create_new_campaign_if_not_campaign_creator(self):
+		self.campaign_creator_group.user_set.remove(self.user)
 		request = self.factory.post(self.url, {"name": "created in test"})
 		force_authenticate(request=request, user=self.user)
 		response = self.view(request)
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_create_new_campaign_if_campaign_creator(self):
-		self.user.groups.add(self.campaign_creator)
+		self.user.groups.add(Group.objects.get(name='campaign_creator'))
 		request = self.factory.post(self.url, {"name": "created in test"})
 		force_authenticate(request=request, user=self.user)
 		response = self.view(request)
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 	def test_retrieve_not_my_campaign(self):
-		self.user.managed_campaigns.add(self.campaign)
-		not_my_campaign = Campaign.objects.filter(~Q(id=self.campaign.id))[0]
+		not_my_campaign = Campaign.objects.filter(id=self.campaign.id)[0]
 		response = self.client.get(self.url + str(not_my_campaign.id) + '/')
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -144,6 +145,7 @@ class ChainViewSetTest(APITestCase):
 			username='test',
 			email='test@email.com',
 			password='test')
+		campaign_creator_group, created = Group.objects.get_or_create(name='campaign_creator')
 		self.campaign_creator = Group.objects.get(name='campaign_creator')
 		self.client.force_authenticate(user=self.user)
 
@@ -190,9 +192,12 @@ class ChainViewSetTest(APITestCase):
 	def test_create_new_chain_with_manager_and_no_existing_campaign(self):
 		self.user.managed_campaigns.add(self.campaign)
 		existing_ids = [i[0] for i in Campaign.objects.values_list('id')]
-		not_existing_id = existing_ids[0]
-		while not_existing_id not in existing_ids:
-			not_existing_id = random.randint(1, 10000000)
+		not_existing_id = existing_ids[-1] + random.randint(1, 10000000)
+		print("NOT EXISTING CAMPAIGNS: ", not_existing_id)
+		# Did not understand the following lines:
+
+		#while not_existing_id not in existing_ids:
+		#	not_existing_id = random.randint(1, 10000000)
 		data_to_create = {
 			"name": "new chain created in test with not existing campaign",
 			"campaign": not_existing_id
