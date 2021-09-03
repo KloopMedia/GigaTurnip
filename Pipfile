@@ -13,6 +13,7 @@ drf-firebase-auth = "*"
 drf-access-policy = "*"
 django-filter = "*"
 django-q = "*"
+coreapi = "*"
 
 [dev-packages]
 yapf = "*"

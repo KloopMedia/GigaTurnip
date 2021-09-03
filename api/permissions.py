@@ -92,7 +92,8 @@ class ChainAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_create(self, request, view, action) -> bool:
-		# при вызове action list вызывается эта функция и request.POST.get('campaign') = none, из-за этого всё крашится
+		# при вызове action list вызывается эта функция и request.POST.get('campaign') = none,
+		# из-за этого всё крашится
 		if not request.POST.get('campaign'):
 			return False
 
