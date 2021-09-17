@@ -1,3 +1,8 @@
+from api import serializer
+from api.views import ConditionalStageViewSet
+from django.http import request, response
+from api.serializer import ConditionalStageSerializer
+from api.models import ConditionalStage
 import django, json, random
 
 django.setup()
@@ -552,4 +557,64 @@ class TaskViewSetTest(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class ConditionalStageViewSetTest(APITestCase):
+	def setUp(self):
+		self.url = reverse('conditionalstage-list')
+		self.factory = APIRequestFactory()
+		self.user = CustomUser.objects.create_user(
+			username='test',
+			email='test@mail.ru',
+			password='test'
+		)
 
+		self.client.force_authenticate(user=self.user)
+		self.campaign = Campaign.objects.create(name='Test campaign view')
+		self.chain = Chain.objects.create(name='Test chain view', campaign=self.campaign)
+		self.view = ConditionalStageViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
+	
+	def test_conditional_stage_page_loads_fail(self):
+		response = self.client.get('/conditionalstage-list/api/test/')
+		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+	def test_conditional_stage_page_loads_success(self):
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_conditional_stage_get_all_list(self):
+		conditions = {
+                "field": "verified",
+                "condition": "==",
+                "value": "Да"
+				}
+
+		conditional_stage = ConditionalStage.objects.create(
+			name='conditional stage test',
+			chain=self.chain,
+			x_pos=1, y_pos=1, 
+			conditions=conditions
+		)
+		response = self.client.get(self.url)
+		data = ConditionalStageSerializer(conditional_stage).data
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertIn(data, json.loads(response.content))
+		self.assertNotEqual(len(json.loads(response.content)), 0)
+		
+	def test_conditional_stage_created(self):
+		data_to_create = {
+    	"name": "Test", 
+    	"x_pos": "34.20000000000000", 
+    	"y_pos": "21.10000000000000",
+		'chain': 1,
+		}
+
+		request = self.factory.post(self.url, data_to_create)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		response_data = response.data
+		for key in data_to_create.keys():
+			self.assertEqual(data_to_create[key], response_data[key])
+	
