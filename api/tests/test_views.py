@@ -1,20 +1,17 @@
-from api import serializer
-from api.views import ConditionalStageViewSet
-from django.http import request, response
-from api.serializer import ConditionalStageSerializer
-from api.models import ConditionalStage
+from api.models import Track
 import django, json, random
+from django.http import request, response
 
 django.setup()
 from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 from django.contrib.auth.models import Group
-from api.models import CustomUser, Campaign, TaskStage, Task, Chain, Rank, RankLimit, RankRecord
+from api.models import CustomUser, Campaign, TaskStage, Task, Chain, Rank, RankLimit, RankRecord, ConditionalStage
 from django.db.models import Q
 from rest_framework import status
-from api.views import CampaignViewSet, TaskStageViewSet, TaskViewSet, ChainViewSet
+from api.views import CampaignViewSet, TaskStageViewSet, TaskViewSet, ChainViewSet, ConditionalStageViewSet, RankViewSet
 from api.serializer import TaskStageSerializer, TaskStageReadSerializer, ChainSerializer, \
-	TaskRequestAssignmentSerializer, TaskDefaultSerializer
+	TaskRequestAssignmentSerializer, TaskDefaultSerializer, ConditionalStageSerializer
 from api import utils
 
 
@@ -617,4 +614,84 @@ class ConditionalStageViewSetTest(APITestCase):
 		response_data = response.data
 		for key in data_to_create.keys():
 			self.assertEqual(data_to_create[key], response_data[key])
-	
+
+	def test_if_no_conditional_stages(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.get(self.url, format='json')
+		self.assertEqual(len(response.data), 0)
+
+class RankViewSetTest(APITestCase):
+	def setUp(self):
+		self.url = reverse('rank-list')
+		self.factory = APIRequestFactory()
+		self.user = CustomUser.objects.create_user(
+			username='test',
+			email='test@mail.ru',
+			password='test'
+		)	
+
+		self.client.force_authenticate(user=self.user)
+		self.rank = Rank.objects.create(name='test rank')
+		self.view = RankViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
+
+	def test_create_if_not_manager(self):
+		data_to_create = {
+			'name':'test',
+			'description':'test description'
+		}
+
+		request = self.factory.post(self.url, data_to_create)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_create_if_user_manager(self):
+		new_campaign = create_campaign()
+		self.user.managed_campaigns.add(new_campaign)
+		data_to_create = {
+			'name':'test',
+			'description':'test description'
+		}
+		request = self.factory.post(self.url, data_to_create)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		response_data = response.data
+		for key in data_to_create.keys():
+			self.assertEqual(data_to_create[key], response_data[key])
+
+	def test_partial_update_if_not_manager(self):
+		new_rank = Rank.objects.create(name='test')
+		url = self.url + str(new_rank.id) + '/'
+		request = self.factory.patch(url, {'name':'test edit forbidden'})
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request, pk=str(new_rank.id))
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_partial_update_if_manager(self):
+		new_campaign = create_campaign()
+		self.user.managed_campaigns.add(new_campaign)
+		self.user.ranks.add(self.rank)
+		new_track = Track.objects.create(name='test track', campaign=new_campaign, default_rank=self.rank)
+		new_track.ranks.add(self.rank)
+		url = self.url + str(self.rank.id) + '/'
+		response = self.client.patch(url, {'name':'test edit'})
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_retrieve_if_not_manager(self):
+		new_rank = Rank.objects.create(name='test')
+		url = self.url + str(new_rank.id) + '/'
+		request = self.factory.get(url, format='json')
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_retrieve_if_manager(self):
+		new_campaign = create_campaign()
+		self.user.managed_campaigns.add(new_campaign)
+		self.user.ranks.add(self.rank)
+		new_track = Track.objects.create(name='test track', campaign=new_campaign, default_rank=self.rank)
+		new_track.ranks.add(self.rank)
+		url = self.url + str(new_track.id) + '/'
+		response = self.client.get(url)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
