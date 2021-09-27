@@ -670,7 +670,6 @@ class RankViewSetTest(APITestCase):
 	def test_partial_update_if_manager(self):
 		new_campaign = create_campaign()
 		self.user.managed_campaigns.add(new_campaign)
-		self.user.ranks.add(self.rank)
 		new_track = Track.objects.create(name='test track', campaign=new_campaign, default_rank=self.rank)
 		new_track.ranks.add(self.rank)
 		url = self.url + str(self.rank.id) + '/'
@@ -687,11 +686,17 @@ class RankViewSetTest(APITestCase):
 	def test_retrieve_if_manager(self):
 		new_campaign = create_campaign()
 		self.user.managed_campaigns.add(new_campaign)
-		self.user.ranks.add(self.rank)
 		new_track = Track.objects.create(name='test track', campaign=new_campaign, default_rank=self.rank)
 		new_track.ranks.add(self.rank)
 		url = self.url + str(new_track.id) + '/'
 		response = self.client.get(url)
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-
+	def test_destroy(self):
+		new_campaign = create_campaign()
+		self.user.managed_campaigns.add(new_campaign)
+		new_track = Track.objects.create(name='test track', campaign=new_campaign, default_rank=self.rank)
+		new_track.ranks.add(self.rank)
+		url = self.url + str(new_track.id) + '/'
+		response = self.client.delete(url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
