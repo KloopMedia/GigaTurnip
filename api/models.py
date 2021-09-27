@@ -90,6 +90,8 @@ class Stage(PolymorphicModel, BaseModel):
 
 
 class TaskStage(Stage, SchemaProvider):
+    rich_text = models.TextField(null=True, blank=True,
+                                 help_text="Text field with rich HTML formatting, can be used for manuals")
     copy_input = models.BooleanField(default=False, help_text="")
     allow_multiple_files = models.BooleanField(default=False, help_text="Allow user to upload multiple files")
     is_creatable = models.BooleanField(default=False, help_text="Allow user to create a task manually")
