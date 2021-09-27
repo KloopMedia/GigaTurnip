@@ -1,3 +1,5 @@
+from api.models import Stage
+from api.views import RankLimitViewSet
 from api.models import Track
 import django, json, random
 from django.http import request, response
@@ -700,3 +702,80 @@ class RankViewSetTest(APITestCase):
 		url = self.url + str(new_track.id) + '/'
 		response = self.client.delete(url)
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	
+class RankLimitViewSetTest(APITestCase):
+	def setUp(self):
+		self.url = reverse('ranklimit-list')
+		self.factory = APIRequestFactory()
+		self.user = CustomUser.objects.create_user(
+			username='test',
+			email='test@mail.com',
+			password='test'
+		)
+
+		self.client.force_authenticate(user=self.user)
+		self.rank = create_rank()
+		self.campaign = create_campaign()
+		self.chain = Chain.objects.create(name='chain test', campaign=self.campaign)
+		self.task_stage = TaskStage.objects.create(
+		name=f'Task stage testing ', 
+		chain=self.chain,x_pos=1, y_pos=1, 
+		is_creatable=True)
+		self.rank_limit = RankLimit.objects.create(
+			rank=self.rank,
+			stage=self.task_stage)
+		self.view = RankLimitViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
+
+	def test_get_list_if_manager_does_not_exist(self):
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+	def test_get_list_if_manager_exists(self):
+		self.user.managed_campaigns.add(self.campaign)
+		new_track = Track.objects.create(name='test track', campaign=self.campaign, default_rank=self.rank)
+		new_track.ranks.add(self.rank)
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_create_if_not_manager(self):
+		data_to_create = {
+			'rank': self.rank.id,
+			'stage': self.task_stage.id,
+		}
+
+		request = self.factory.post(self.url, data_to_create)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+#не работает
+	def test_create_if_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		data_to_create = {
+			'rank': self.rank.id,
+			'stage': self.task_stage.id,
+		}
+		request = self.factory.post(self.url, data_to_create)
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+	def test_partial_update_if_not_manager(self):
+		url = self.url + str(self.rank_limit.id) + '/'
+		request = self.factory.patch(url, {'rank':2, 'stage':1})
+		force_authenticate(request=request, user=self.user)
+		response = self.view(request, pk=str(self.rank_limit.id))
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_partial_update_if_manager(self):
+		rank_test = create_rank()
+		self.user.managed_campaigns.add(self.campaign)
+		new_track = Track.objects.create(name='test track', campaign=self.campaign, default_rank=self.rank)
+		new_track.ranks.add(self.rank)
+		url = self.url + str(self.rank_limit.id) + '/'
+		response = self.client.patch(url, {'rank':rank_test.id})
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+
+
