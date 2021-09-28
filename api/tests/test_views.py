@@ -733,34 +733,47 @@ class RankLimitViewSetTest(APITestCase):
 
 	def test_get_list_if_manager_exists(self):
 		self.user.managed_campaigns.add(self.campaign)
-		new_track = Track.objects.create(name='test track', campaign=self.campaign, default_rank=self.rank)
-		new_track.ranks.add(self.rank)
 		response = self.client.get(self.url)
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 	def test_create_if_not_manager(self):
+		test_rank = create_rank()
+		test_chain = Chain.objects.create(name='chain test 2', campaign=self.campaign)
+		test_task_stage = TaskStage.objects.create(
+		name=f'Task stage test 2', 
+		chain=test_chain,x_pos=2, y_pos=3, 
+		is_creatable=True)
 		data_to_create = {
-			'rank': self.rank.id,
-			'stage': self.task_stage.id,
+			'rank': test_rank.id,
+			'stage': test_task_stage.id,
 		}
-
 		request = self.factory.post(self.url, data_to_create)
 		response = self.view(request)
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-#не работает
 	def test_create_if_manager(self):
+		test_rank = create_rank()
+		test_chain = Chain.objects.create(name='chain test 2', campaign=self.campaign)
+		test_task_stage = TaskStage.objects.create(
+		name=f'Task stage test 2', 
+		chain=test_chain,x_pos=2, y_pos=3, 
+		is_creatable=True)
 		self.user.managed_campaigns.add(self.campaign)
 		data_to_create = {
-			'rank': self.rank.id,
-			'stage': self.task_stage.id,
+			'rank': test_rank.id,
+			'stage': test_task_stage.id,
 		}
 		request = self.factory.post(self.url, data_to_create)
 		force_authenticate(request=request, user=self.user)
 		response = self.view(request)
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		response_data = response.data
+		for key in data_to_create.keys():
+			self.assertEqual(data_to_create[key], response_data[key])
 
 	def test_partial_update_if_not_manager(self):
+		new_track = Track.objects.create(name='test track', campaign=self.campaign, default_rank=self.rank)
+		new_track.ranks.add(self.rank)
 		url = self.url + str(self.rank_limit.id) + '/'
 		request = self.factory.patch(url, {'rank':2, 'stage':1})
 		force_authenticate(request=request, user=self.user)
@@ -775,6 +788,13 @@ class RankLimitViewSetTest(APITestCase):
 		url = self.url + str(self.rank_limit.id) + '/'
 		response = self.client.patch(url, {'rank':rank_test.id})
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_destroy(self):
+		self.user.managed_campaigns.add(self.campaign)
+		url = self.url + str(self.rank_limit.id) + '/'
+		response = self.client.delete(url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 
 
