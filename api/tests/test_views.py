@@ -636,6 +636,16 @@ class RankViewSetTest(APITestCase):
 		self.rank = Rank.objects.create(name='test rank')
 		self.view = RankViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
 
+	def test_get_list_if_not_manager(self):
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+	def test_get_list_if_manager(self):
+		new_campaign = create_campaign()
+		self.user.managed_campaigns.add(new_campaign)
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
 	def test_create_if_not_manager(self):
 		data_to_create = {
 			'name':'test',
