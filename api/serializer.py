@@ -21,7 +21,7 @@ class ChainSerializer(serializers.ModelSerializer):
 
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
-schema_provider_fields = ['json_schema', 'ui_schema', 'library']
+schema_provider_fields = ['json_schema', 'ui_schema', 'library', 'rich_text']
 
 
 class TaskStageReadSerializer(serializers.ModelSerializer):

@@ -17,6 +17,25 @@ from api.asyncstuff import process_completed_task
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing campaigns.
+
+    create:
+    Create a new campaign instance.
+
+    delete:
+    Delete campaign.
+
+    read:
+    Get campaign data.
+
+    update:
+    Update campaign data.
+
+    partial_update:
+    Partial update campaign data.
+    """
 
     serializer_class = CampaignSerializer
     queryset = Campaign.objects.all()
@@ -25,13 +44,61 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
 
 class ChainViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing chains.
+
+    create:
+    Create a new chain instance.
+
+    delete:
+    Delete chain.
+
+    read:
+    Get chain data.
+
+    update:
+    Update chain data.
+
+    partial_update:
+    Partial update chain data.
+    """
+
     filterset_fields = ['campaign', ]
     serializer_class = ChainSerializer
     queryset = Chain.objects.all()
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing task stages.
+
+    create:
+    Create a new task stage instance.
+
+    delete:
+    Delete task stage.
+
+    read:
+    Get task stage data.
+
+    update:
+    Update task stage data.
+
+    partial_update:
+    Partial update task stage data.
+
+    user_relevant:
+    Return a list of task stages that are relevant to "request" user.
+    """
+
     def get_serializer_class(self):
+        """
+        get_serializer_class:
+        Выбирает нужные сериалайзер (для чтения или обычный).
+        """
+
         if self.action == 'create' or self.action == 'update' or self.action == 'partial_update':
             return TaskStageSerializer
         else:
@@ -89,23 +156,113 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
 
 class WebHookStageViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing webhook stages.
+
+    create:
+    Create a new chain webhook stage.
+
+    delete:
+    Delete webhook stage.
+
+    read:
+    Get webhook stage data.
+
+    update:
+    Update webhook stage data.
+
+    partial_update:
+    Partial update webhook stage data.
+    """
+
     filterset_fields = ['chain', ]
     queryset = WebHookStage.objects.all()
     serializer_class = WebHookStageSerializer
 
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing conditional stages.
+
+    create:
+    Create a new chain conditional stage.
+
+    delete:
+    Delete conditional stage.
+
+    read:
+    Get conditional stage data.
+
+    update:
+    Update conditional stage data.
+
+    partial_update:
+    Partial update conditional stage data.
+    """
     filterset_fields = ['chain', ]
     queryset = ConditionalStage.objects.all()
     serializer_class = ConditionalStageSerializer
 
 
 class CaseViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing cases.
+
+    create:
+    Create a new case instance.
+
+    delete:
+    Delete case.
+
+    read:
+    Get case data.
+
+    update:
+    Update case data.
+
+    partial_update:
+    Partial update case data.
+    """
     queryset = Case.objects.all()
     serializer_class = CaseSerializer
 
 
 class TaskViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing tasks.
+
+    create:
+    Create a new task instance. Note: if task is completed, process_completed_task() function will be called.
+
+    delete:
+    Delete task.
+
+    read:
+    Get task data.
+
+    update:
+    Update task data. Note: if task is completed, process_completed_task() function will be called.
+
+    partial_update:
+    Partial update task data.
+
+    user_relevant:
+    Return a list of tasks where user is task assignee.
+
+    user_selectable:
+    Return a list of not assigned uncompleted tasks that are allowed to the user.
+
+    request_assignment:
+    Assign user to requested task
+
+    release_assignment:
+    Release user from requested task
+    """
+
     filterset_fields = ['stage',
                         'case',
                         'stage__chain__campaign',
@@ -208,21 +365,99 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 
 class RankViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing ranks.
+
+    create:
+    Create a new rank instance.
+
+    delete:
+    Delete rank.
+
+    read:
+    Get rank data.
+
+    update:
+    Update rank data.
+
+    partial_update:
+    Partial update rank data.
+    """
     queryset = Rank.objects.all()
     serializer_class = RankSerializer
 
 
 class RankRecordViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing rank records.
+
+    create:
+    Create a new rank record instance.
+
+    delete:
+    Delete rank record.
+
+    read:
+    Get rank record data.
+
+    update:
+    Update rank record data.
+
+    partial_update:
+    Partial update rank record data.
+    """
     queryset = RankRecord.objects.all()
     serializer_class = RankRecordSerializer
 
 
 class RankLimitViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing rank limits.
+
+    create:
+    Create a new rank limit instance.
+
+    delete:
+    Delete rank limit.
+
+    read:
+    Get rank limit data.
+
+    update:
+    Update rank limit data.
+
+    partial_update:
+    Partial update rank limit data.
+    """
+
     filterset_fields = ['rank', ]
     queryset = RankLimit.objects.all()
     serializer_class = RankLimitSerializer
 
 
 class TrackViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing tracks.
+
+    create:
+    Create a new track instance.
+
+    delete:
+    Delete track.
+
+    read:
+    Get track data.
+
+    update:
+    Update track data.
+
+    partial_update:
+    Partial update track data.
+    """
+
     queryset = Track.objects.all()
     serializer_class = TrackSerializer
