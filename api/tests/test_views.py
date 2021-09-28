@@ -795,7 +795,16 @@ class RankLimitViewSetTest(APITestCase):
 		response = self.client.delete(url)
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+	def test_retrieve_if_not_manager(self):
+		url = self.url + str(self.rank_limit.id) + '/'
+		response = self.client.get(url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+	def test_retrieve_if_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		url = self.url + str(self.rank_limit.id) + '/'
+		response = self.client.get(url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 
