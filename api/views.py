@@ -5,10 +5,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
-    WebHookStage, ConditionalStage, Case, Task, Rank, \
+    ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord
 from api.serializer import CampaignSerializer, ChainSerializer, \
-    TaskStageSerializer, WebHookStageSerializer, ConditionalStageSerializer, \
+    TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
     TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
@@ -155,30 +155,30 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class WebHookStageViewSet(viewsets.ModelViewSet):
-    """
-    list:
-    Return a list of all the existing webhook stages.
-
-    create:
-    Create a new chain webhook stage.
-
-    delete:
-    Delete webhook stage.
-
-    read:
-    Get webhook stage data.
-
-    update:
-    Update webhook stage data.
-
-    partial_update:
-    Partial update webhook stage data.
-    """
-
-    filterset_fields = ['chain', ]
-    queryset = WebHookStage.objects.all()
-    serializer_class = WebHookStageSerializer
+# class WebHookStageViewSet(viewsets.ModelViewSet):
+#     """
+#     list:
+#     Return a list of all the existing webhook stages.
+#
+#     create:
+#     Create a new chain webhook stage.
+#
+#     delete:
+#     Delete webhook stage.
+#
+#     read:
+#     Get webhook stage data.
+#
+#     update:
+#     Update webhook stage data.
+#
+#     partial_update:
+#     Partial update webhook stage data.
+#     """
+#
+#     filterset_fields = ['chain', ]
+#     queryset = WebHookStage.objects.all()
+#     serializer_class = WebHookStageSerializer
 
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):

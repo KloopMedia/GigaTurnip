@@ -153,13 +153,51 @@ class TaskStage(Stage, SchemaProvider):
                                                          "will be assigned "
                                                          "to a task")
 
+    webhook_address = models.URLField(
+        null=True,
+        blank=True,
+        max_length=1000,
+        help_text=(
+            "Webhook URL address. If not empty, field indicates that "
+            "task should be given not to a user in the system, but to a "
+            "webhook. Only data from task directly preceding webhook is "
+            "sent. All fields related to user assignment are ignored,"
+            "if this field is not empty."
+        )
+    )
 
-class WebHookStage(Stage, SchemaProvider):
+    webhook_payload_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON field name to put outgoing data into. Ignored if "
+            "webhook_address field is empty."
+        )
+    )
 
-    web_hook_address = models.TextField()
+    webhook_params = models.JSONField(
+        null=True,
+        help_text=(
+            "Get parameters sent to webhook."
+        )
+    )
 
-    def __str__(self):
-        return str("Web Hook Stage Filler for " + self.stage.__str__())
+    webhook_response_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON response field name to extract data from. Ignored if "
+            "webhook_address field is empty."
+        )
+    )
+
+
+# class WebHookStage(Stage, SchemaProvider):
+#
+#     web_hook_address = models.TextField()
+#
+#     def __str__(self):
+#         return str("Web Hook Stage Filler for " + self.stage.__str__())
 
 
 class ConditionalStage(Stage):
