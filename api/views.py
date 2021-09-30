@@ -287,7 +287,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             serializer.save(case=case)
             data = serializer.data
             if data['complete']:
-                process_completed_task(self.get_object())
+                print("Get complete task.")
+                task = self.get_object()
+                print("Start processing complete task.")
+                process_completed_task(task)
             # if data['complete']:
             #     result(async_task(process_completed_task,
             #                       data['id'],

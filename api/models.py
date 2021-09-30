@@ -177,6 +177,7 @@ class TaskStage(Stage, SchemaProvider):
 
     webhook_params = models.JSONField(
         null=True,
+        blank=True,
         help_text=(
             "Get parameters sent to webhook."
         )
