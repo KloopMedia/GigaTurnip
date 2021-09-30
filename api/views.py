@@ -284,19 +284,15 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             case = Case.objects.create()
-            serializer.save(case=case)
-            data = serializer.data
-            if data['complete']:
-                print("Get complete task.")
-                task = self.get_object()
-                print("Start processing complete task.")
+            task = serializer.save(case=case)
+            if task.complete:
                 process_completed_task(task)
             # if data['complete']:
             #     result(async_task(process_completed_task,
             #                       data['id'],
             #                       task_name='process_completed_task',
             #                       group='follow_chain'))
-            return Response(data, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

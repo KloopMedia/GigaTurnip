@@ -34,7 +34,6 @@ def process_out_stages(current_stage, task):
 
 
 def create_new_task(stage, in_task):
-    print("Start creating new task.")
     data = {"stage": stage, "case": in_task.case}
     if stage.webhook_address:
         params = {}
