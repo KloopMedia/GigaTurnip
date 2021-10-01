@@ -1,3 +1,4 @@
+from os import stat
 from api.models import Stage
 from api.views import RankLimitViewSet, RankRecordViewSet
 from api.models import Track
@@ -889,8 +890,8 @@ class RankRecordViewSetTest(APITestCase):
 		new_track = Track.objects.create(name='test track', campaign=self.campaign, default_rank=self.rank)
 		new_track.ranks.add(self.rank)
 		url = self.url + str(self.rank_record.id) + '/'
-		reponse = self.client.patch(url, {'user':1})
-		self.assertEqual(reponse.status_code, status.HTTP_403_FORBIDDEN)
+		response = self.client.patch(url, {'user':1})
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_partial_update_if_manager(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -906,5 +907,85 @@ class RankRecordViewSetTest(APITestCase):
 		reponse = self.client.delete(url)
 		self.assertEqual(reponse.status_code, status.HTTP_403_FORBIDDEN)
 
+class TrackViewSetTest(APITestCase):
+	def setUp(self):
+		self.url = reverse('track-list')
+		self.factory = APIRequestFactory()
+		self.user = CustomUser.objects.create_user(
+			username='test',
+			email='test@mail.com',
+			password='test'
+		)
 
+		self.client.force_authenticate(user=self.user)
+		self.campaign = create_campaign()
+		self.rank = Rank.objects.create(name='test rank')
+		self.new_track = Track.objects.create(name='test track', campaign=self.campaign)
+		self.new_track.ranks.add(self.rank)
 
+	def test_get_list_if_not_manager(self):
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+	def test_get_list_if_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_create_if_manager(self):
+		data_to_create = {
+			'name': 'test track 2',
+			'campaign': self.campaign.id,
+			'ranks': [
+				1, 
+			]
+		}
+		
+		self.user.managed_campaigns.add(self.campaign)
+		response = self.client.post(self.url, data_to_create)
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		response_data = response.data
+		for key in data_to_create.keys():
+			self.assertEqual(data_to_create[key], response_data[key])
+
+	def test_create_if_not_manager(self):
+		data_to_create = {
+			'name': 'test track 2',
+			'campaign': self.campaign.id,
+			'ranks': [
+				1, 
+			]
+		}
+		
+		response = self.client.post(self.url, data_to_create)
+		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+	def test_partial_update_if_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		test_rank = Rank.objects.create(name='test rank 2.0')
+		url = self.url + str(self.new_track.id) + '/'
+		response = self.client.patch(url, {'name': 'test Track 2.0', 'ranks':[2]})
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_partial_update_if_not_manager(self):
+		test_rank = Rank.objects.create(name='test rank 2.0')
+		url = self.url + str(self.new_track.id) + '/'
+		response = self.client.patch(url, {'name': 'test Track 2.0', 'ranks':[2]})
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_retrieve_if_not_manager(self):
+		url = self.url + str(self.new_track.id) + '/'
+		response = self.client.get(url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+	def test_retrieve_if_manager(self):
+		self.user.managed_campaigns.add(self.campaign)
+		url = self.url + str(self.new_track.id) + '/'
+		response = self.client.get(url)
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		
+	def test_destroy(self):
+		self.user.managed_campaigns.add(self.campaign)
+		url = self.url + str(self.new_track.id) + '/'
+		response = self.client.delete(url)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
