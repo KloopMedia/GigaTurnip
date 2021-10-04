@@ -1,11 +1,11 @@
-from os import stat
+import django, json, random
+django.setup()
+
 from api.models import Stage
 from api.views import RankLimitViewSet, RankRecordViewSet
 from api.models import Track
-import django, json, random
 from django.http import request, response
 
-django.setup()
 from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 from django.contrib.auth.models import Group
@@ -210,6 +210,7 @@ class ChainViewSetTest(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+
 class TaskStageViewSetTest(APITestCase):
 	def setUp(self):
 		self.url = reverse('taskstage-list')
@@ -272,10 +273,12 @@ class TaskStageViewSetTest(APITestCase):
 		self.assertEqual(len(response.data), 1)
 		self.assertIn(expected_instance, json.loads(response.content))
 
-	def test_if_no_task_stages(self):
+	def test_if_auth_but_no_task_stages(self):
 		self.client.force_authenticate(user=self.user)
+		self.user.managed_campaigns.add(self.campaign)
+
 		response = self.client.get(self.url + 'user_relevant/', format='json')
-		self.assertEqual(len(response.data), 0)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class TaskViewSetTest(APITestCase):
@@ -568,12 +571,19 @@ class ConditionalStageViewSetTest(APITestCase):
 		self.campaign = Campaign.objects.create(name='Test campaign view')
 		self.chain = Chain.objects.create(name='Test chain view', campaign=self.campaign)
 		self.view = ConditionalStageViewSet.as_view({'get': 'list', 'post': 'create', 'patch': 'partial_update'})
+		self.conditional_stage = {
+			"name": "Test",
+			"x_pos": "34.20000000000000",
+			"y_pos": "21.10000000000000",
+			'chain': 1,
+		}
 
 	def test_conditional_stage_page_loads_fail(self):
 		response = self.client.get('/conditionalstage-list/api/test/')
 		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 	def test_conditional_stage_page_loads_success(self):
+		self.user.managed_campaigns.add(self.campaign)
 		response = self.client.get(self.url)
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -590,6 +600,7 @@ class ConditionalStageViewSetTest(APITestCase):
 			x_pos=1, y_pos=1,
 			conditions=conditions
 		)
+		self.user.managed_campaigns.add(self.campaign)
 		response = self.client.get(self.url)
 		data = ConditionalStageSerializer(conditional_stage).data
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
