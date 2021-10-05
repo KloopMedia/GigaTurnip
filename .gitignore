@@ -3,5 +3,6 @@
 *.sqlite3
 ./.env
 __pycache__
-*.pyc
 *.egg-info
+*.pyc
+.DS_Store

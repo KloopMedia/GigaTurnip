@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
-    WebHookStage, ConditionalStage, Case, \
+    ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord
 
 
@@ -32,7 +32,9 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
                   'displayed_prev_stages', 'assign_user_by',
-                  'assign_user_from_stage']
+                  'assign_user_from_stage', 'rich_text', 'webhook_address',
+                  'webhook_payload_field', 'webhook_params',
+                  'webhook_response_field']
 
 
 class TaskStageSerializer(serializers.ModelSerializer):
@@ -42,13 +44,15 @@ class TaskStageSerializer(serializers.ModelSerializer):
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
                   'displayed_prev_stages', 'assign_user_by',
-                  'assign_user_from_stage']
+                  'assign_user_from_stage', 'rich_text', 'webhook_address',
+                  'webhook_payload_field', 'webhook_params',
+                  'webhook_response_field']
 
-class WebHookStageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WebHookStage
-        fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['web_hook_address', ]
+# class WebHookStageSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = WebHookStage
+#         fields = base_model_fields + stage_fields + schema_provider_fields + \
+#                  ['web_hook_address', ]
 
 
 class ConditionalStageSerializer(serializers.ModelSerializer):
