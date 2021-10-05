@@ -1,6 +1,8 @@
+from django.http import Http404
+from django.core.exceptions import PermissionDenied
 from rest_access_policy import AccessPolicy
-from api.models import Campaign
-
+from api.models import Campaign, TaskStage, Track
+from . import utils
 
 class CampaignAccessPolicy(AccessPolicy):
 	statements = [
@@ -198,23 +200,98 @@ class TaskAccessPolicy(AccessPolicy):
 class TaskStageAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["user_relevant"],
+			"action": ["list"],
 			"principal": "authenticated",
 			"effect": "allow",
+			"condition": "is_user_relevant"
 		},
 		{
 			"action": ["create"],
 			"principal": "authenticated",
 			"effect": "allow",
+			"condition": "is_manager_exist"
+		},
+		{
+			"action": ["retrieve"],
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition": "is_user_relevant"
+		},
+		{
+			"action": ["partial_update"],
+			"principal": "authenticated",
+			"effect": "allow",
 			"condition": "is_manager"
+		},
+		{
+			"action": ["user_relevant"],
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition": "is_user_relevant"
+		},
+		{
+			"action": ["destroy"],
+			"principal": "authenticated",
+			"effect": "deny",
 		}
 	]
 
-    def is_manager(self, request, view, action) -> bool:
-        task_stage = view.get_object()
-        managers = task_stage.managers.all()
+	def is_manager(self, request, view, action) -> bool:
+		task_stage = view.get_object()
+		managers = task_stage.managers.all()
 
-        return request.user in managers
+	def is_manager(self, request, view, action) -> bool:
+		conditional_stage = view.get_object()
+		managers = conditional_stage.сhain.campaign.managers.all()
+
+		return request.user in managers
+
+	def is_manager_exist(self, request, view, action) -> bool:
+		try:
+			return bool(Campaign.objects.get(managers=request.user))
+		except Campaign.DoesNotExist:
+			raise Http404("Product Couldn't be found")
+
+	def is_user_relevant(self, request, view, action) -> bool:
+		queryset = TaskStage.objects.all()
+		filtered_stages = utils.filter_for_user_creatable_stages(queryset, request)
+
+		return bool(filtered_stages)
+
+
+class ConditionalStageAccessPolicy(AccessPolicy):
+	statements = [
+		{
+			"action": ["list", "create", "retrieve", "partial_update"],
+			"principal": "authenticated",
+			"effect": "allow",
+			"condition_expression": "is_manager_exist or is_manager"
+
+		},
+		{
+			"action": ["destroy"],
+			"principal": "*",
+			"effect": "deny",
+		}
+	]
+
+	def is_manager(self, request, view, action) -> bool:
+		conditional_stage = view.get_object()
+		managers = conditional_stage.сhain.campaign.managers.all()
+
+		return request.user in managers
+
+	def is_manager_exist(self, request, view, action) -> bool:
+		try:
+			return bool(Campaign.objects.get(managers=request.user))
+		except Campaign.DoesNotExist:
+			raise PermissionDenied()
+
+	def is_user_relevant(self, request, view, action) -> bool:
+		queryset = TaskStage.objects.all()
+		filtered_stages = utils.filter_for_user_creatable_stages(queryset, request)
+
+		return bool(filtered_stages)
 
 
 class RankAccessPolicy(AccessPolicy):
@@ -399,3 +476,4 @@ class TrackAccessPolicy(AccessPolicy):
 		managers = campaign.managers.all()
 
 		return request.user in managers
+
