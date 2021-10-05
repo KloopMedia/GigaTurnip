@@ -263,10 +263,31 @@ class TaskStageAccessPolicy(AccessPolicy):
 class ConditionalStageAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["list", "create", "retrieve", "partial_update"],
-			"principal": "authenticated",
+			"action": ["list"],
+			"principal": "*",
 			"effect": "allow",
-			"condition_expression": "is_manager_exist or is_manager"
+			"condition": "is_manager_exist"
+
+		},
+		{
+			"action": ["create",],
+			"principal": "*",
+			"effect": "allow",
+			"condition": "is_manager_exist"
+
+		},
+		{
+			"action": ["retrieve",],
+			"principal": "*",
+			"effect": "allow",
+			"condition": "is_manager"
+
+		},
+		{
+			"action": ["partial_update"],
+			"principal": "*",
+			"effect": "allow",
+			"condition": "is_manager"
 
 		},
 		{
@@ -287,12 +308,6 @@ class ConditionalStageAccessPolicy(AccessPolicy):
 			return bool(Campaign.objects.get(managers=request.user))
 		except Campaign.DoesNotExist:
 			raise PermissionDenied()
-
-	def is_user_relevant(self, request, view, action) -> bool:
-		queryset = TaskStage.objects.all()
-		filtered_stages = utils.filter_for_user_creatable_stages(queryset, request)
-
-		return bool(filtered_stages)
 
 
 class RankAccessPolicy(AccessPolicy):

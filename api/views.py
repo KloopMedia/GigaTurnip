@@ -12,7 +12,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy, TaskAccessPolicy, \
-    RankAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy
+    RankAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy
 from . import utils
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -218,6 +218,8 @@ class ConditionalStageViewSet(viewsets.ModelViewSet):
     filterset_fields = ['chain', ]
     queryset = ConditionalStage.objects.all()
     serializer_class = ConditionalStageSerializer
+
+    permission_classes = (ConditionalStageAccessPolicy, )
 
 
 class CaseViewSet(viewsets.ModelViewSet):

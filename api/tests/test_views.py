@@ -578,7 +578,7 @@ class ConditionalStageViewSetTest(APITestCase):
 			"name": "Test",
 			"x_pos": "34.20000000000000",
 			"y_pos": "21.10000000000000",
-			'chain': 1,
+			'chain': self.chain.id,
 		}
 
 	def test_conditional_stage_page_loads_fail(self):
