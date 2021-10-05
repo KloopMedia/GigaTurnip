@@ -1,6 +1,4 @@
-from django.db.models import Count
-from django_q.tasks import async_task, result
-from rest_framework import generics, viewsets, status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -13,8 +11,9 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
     TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
 from api.asyncstuff import process_completed_task
-#from api.permissions import CampaignAccessPolicy
-
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy, TaskAccessPolicy, \
+    RankAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy
+from . import utils
 
 class CampaignViewSet(viewsets.ModelViewSet):
     """
@@ -68,7 +67,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     serializer_class = ChainSerializer
     queryset = Chain.objects.all()
 
-	permission_classes = (ChainAccessPolicy,)
+    permission_classes = (ChainAccessPolicy,)
 
 class TaskStageViewSet(viewsets.ModelViewSet):
     """
