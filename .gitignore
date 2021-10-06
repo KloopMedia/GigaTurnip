@@ -4,5 +4,9 @@
 ./.env
 __pycache__
 *.egg-info
+<<<<<<< HEAD
 *.pyc
 .DS_Store
+=======
+*/__pycache__
+>>>>>>> 32df016 (Drop migrations)
