@@ -543,7 +543,7 @@ class RankLimitAccessPolicy(AccessPolicy):
 			"action": ["retrieve", "partial_update"],
 			"principal": ["authenticated"],
 			"effect": "allow",
-			"condition": "is_manager"
+			"condition": "is_can_create"
 
 		},
 		{
@@ -559,7 +559,6 @@ class RankLimitAccessPolicy(AccessPolicy):
 		except Campaign.DoesNotExist:
 			raise Http404("Product Couldn't be found")
 
-	def is_manager(self, request, view, action) -> bool:
 	def is_not_complete(self, request, view, action):
 		task = view.get_object()
 		return task.complete is False
