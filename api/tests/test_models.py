@@ -5,7 +5,7 @@ from django.db import connection
 django.setup()
 from api.models import CustomUser, BaseModel, SchemaProvider, Campaign, \
 	CampaignManagement, Chain, Stage, TaskStage, \
-	WebHookStage, ConditionalStage, Case, Task, \
+	ConditionalStage, Case, Task, \
 	Rank, Track, RankRecord, RankLimit
 
 
@@ -216,39 +216,39 @@ class TaskStageModelTest(TestCase):
 		self.assertEqual(self.task_stage.chain.name, "New chain for tests 12324!")
 
 
-class WebHookStageModelTest(TestCase):  # TODO: finish up tests for web hook stage
-	@classmethod
-	def setUpTestData(cls):
-		campaign = Campaign.objects.create(name="Test campaign 12324!")
-		chain = Chain.objects.create(name="New chain for tests 12324!", campaign=campaign)
-		cls.web_hook_stage = WebHookStage.objects.create(chain=chain, x_pos=1, y_pos=1)
-
-	def test_labels(self):
-		field_name = self.web_hook_stage._meta.get_field('name').verbose_name
-		field_description = self.web_hook_stage._meta.get_field('description').verbose_name
-		field_x_pos = self.web_hook_stage._meta.get_field('x_pos').verbose_name
-		field_y_pos = self.web_hook_stage._meta.get_field('y_pos').verbose_name
-		field_chain = self.web_hook_stage._meta.get_field('chain').verbose_name
-		field_in_stages = self.web_hook_stage._meta.get_field('in_stages').verbose_name
-
-		field_json_schema = self.web_hook_stage._meta.get_field('json_schema').verbose_name
-		field_ui_schema = self.web_hook_stage._meta.get_field('ui_schema').verbose_name
-		field_library = self.web_hook_stage._meta.get_field('library').verbose_name
-
-		field_web_hook_address = self.web_hook_stage._meta.get_field('web_hook_address').verbose_name
-
-		self.assertEqual(field_name, 'name')
-		self.assertEqual(field_description, 'description')
-		self.assertEqual(field_x_pos, 'x pos')
-		self.assertEqual(field_y_pos, 'y pos')
-		self.assertEqual(field_chain, 'chain')
-		self.assertEqual(field_in_stages, 'in stages')
-
-		self.assertEqual(field_json_schema, "json schema")
-		self.assertEqual(field_ui_schema, "ui schema")
-		self.assertEqual(field_library, "library")
-
-		self.assertEqual(field_web_hook_address, "web hook address")
+# class WebHookStageModelTest(TestCase):  # TODO: finish up tests for web hook stage
+# 	@classmethod
+# 	def setUpTestData(cls):
+# 		campaign = Campaign.objects.create(name="Test campaign 12324!")
+# 		chain = Chain.objects.create(name="New chain for tests 12324!", campaign=campaign)
+# 		cls.web_hook_stage = WebHookStage.objects.create(chain=chain, x_pos=1, y_pos=1)
+#
+# 	def test_labels(self):
+# 		field_name = self.web_hook_stage._meta.get_field('name').verbose_name
+# 		field_description = self.web_hook_stage._meta.get_field('description').verbose_name
+# 		field_x_pos = self.web_hook_stage._meta.get_field('x_pos').verbose_name
+# 		field_y_pos = self.web_hook_stage._meta.get_field('y_pos').verbose_name
+# 		field_chain = self.web_hook_stage._meta.get_field('chain').verbose_name
+# 		field_in_stages = self.web_hook_stage._meta.get_field('in_stages').verbose_name
+#
+# 		field_json_schema = self.web_hook_stage._meta.get_field('json_schema').verbose_name
+# 		field_ui_schema = self.web_hook_stage._meta.get_field('ui_schema').verbose_name
+# 		field_library = self.web_hook_stage._meta.get_field('library').verbose_name
+#
+# 		field_web_hook_address = self.web_hook_stage._meta.get_field('web_hook_address').verbose_name
+#
+# 		self.assertEqual(field_name, 'name')
+# 		self.assertEqual(field_description, 'description')
+# 		self.assertEqual(field_x_pos, 'x pos')
+# 		self.assertEqual(field_y_pos, 'y pos')
+# 		self.assertEqual(field_chain, 'chain')
+# 		self.assertEqual(field_in_stages, 'in stages')
+#
+# 		self.assertEqual(field_json_schema, "json schema")
+# 		self.assertEqual(field_ui_schema, "ui schema")
+# 		self.assertEqual(field_library, "library")
+#
+# 		self.assertEqual(field_web_hook_address, "web hook address")
 
 
 # def test_object_name(self):
