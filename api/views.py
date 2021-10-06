@@ -69,7 +69,6 @@ class ChainViewSet(viewsets.ModelViewSet):
 
     permission_classes = (ChainAccessPolicy,)
 
-
 class TaskStageViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -281,7 +280,6 @@ class TaskViewSet(viewsets.ModelViewSet):
     """
 
     filterset_fields = ['stage',
-                        'case',
                         'stage__chain__campaign',
                         'assignee',
                         'complete']
