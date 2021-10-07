@@ -1,3 +1,5 @@
+import json
+
 import requests
 from django.db.models import Q
 
@@ -38,7 +40,7 @@ def create_new_task(stage, in_task):
     if stage.webhook_address:
         params = {}
         if stage.webhook_payload_field:
-            params[stage.webhook_payload_field] = in_task.responses
+            params[stage.webhook_payload_field] = json.dumps(in_task.responses)
         else:
             params = in_task.responses
         if stage.webhook_params:
