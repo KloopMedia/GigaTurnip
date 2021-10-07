@@ -92,7 +92,7 @@ class CampaignViewSetTest(APITestCase):
 
 	def test_get_list_of_campaigns_if_user_is_not_manager_of_any_campaign(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_get_list_of_campaigns_if_user_not_managers_of_any_campaign(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -161,7 +161,7 @@ class ChainViewSetTest(APITestCase):
 
 	def test_get_all_list_not_manager(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_get_all_list_manager(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -628,7 +628,7 @@ class ConditionalStageViewSetTest(APITestCase):
 	def test_if_no_conditional_stages(self):
 		self.client.force_authenticate(user=self.user)
 		response = self.client.get(self.url, format='json')
-		self.assertEqual(len(response.data), 0)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 class RankViewSetTest(APITestCase):
 	def setUp(self):
@@ -646,7 +646,7 @@ class RankViewSetTest(APITestCase):
 
 	def test_get_list_if_not_manager(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_get_list_if_manager(self):
 		new_campaign = create_campaign()
@@ -746,7 +746,7 @@ class RankLimitViewSetTest(APITestCase):
 
 	def test_get_list_if_manager_does_not_exist(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_get_list_if_manager_exists(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -844,7 +844,7 @@ class RankRecordViewSetTest(APITestCase):
 
 	def test_get_list_if_not_manager(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_get_list_if_manager(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -876,7 +876,7 @@ class RankRecordViewSetTest(APITestCase):
 			'rank':test_rank.id
 		}
 		response = self.client.post(self.url, data_to_create)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_create_if_manager(self):
 		test_user = CustomUser.objects.create(
@@ -932,7 +932,7 @@ class TrackViewSetTest(APITestCase):
 
 	def test_get_list_if_not_manager(self):
 		response = self.client.get(self.url)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_get_list_if_manager(self):
 		self.user.managed_campaigns.add(self.campaign)
@@ -965,7 +965,7 @@ class TrackViewSetTest(APITestCase):
 		}
 
 		response = self.client.post(self.url, data_to_create)
-		self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 	def test_partial_update_if_manager(self):
 		self.user.managed_campaigns.add(self.campaign)

@@ -1,16 +1,17 @@
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from django.core.exceptions import PermissionDenied
 from rest_access_policy import AccessPolicy
 from api.models import Campaign, TaskStage, Track
 from . import utils
 
+
 class CampaignAccessPolicy(AccessPolicy):
 	statements = [
 		{
 			"action": ["list"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager_exist"
+			# "condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
@@ -24,13 +25,13 @@ class CampaignAccessPolicy(AccessPolicy):
 		},
 		{
 			"action": ["partial_update"],
-			"principal": ["*"],
+			"principal": ["authenticated"],
 			"effect": "allow",
 			"condition": "is_manager"
 		},
 		{
 			"action": ["retrieve"],
-			"principal": ["*"],
+			"principal": ["authenticated"],
 			"effect": "allow",
 			"condition": "is_manager"
 		}
@@ -41,12 +42,6 @@ class CampaignAccessPolicy(AccessPolicy):
 		managers = campaign.managers.all()
 
 		return request.user in managers
-
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
 
 
 class ChainAccessPolicy(AccessPolicy):
@@ -178,7 +173,7 @@ class CampaignAccessPolicy(AccessPolicy):
 			"action": ["list"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager_exist"
+			# "condition": "is_manager_exist"
 		},
 		{
 			"action": ["create"],
@@ -214,7 +209,7 @@ class CampaignAccessPolicy(AccessPolicy):
 		try:
 			return bool(Campaign.objects.get(managers=request.user))
 		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+			raise Http404("Product Couldn't be found11")
 
 
 class ChainAccessPolicy(AccessPolicy):
@@ -272,10 +267,8 @@ class ChainAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
+
 
 
 class TaskAccessPolicy(AccessPolicy):
@@ -416,10 +409,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_user_relevant(self, request, view, action) -> bool:
 		queryset = TaskStage.objects.all()
@@ -472,10 +462,7 @@ class ConditionalStageAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise PermissionDenied()
+		return bool(Campaign.objects.filter(managers=request.user))
 
 
 class RankAccessPolicy(AccessPolicy):
@@ -507,10 +494,7 @@ class RankAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 
@@ -554,10 +538,7 @@ class RankLimitAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_not_complete(self, request, view, action):
 		task = view.get_object()
@@ -636,10 +617,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_user_relevant(self, request, view, action) -> bool:
 		queryset = TaskStage.objects.all()
@@ -692,10 +670,7 @@ class ConditionalStageAccessPolicy(AccessPolicy):
 		return request.user in managers
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise PermissionDenied()
+		return bool(Campaign.objects.filter(managers=request.user))
 
 
 class RankAccessPolicy(AccessPolicy):
@@ -727,10 +702,7 @@ class RankAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 
@@ -774,10 +746,7 @@ class RankLimitAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 
@@ -821,10 +790,7 @@ class RankRecordAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 
@@ -868,10 +834,7 @@ class TrackAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+		return bool(Campaign.objects.filter(managers=request.user))
 
 	def is_manager(self, request, view, action) -> bool:
 		track = view.get_object()
