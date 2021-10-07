@@ -1,7 +1,9 @@
+import json
+
+import requests
 from django.db.models import Q
 
 from api.models import Case, Stage, TaskStage, ConditionalStage, Task
-
 
 
 def process_completed_task(task):
@@ -35,14 +37,33 @@ def process_out_stages(current_stage, task):
 
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
-    if stage.assign_user_by == "ST":
-        if stage.assign_user_from_stage is not None:
-            assignee_task = Task.objects \
-                .filter(stage=stage.assign_user_from_stage) \
-                .filter(case=in_task.case)
-            data["assignee"] = assignee_task[0].assignee
-    new_task = Task.objects.create(**data)
-    new_task.in_tasks.set([in_task])
+    if stage.webhook_address:
+        params = {}
+        if stage.webhook_payload_field:
+            params[stage.webhook_payload_field] = json.dumps(in_task.responses)
+        else:
+            params = in_task.responses
+        if stage.webhook_params:
+            params.update(stage.webhook_params)
+        response = requests.get(stage.webhook_address, params=params)
+        if stage.webhook_response_field:
+            response = response.json()[stage.webhook_response_field]
+        else:
+            response = response.json()
+        data["responses"] = response
+        data["complete"] = True
+        new_task = Task.objects.create(**data)
+        new_task.in_tasks.set([in_task])
+        process_completed_task(new_task)
+    else:
+        if stage.assign_user_by == "ST":
+            if stage.assign_user_from_stage is not None:
+                assignee_task = Task.objects \
+                    .filter(stage=stage.assign_user_from_stage) \
+                    .filter(case=in_task.case)
+                data["assignee"] = assignee_task[0].assignee
+        new_task = Task.objects.create(**data)
+        new_task.in_tasks.set([in_task])
 
 
 def process_conditional(stage, in_task):
