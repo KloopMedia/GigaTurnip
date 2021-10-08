@@ -370,7 +370,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"action": ["create"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition_expression": "is_manager_exist or is_user_relevant"
+			"condition": "is_manager_exist"
 		},
 		{
 			"action": ["retrieve"],
