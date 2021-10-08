@@ -33,7 +33,7 @@ class CampaignAccessPolicy(AccessPolicy):
 			"action": ["retrieve"],
 			"principal": ["authenticated"],
 			"effect": "allow",
-			"condition": "is_manager"
+			# "condition": "is_manager"
 		}
 	]
 
@@ -122,39 +122,39 @@ class TaskAccessPolicy(AccessPolicy):
 			"condition_expression": 'is_assignee or is_manager_of_campaign'
 		},
 		{
-			"action": ["create"],
+			"action": ["create"],#todo: nobody
 			"principal": "authenticated",
 			"effect": "allow",
 			"condition": "is_can_create"
 		},
 		{
 			"action": ["user_selectable"],
-			"principal": "*",
+			"principal": "*",#todo: auth
 			"effect": "allow",
-			"condition": "is_user_can_request_assignment"
+			# "condition": "is_user_can_request_assignment"
 		},
 		{
 			"action": ["user_relevant"],
-			"principal": "authenticated",
+			"principal": "authenticated",#todo: auth
 			"effect": "allow",
 			#"condition": "is_can_create"
 		},
 		{
 			"action": ["release_assignment"],
-			"principal": "*",
+			"principal": "*", # todo:
 			"effect": "deny",
 		},
 		{
 			"action": ["request_assignment"],
 			"principal": "*",
 			"effect": "allow",
-			"condition": "is_user_can_request_assignment"
+			"condition": "is_user_can_request_assignment"#todo: right
 		},
 		{
 			"action": ["update", "partial_update"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition_expression": "is_assignee and is_not_complete"
+			"condition_expression": "is_assignee and is_not_complete"#todo: right
 		}
 	]
 
@@ -195,7 +195,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"action": ["list"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition_expression": "is_manager_exist or is_user_relevant"
+			"condition_expression": "is_manager_exist or is_user_relevant" # todo: is manager
 		},
 		{
 			"action": ["create"],
