@@ -137,7 +137,7 @@ class TaskAccessPolicy(AccessPolicy):
 			"action": ["user_relevant"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_can_create"
+			#"condition": "is_can_create"
 		},
 		{
 			"action": ["release_assignment"],
@@ -219,7 +219,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"action": ["user_relevant"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_user_relevant"
+			# "condition": "is_user_relevant"
 		},
 		{
 			"action": ["destroy"],
