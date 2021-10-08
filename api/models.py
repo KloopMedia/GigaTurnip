@@ -53,6 +53,16 @@ class Campaign(BaseModel):
                                       through="CampaignManagement",
                                       related_name="managed_campaigns")
 
+    def join(self, request):
+        if request.user is not None:
+            rank_record, created = RankRecord.objects.get_or_create(
+                user=request.user,
+                rank=self.default_track.default_rank
+            )
+            return rank_record, created
+        else:
+            return None, None
+
     def __str__(self):
         return str("Campaign: " + self.name)
 

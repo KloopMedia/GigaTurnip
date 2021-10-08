@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
 from .models import Campaign, Chain, \
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement
+    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track
 
 
 class CustomUserAdmin(UserAdmin):
@@ -20,3 +20,4 @@ admin.site.register(Rank)
 admin.site.register(RankLimit)
 admin.site.register(RankRecord)
 admin.site.register(CampaignManagement)
+admin.site.register(Track)

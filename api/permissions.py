@@ -8,7 +8,7 @@ from . import utils
 class CampaignAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["list"],
+			"action": ["list", "join_campaign"],
 			"principal": "authenticated",
 			"effect": "allow",
 			# "condition": "is_manager_exist"

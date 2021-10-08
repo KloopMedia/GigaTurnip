@@ -29,12 +29,30 @@ class CampaignViewSet(viewsets.ModelViewSet):
     Update campaign data.
     partial_update:
     Partial update campaign data.
+
+    join_campaign:
+    Request to join campaign on behalf of current user.
     """
 
     serializer_class = CampaignSerializer
     queryset = Campaign.objects.all()
 
     permission_classes = (CampaignAccessPolicy,)
+
+    @action(detail=True, methods=['post', 'get'])
+    def join_campaign(self, request, pk=None):
+        rank_record, created = self.get_object().join(request)
+        rank_record_json = RankRecordSerializer(instance=rank_record).data
+        if rank_record and created:
+            return Response({'status': status.HTTP_201_CREATED,
+                             'rank_record': rank_record_json})
+        elif rank_record and not created:
+            return Response({'status': status.HTTP_200_OK,
+                             'rank_record': rank_record_json})
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    # permission_classes = (CampaignAccessPolicy,)
 
 
 class ChainViewSet(viewsets.ModelViewSet):
