@@ -376,7 +376,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"action": ["retrieve"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition_expression": "is_manager_exist or is_user_relevant"
+			"condition_expression": "is_manager or is_user_relevant"
 		},
 		{
 			"action": ["partial_update"],
