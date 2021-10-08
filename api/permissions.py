@@ -207,7 +207,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"action": ["retrieve"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition_expression": "is_manager_exist or is_user_relevant"
+			"condition_expression": "is_manager or is_user_relevant"
 		},
 		{
 			"action": ["partial_update"],
@@ -229,8 +229,7 @@ class TaskStageAccessPolicy(AccessPolicy):
 	]
 
 	def is_manager(self, request, view, action) -> bool:
-		conditional_stage = view.get_object()
-		managers = conditional_stage.сhain.campaign.managers.all()
+		managers = view.get_object().taskstage.chain.campaign.managers.all()
 
 		return request.user in managers
 
