@@ -364,25 +364,25 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"action": ["list"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_user_relevant"
+			"condition_expression": "is_manager_exist or is_user_relevant"
 		},
 		{
 			"action": ["create"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager_exist"
+			"condition_expression": "is_manager_exist or is_user_relevant"
 		},
 		{
 			"action": ["retrieve"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_user_relevant"
+			"condition_expression": "is_manager_exist or is_user_relevant"
 		},
 		{
 			"action": ["partial_update"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager"
+			"condition_expression": "is_manager or is_user_relevant"
 		},
 		{
 			"action": ["user_relevant"],
@@ -396,11 +396,6 @@ class TaskStageAccessPolicy(AccessPolicy):
 			"effect": "deny",
 		}
 	]
-
-
-	def is_manager(self, request, view, action) -> bool:
-		task_stage = view.get_object()
-		managers = task_stage.managers.all()
 
 	def is_manager(self, request, view, action) -> bool:
 		conditional_stage = view.get_object()
