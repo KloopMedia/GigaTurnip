@@ -106,20 +106,6 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStageReadSerializer
 
-    # filterset_fields = ['chain', 'chain__campaign', 'is_creatable', 'ranks',
-    #                     'ranks__users', 'ranklimits__open_limit',
-    #                     'ranklimits__total_limit',
-    #                     'ranklimits__is_creation_open']
-    filterset_fields = {
-        'chain': ['exact'],
-        'chain__campaign': ['exact'],
-        'is_creatable': ['exact'],
-        'ranks': ['exact'],
-        'ranks__users': ['exact'],
-        'ranklimits__is_creation_open': ['exact'],
-        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
-        'ranklimits__open_limit': ['exact', 'lt', 'gt']
-    }
     queryset = TaskStage.objects.all()
     serializer_class = TaskStageSerializer
     filterset_fields = {
@@ -262,7 +248,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     Release user from requested task
     """
 
-    filterset_fields = ['stage',
+    filterset_fields = ['case',
+                        'stage',
                         'stage__chain__campaign',
                         'assignee',
                         'complete']
