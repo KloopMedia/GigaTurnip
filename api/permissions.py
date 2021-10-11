@@ -13,7 +13,7 @@ def managed_campaigns_id(request):
 class CampaignAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["list"],
+			"action": ["list", "list_user_campaigns"],
 			"principal": "authenticated",
 			"effect": "allow",
 			# "condition": "is_manager_exist"

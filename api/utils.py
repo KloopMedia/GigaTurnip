@@ -1,4 +1,4 @@
-from api.models import TaskStage, Task, RankLimit, Campaign
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain
 
 
 def filter_managed_campaigns(request):
@@ -56,3 +56,9 @@ def filter_tasks_for_manager(queryset, request):
 
 def filter_assignee_tasks(queryset, request):
 	return queryset.filter(assignee=request.user)
+
+
+def filter_for_user_campaigns(queryset, request):
+	stages = TaskStage.objects.filter(ranks__users=request.user).distinct()
+	chains = Chain.objects.filter(stages__in=stages).distinct()
+	return queryset.filter(chains__in=chains).distinct()

@@ -29,7 +29,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
     Update campaign data.
     partial_update:
     Partial update campaign data.
-
+    list_user_campaigns:
+    List campaigns where user has rank
     join_campaign:
     Request to join campaign on behalf of current user.
     """
@@ -52,7 +53,13 @@ class CampaignViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-    permission_classes = (CampaignAccessPolicy,)
+    @action(detail=False)
+    def list_user_campaigns(self, request):
+        campaigns = utils.filter_for_user_campaigns(self.get_queryset(),
+                                                    request)
+        serializer = self.get_serializer(campaigns, many=True)
+        return Response(serializer.data)
+
 
 
 class ChainViewSet(viewsets.ModelViewSet):
