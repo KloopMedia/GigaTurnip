@@ -60,6 +60,13 @@ class CampaignViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(campaigns, many=True)
         return Response(serializer.data)
 
+    @action(detail=False)
+    def list_user_selectable(self, request):
+        campaigns = utils\
+            .filter_for_user_selectable_campaigns(self.get_queryset(), request)
+        serializer = self.get_serializer(campaigns, many=True)
+        return Response(serializer.data)
+
 
 
 class ChainViewSet(viewsets.ModelViewSet):

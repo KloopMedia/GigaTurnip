@@ -62,3 +62,8 @@ def filter_for_user_campaigns(queryset, request):
 	stages = TaskStage.objects.filter(ranks__users=request.user).distinct()
 	chains = Chain.objects.filter(stages__in=stages).distinct()
 	return queryset.filter(chains__in=chains).distinct()
+
+
+def filter_for_user_selectable_campaigns(queryset, request):
+	return queryset\
+		.exclude(id__in=filter_for_user_campaigns(queryset, request))
