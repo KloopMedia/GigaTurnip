@@ -304,7 +304,7 @@ class ConditionalStageAccessPolicy(AccessPolicy):
 
 	def is_manager(self, request, view, action) -> bool:
 		conditional_stage = view.get_object()
-		managers = conditional_stage.сhain.campaign.managers.all()
+		managers = conditional_stage.chain.campaign.managers.all()
 
 		return request.user in managers
 

@@ -52,7 +52,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-    # permission_classes = (CampaignAccessPolicy,)
+    permission_classes = (CampaignAccessPolicy,)
 
 
 class ChainViewSet(viewsets.ModelViewSet):
