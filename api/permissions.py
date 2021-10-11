@@ -5,15 +5,18 @@ from api.models import Campaign, TaskStage, Track, Chain, Rank, RankRecord
 from . import utils
 
 
-def managed_campaigns_id(request):
-	users_campaigns = utils.filter_managed_campaigns(request)
-	return [str(x['id']) for x in users_campaigns.values("id")]
+# def managed_campaigns_id(request):
+# 	users_campaigns = utils.filter_managed_campaigns(request)
+# 	return [str(x['id']) for x in users_campaigns.values("id")]
 
 
 class CampaignAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["list", "list_user_campaigns", "list_user_selectable"],
+			"action": ["list",
+					   "list_user_campaigns",
+					   "list_user_selectable",
+					   "join_campaign"],
 			"principal": "authenticated",
 			"effect": "allow",
 			# "condition": "is_manager_exist"
@@ -29,7 +32,7 @@ class CampaignAccessPolicy(AccessPolicy):
 			"effect": "deny"
 		},
 		{
-			"action": ["partial_update"],
+			"action": ["partial_update", "update"],
 			"principal": "authenticated",
 			"effect": "allow",
 			"condition": "is_manager"
@@ -52,35 +55,29 @@ class CampaignAccessPolicy(AccessPolicy):
 class ChainAccessPolicy(AccessPolicy):
 	statements = [
 		{
-			"action": ["list"],
+			"action": ["list", "retrieve"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager_exist"
+			#"condition": "is_manager"
 		},
 		{
 			"action": ["create"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_can_create"
+			#"condition": "can_create"
 
 		},
-		{
-			"action": ["retrieve"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager"
 
-		},
 		{
-			"action": ["partial_update"],
+			"action": ["partial_update", "update"],
 			"principal": "authenticated",
 			"effect": "allow",
-			"condition": "is_manager"
+			#"condition": "is_manager"
 
 		},
 		{
 			"action": ["destroy"],
-			"principal": "authenticated",
+			"principal": "*",
 			"effect": "deny"
 		}
 	]
@@ -91,19 +88,10 @@ class ChainAccessPolicy(AccessPolicy):
 
 		return request.user in managers
 
-	def is_can_create(self, request, view, action) -> bool:
-		if request.data:
-			campaign = request.data['campaign']
-			users_campaigns = managed_campaigns_id(request)
-			return campaign in users_campaigns
-		else:
-			return False
 
-	def is_manager_exist(self, request, view, action) -> bool:
-		if request.query_params:
-			campaign = request.query_params['campaign']
-			users_campaigns = managed_campaigns_id(request)
-			return campaign in users_campaigns
+	def can_create(self, request, view, action) -> bool:
+		if request.data and request.data.get('campaign', False):
+			return utils.is_user_campaign_manager(request.user, request.data['campaign'])
 		else:
 			return False
 
@@ -188,7 +176,7 @@ class TaskAccessPolicy(AccessPolicy):
 			return False
 
 	def is_manager_retrieve(self, request, view, action):
-		managed_campaigns = utils.filter_managed_campaigns(request)
+		managed_campaigns = utils.user_managed_campaigns(request)
 		task = view.get_object()
 		task_campaign = task.stage.chain.campaign
 		return task_campaign in managed_campaigns
@@ -438,7 +426,7 @@ class RankLimitAccessPolicy(AccessPolicy):
 		return is_have_assignee or is_manager
 
 	def is_manager_of_campaign(self, request, view, action):
-		managed_campaigns = utils.filter_managed_campaigns(request)
+		managed_campaigns = utils.user_managed_campaigns(request)
 		task = view.get_object()
 		task_campaign = task.stage.chain.campaign
 		return task_campaign in managed_campaigns

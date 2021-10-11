@@ -282,7 +282,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        managed_campaigns = utils.filter_managed_campaigns(request)
+        managed_campaigns = utils.user_managed_campaigns(request)
         if bool(managed_campaigns):
             queryset = utils.filter_tasks_for_manager(queryset, request)
         else:

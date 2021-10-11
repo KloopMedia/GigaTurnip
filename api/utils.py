@@ -1,10 +1,11 @@
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain
 
 
-def filter_managed_campaigns(request):
-	managed_campaigns = Campaign.objects.all() \
-		.filter(campaign_managements__user=request.user)
-	return managed_campaigns
+def is_user_campaign_manager(user, campaign_id):
+	campaigns = Campaign.objects \
+		.filter(id=campaign_id) \
+		.filter(campaign_managements__user=user)
+	return bool(campaigns)
 
 
 def filter_for_user_creatable_stages(queryset, request):
@@ -48,7 +49,7 @@ def filter_for_user_selectable_tasks(queryset, request):
 
 
 def filter_tasks_for_manager(queryset, request):
-	managed_campaigns = filter_managed_campaigns(request)
+	managed_campaigns = user_managed_campaigns(request)
 	queryset = queryset \
 		.filter(stage__chain__campaign__in=managed_campaigns.values_list('id'))
 	return queryset
