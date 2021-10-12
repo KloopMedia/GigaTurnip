@@ -10,3 +10,4 @@ __pycache__
 /main.py
 /requirements.txt
 /static/
+*/*/__pycache__
