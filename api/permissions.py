@@ -126,7 +126,14 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "action": ["user_relevant"],
             "principal": "authenticated",
             "effect": "allow",
-        }
+        },
+        {
+            "action": ["create_task"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_stage_user_creatable"
+        },
+
     ]
     statements = ManagersOnlyAccessPolicy().statements + user_relevant_permissions
 
@@ -134,6 +141,10 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     def scope_queryset(cls, request, queryset):
         return queryset.filter(chain__campaign__campaign_managements__user=
                                request.user)
+
+    def is_stage_user_creatable(self, request, view, action) -> bool:
+        queryset = TaskStage.objects.filter(id=view.get_object().id)
+        return bool(utils.filter_for_user_creatable_stages(queryset, request))
 
 
 class TaskAccessPolicy(AccessPolicy):
@@ -146,45 +157,48 @@ class TaskAccessPolicy(AccessPolicy):
         {
             "action": ["list"],
             "principal": "authenticated",
-            "effect": "allow",
-            "condition_expression": "is_manager or is_have_assignee_task"
+            "effect": "allow"
         },
         {
             "action": ["retrieve"],
             "principal": "authenticated",
-            "effect": "allow",
-            "condition_expression": 'is_assignee or is_manager_retrieve'
+            "effect": "is_assignee or is_manager"
         },
         {
-            "action": ["create"],  # todo: nobody
-            "principal": "authenticated",
+            "action": ["create"],
+            "principal": "*",
             "effect": "deny",
-            # "condition": "is_can_create"
         },
         {
             "action": ["user_selectable", "user_relevant"],
-            "principal": "authenticated",  # todo: auth
+            "principal": "authenticated",
             "effect": "allow",
-            # "condition": "is_user_can_request_assignment"
         },
         {
             "action": ["release_assignment"],
-            "principal": "authenticated",  # todo:
+            "principal": "authenticated",
             "effect": "deny",
+            "condition": "is_assignee and is_not_complete"
         },
         {
             "action": ["request_assignment"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition": "is_user_can_request_assignment"  # todo: right
+            "condition": "can_user_request_assignment"
         },
         {
             "action": ["update", "partial_update"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee and is_not_complete"  # todo: right
+            "condition_expression": "is_assignee and is_not_complete"
         }
     ]
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset. \
+            filter(stage__chain__campaign__campaign_managements__user=
+                   request.user).distinct()
 
     def is_assignee(self, request, view, action):
         task = view.get_object()
@@ -194,32 +208,13 @@ class TaskAccessPolicy(AccessPolicy):
         task = view.get_object()
         return task.complete is False
 
-    def is_user_can_request_assignment(self, request, view, action):
-        is_have_access = utils.filter_for_user_selectable_tasks(view.queryset, request)
-        return bool(is_have_access)
+    def can_user_request_assignment(self, request, view, action):
+        return bool(utils.filter_for_user_selectable_tasks(view.queryset,
+                                                           request))
 
     def is_manager(self, request, view, action) -> bool:
-        if request.query_params:
-            campaign = request.query_params['stage__chain__campaign']
-            # stage = request.query_params['stage']
-            # case = request.query_params['case']
-            users_campaigns = managed_campaigns_id(request)
-            return campaign in users_campaigns
-        else:
-            return False
-
-    def is_have_assignee_task(self, request, view, action):
-        if request.query_params:
-            assignee = request.query_params['assignee']
-            return request.user.id == assignee
-        else:
-            return False
-
-    def is_manager_retrieve(self, request, view, action):
-        managed_campaigns = utils.user_managed_campaigns(request)
-        task = view.get_object()
-        task_campaign = task.stage.chain.campaign
-        return task_campaign in managed_campaigns
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
 
 
 # class TaskStageAccessPolicy(AccessPolicy):

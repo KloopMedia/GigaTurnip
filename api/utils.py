@@ -55,8 +55,8 @@ def filter_tasks_for_manager(queryset, request):
 	return queryset
 
 
-def filter_assignee_tasks(queryset, request):
-	return queryset.filter(assignee=request.user)
+# def filter_assignee_tasks(queryset, request):
+# 	return queryset.filter(assignee=request.user)
 
 
 def filter_for_user_campaigns(queryset, request):

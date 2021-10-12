@@ -113,6 +113,18 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     Return a list of task stages that are relevant to "request" user.
     """
 
+    permission_classes = (TaskStageAccessPolicy,)
+    filterset_fields = {
+        'chain': ['exact'],
+        'chain__campaign': ['exact'],
+        'is_creatable': ['exact'],
+        'ranks': ['exact'],
+        'ranks__users': ['exact'],
+        'ranklimits__is_creation_open': ['exact'],
+        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
+        'ranklimits__open_limit': ['exact', 'lt', 'gt']
+    }
+
     def get_serializer_class(self):
         """
         get_serializer_class:
@@ -125,58 +137,26 @@ class TaskStageViewSet(viewsets.ModelViewSet):
             return TaskStageReadSerializer
 
     def get_queryset(self):
-        if self.action == 'user_relevant':
-            return TaskStage.objects.all()
+        if self.action == 'user_relevant' or self.action == 'create_task':
+            return utils.filter_for_user_creatable_stages(TaskStage.objects.all(), self.request)
         else:
             return TaskStageAccessPolicy.scope_queryset(
                 self.request, TaskStage.objects.all()
             )
 
-    filterset_fields = {
-        'chain': ['exact'],
-        'chain__campaign': ['exact'],
-        'is_creatable': ['exact'],
-        'ranks': ['exact'],
-        'ranks__users': ['exact'],
-        'ranklimits__is_creation_open': ['exact'],
-        'ranklimits__total_limit': ['exact', 'lt', 'gt'],
-        'ranklimits__open_limit': ['exact', 'lt', 'gt']
-    }
-
     @action(detail=False)
     def user_relevant(self, request):
-        # stages = self.filter_queryset(self.get_queryset())\
-        #     .filter(is_creatable=True)\
-        #     .filter(ranks__users=request.user.id)\
-        #     .filter(ranklimits__is_creation_open=True)\
-        #     .distinct()
-        # filtered_stages = TaskStage.objects.none()
-        # for stage in stages:
-        #     tasks = Task.objects.filter(assignee=request.user.id)\
-        #         .filter(stage=stage).distinct()
-        #     total = len(tasks)
-        #     print(total)
-        #     incomplete = len(tasks.filter(complete=False))
-        #     print(incomplete)
-        #     ranklimits = RankLimit.objects.filter(stage=stage) \
-        #         .filter(rank__rankrecord__user__id=request.user.id)
-        #     for ranklimit in ranklimits:
-        #         print(ranklimit.total_limit)
-        #         print(ranklimit.open_limit)
-        #         if ((ranklimit.open_limit > incomplete and ranklimit.total_limit > total) or
-        #                 (ranklimit.open_limit == 0 and ranklimit.total_limit > total) or
-        #                 (ranklimit.open_limit > incomplete and ranklimit.total_limit == 0) or
-        #                 (ranklimit.open_limit == 0 and ranklimit.total_limit == 0)
-        #         ):
-        #             filtered_stages |= TaskStage.objects.filter(pk=stage.pk)
-
-        # tasks_count = tasks.values('stage', 'complete')\
-        #     .annotate(count=Count('id'))
-        # print(tasks_count)
-        queryset_stages = self.filter_queryset(self.get_queryset())
-        filtered_stages = utils.filter_for_user_creatable_stages(queryset_stages, request)
-        serializer = self.get_serializer(filtered_stages, many=True)
+        # queryset_stages = self.filter_queryset(self.get_queryset())
+        # filtered_stages = utils.filter_for_user_creatable_stages(queryset_stages, request)
+        serializer = self.get_serializer(self.get_queryset(), many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post', 'get'])
+    def create_task(self, request, pk=None):
+        case = Case.objects.create()
+        task = Task(stage=self.get_object(), assignee=request.user, case=case)
+        task.save()
+        return Response({'status': 'New task created', 'id': task.id})
 
 
 # class WebHookStageViewSet(viewsets.ModelViewSet):
@@ -278,8 +258,15 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'stage__chain__campaign',
                         'assignee',
                         'complete']
-    queryset = Task.objects.all()
     permission_classes = (TaskAccessPolicy,)
+
+    def get_queryset(self):
+        if self.action == 'list':
+            return TaskAccessPolicy.scope_queryset(
+                self.request, Task.objects.all()
+            )
+        else:
+            return Task.objects.all()
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -291,21 +278,21 @@ class TaskViewSet(viewsets.ModelViewSet):
         else:
             return TaskDefaultSerializer
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        managed_campaigns = utils.user_managed_campaigns(request)
-        if bool(managed_campaigns):
-            queryset = utils.filter_tasks_for_manager(queryset, request)
-        else:
-            queryset = utils.filter_assignee_tasks(queryset, request)
-
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+    # def list(self, request, *args, **kwargs):
+    #     queryset = self.filter_queryset(self.get_queryset())
+    #     managed_campaigns = utils.user_managed_campaigns(request)
+    #     if bool(managed_campaigns):
+    #         queryset = utils.filter_tasks_for_manager(queryset, request)
+    #     else:
+    #         queryset = utils.filter_assignee_tasks(queryset, request)
+    #
+    #     page = self.paginate_queryset(queryset)
+    #     if page is not None:
+    #         serializer = self.get_serializer(page, many=True)
+    #         return self.get_paginated_response(serializer.data)
+    #
+    #     serializer = self.get_serializer(queryset, many=True)
+    #     return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -355,7 +342,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        tasks = utils.filter_assignee_tasks(queryset, request)
+        tasks = queryset.filter(assignee=request.user)
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
@@ -367,7 +354,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post', 'get'])
-    def request_assignment(self, request, pk=None):  # TODO: Add permissions to block changing assignee
+    def request_assignment(self, request, pk=None):
         task = self.get_object()
         serializer = self.get_serializer(task, request.data)
         if serializer.is_valid():
