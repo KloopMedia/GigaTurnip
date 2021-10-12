@@ -87,9 +87,13 @@ class ChainViewSet(viewsets.ModelViewSet):
 
     filterset_fields = ['campaign', ]
     serializer_class = ChainSerializer
-    queryset = Chain.objects.all()
-
     permission_classes = (ChainAccessPolicy,)
+
+    def get_queryset(self):
+        return ChainAccessPolicy.scope_queryset(
+            self.request, Chain.objects.all()
+        )
+
 
 class TaskStageViewSet(viewsets.ModelViewSet):
     """

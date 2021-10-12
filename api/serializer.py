@@ -3,23 +3,36 @@ from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord
+from api.permissions import ChainAccessPolicy
+
+base_model_fields = ['id', 'name', 'description']
 
 
 class CampaignSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Campaign
         fields = '__all__'
 
 
 class ChainSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Chain
-        fields = '__all__'
+        fields = base_model_fields + ['campaign']
+
+    def validate_campaign(self, value):
+        """
+        Check that the created chain belongs to a campaign that user manages.
+        """
+        user = None
+        request = self.context.get("request")
+        if request and \
+                hasattr(request, "user") and \
+                ChainAccessPolicy.is_user_campaign_manager(request.user, value):
+            return value
+        raise serializers.ValidationError("User may not add chain "
+                                          "to this campaign")
 
 
-base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
 schema_provider_fields = ['json_schema', 'ui_schema', 'library']
 
@@ -38,7 +51,6 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
 
 
 class TaskStageSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
@@ -47,6 +59,7 @@ class TaskStageSerializer(serializers.ModelSerializer):
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field']
+
 
 # class WebHookStageSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -113,28 +126,24 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
 
 
 class RankSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Rank
         fields = '__all__'
 
 
 class RankRecordSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = RankRecord
         fields = '__all__'
 
 
 class RankLimitSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = RankLimit
         fields = '__all__'
 
 
 class TrackSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Track
         fields = '__all__'

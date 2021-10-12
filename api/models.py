@@ -7,6 +7,7 @@ class CustomUser(AbstractUser):
     ranks = models.ManyToManyField("Rank",
                                    through="RankRecord",
                                    related_name="users")
+
     def __str__(self):
         return self.email + " " + self.last_name
 
@@ -77,7 +78,6 @@ class CampaignManagement(models.Model):
 
     class Meta:
         unique_together = ['user', 'campaign']
-
 
 
 class Chain(BaseModel):
@@ -231,7 +231,7 @@ class Case(models.Model):
 
 class Task(models.Model):
     assignee = models.ForeignKey(CustomUser,
-                                 on_delete=models.CASCADE, # TODO Change deletion
+                                 on_delete=models.CASCADE,  # TODO Change deletion
                                  related_name="tasks",
                                  blank=True,
                                  null=True,
@@ -267,6 +267,7 @@ class Rank(BaseModel):
                                     related_name="ranks",
                                     through="RankLimit",
                                     help_text="Stages id")
+
     def __str__(self):
         return self.name
 
