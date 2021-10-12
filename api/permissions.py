@@ -63,7 +63,7 @@ class ChainAccessPolicy(AccessPolicy):
             "action": ["create"],
             "principal": "authenticated",
             "effect": "allow",
-            # "condition": "can_create"
+            "condition": "can_create"
 
         },
         {
@@ -96,11 +96,7 @@ class ChainAccessPolicy(AccessPolicy):
         return request.user in managers
 
     def can_create(self, request, view, action) -> bool:
-        if request.data and request.data.get('campaign', False):
-            return utils.is_user_campaign_manager(request.user,
-                                                  request.data['campaign'])
-        else:
-            return False
+        return bool(request.user.managed_campaigns.all())
 
 
 class TaskAccessPolicy(AccessPolicy):
