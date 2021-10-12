@@ -4,15 +4,15 @@ from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
-    RankLimit, Track, RankRecord
+    RankLimit, Track, RankRecord, CampaignManagement
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
-    TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer
+    TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer, CampaignManagementSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy, TaskAccessPolicy, \
-    RankAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy
+    RankAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy, CampaignManagementAccessPolicy
 from . import utils
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -444,10 +444,14 @@ class RankLimitViewSet(viewsets.ModelViewSet):
     """
 
     filterset_fields = ['rank', ]
-    queryset = RankLimit.objects.all()
     serializer_class = RankLimitSerializer
 
     permission_classes = (RankLimitAccessPolicy,)
+
+    def get_queryset(self):
+        return RankLimitAccessPolicy.scope_queryset(
+            self.request, RankLimit.objects.all()
+        )
 
 
 class TrackViewSet(viewsets.ModelViewSet):
@@ -466,7 +470,37 @@ class TrackViewSet(viewsets.ModelViewSet):
     Partial update track data.
     """
 
-    queryset = Track.objects.all()
     serializer_class = TrackSerializer
 
     permission_classes = (TrackAccessPolicy,)
+
+    def get_queryset(self):
+        return TrackAccessPolicy.scope_queryset(
+            self.request, Track.objects.all()
+        )
+
+
+class CampaignManagementViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing campaign management.
+    create:
+    Create a new campaign management instance.
+    delete:
+    Delete campaign management.
+    read:
+    Get campaign management data.
+    update:
+    Update campaign management data.
+    partial_update:
+    Partial update campaign management data.
+    """
+
+    serializer_class = CampaignManagementSerializer
+
+    permission_classes = (CampaignManagementAccessPolicy,)
+
+    def get_queryset(self):
+        return CampaignManagementAccessPolicy.scope_queryset(
+            self.request, CampaignManagement.objects.all()
+        )

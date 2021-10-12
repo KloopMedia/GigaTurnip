@@ -113,6 +113,13 @@ class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
                                request.user)
 
 
+class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(user=
+                               request.user)
+
+
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     user_relevant_permissions = [
         {
@@ -337,71 +344,12 @@ class RankAccessPolicy(AccessPolicy):
         return False
 
 
-class RankLimitAccessPolicy(AccessPolicy):
-    statements = [
-        {
-            "action": ["list"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition": "is_has_rank"
-        },
-        {
-            "action": ["create", "partial_update"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager_exist"
-        },
-        {
-            "action": ["retrieve"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition": "is_rank_assigned"
+class RankLimitAccessPolicy(ManagersOnlyAccessPolicy):
 
-        },
-        {
-            "action": ["destroy"],
-            "principal": "authenticated",
-            "effect": "deny"
-        }
-    ]
-
-    def is_has_rank(self, request, view, action) -> bool:
-        rank = request.query_params.get('rank')
-        if bool(rank):
-            rank__rank_record__user_id = RankRecord.objects.get(id=request.query_params.get('rank')).user_id
-            return rank__rank_record__user_id == request.user.id
-        else:
-            return False
-
-    def is_rank_assigned(self, request, view, action):
-        user_ranks = request.user.ranks.all()
-        return view.get_object().rank in user_ranks
-
-    def is_not_complete(self, request, view, action):
-        task = view.get_object()
-        return task.complete is False
-
-    def is_user_can_request_assignment(self, request, view, action):
-        is_have_access = utils.filter_for_user_selectable_tasks(view.queryset, request)
-        return bool(is_have_access)
-
-    # if user have relevant task stages
-    def is_can_create(self, request, view, action):
-        queryset = TaskStage.objects.all()
-        relevant_stages = utils.filter_for_user_creatable_stages(queryset, request)
-        new_task_based_on_relevant_stages = relevant_stages.filter(id=request.data.get('stage'))
-        return bool(new_task_based_on_relevant_stages)
-
-    def is_manager_or_have_assignee_task(self, request, view, action):
-        is_manager = bool(utils.filter_tasks_for_manager(view.queryset, request))
-        is_have_assignee = bool(utils.filter_assignee_tasks(view.queryset, request))
-        return is_have_assignee or is_manager
-
-    def is_manager_of_campaign(self, request, view, action):
-        managed_campaigns = utils.user_managed_campaigns(request)
-        task = view.get_object()
-        task_campaign = task.stage.chain.campaign
-        return task_campaign in managed_campaigns
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(stage__chain__campaign__campaign_managements__user=
+                               request.user)
 
 
 class RankRecordAccessPolicy(AccessPolicy):
@@ -435,41 +383,9 @@ class RankRecordAccessPolicy(AccessPolicy):
         return False
 
 
-class TrackAccessPolicy(AccessPolicy):
-    statements = [
-        {
-            "action": ["list"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager_exist"
-        },
-        {
-            "action": ["create"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager_exist"
-        },
-        {
-            "action": ["retrieve", "partial_update"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager"
+class TrackAccessPolicy(ManagersOnlyAccessPolicy):
 
-        },
-        {
-            "action": ["destroy"],
-            "principal": ["*"],
-            "effect": "deny"
-        }
-    ]
-
-    def is_manager_exist(self, request, view, action) -> bool:
-        return bool(Campaign.objects.filter(managers=request.user))
-
-    def is_manager(self, request, view, action) -> bool:
-        track = view.get_object()
-
-        campaign = Campaign.objects.get(id=track.campaign_id)
-        managers = campaign.managers.all()
-
-        return request.user in managers
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(campaign__campaign_managements__user=
+                               request.user)

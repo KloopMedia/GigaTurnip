@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement
 from api.permissions import ChainAccessPolicy, ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -169,13 +169,46 @@ class RankRecordSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class RankLimitSerializer(serializers.ModelSerializer):
+class RankLimitSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = RankLimit
         fields = '__all__'
 
+    def validate_stage(self, value):
+        """
+        Check that the created rank limit belongs to a stage that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add rank limit "
+                                          "to this campaign")
 
-class TrackSerializer(serializers.ModelSerializer):
+
+class TrackSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = Track
         fields = '__all__'
+
+    def validate_campaign(self, value):
+        """
+        Check that the created track belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add track "
+                                          "to this campaign")
+
+
+class CampaignManagementSerializer(serializers.ModelSerializer, CampaignValidationCheck):
+    class Meta:
+        model = CampaignManagement
+        fields = '__all__'
+
+    def validate_campaign(self, value):
+        """
+        Check that the created chain belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add campaign management "
+                                          "to this campaign")
