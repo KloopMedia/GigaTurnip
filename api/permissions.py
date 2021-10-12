@@ -113,6 +113,22 @@ class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
                                request.user)
 
 
+class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
+    user_relevant_permissions = [
+        {
+            "action": ["user_relevant"],
+            "principal": "authenticated",
+            "effect": "allow",
+        }
+    ]
+    statements = ManagersOnlyAccessPolicy().statements + user_relevant_permissions
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(chain__campaign__campaign_managements__user=
+                               request.user)
+
+
 class TaskAccessPolicy(AccessPolicy):
     statements = [
         {
@@ -199,75 +215,75 @@ class TaskAccessPolicy(AccessPolicy):
         return task_campaign in managed_campaigns
 
 
-class TaskStageAccessPolicy(AccessPolicy):
-    statements = [
-        {
-            "action": ["list"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition_expression": "is_manager_campaigns and is_chain_of_campaign"  # todo: is manager
-        },
-        {
-            "action": ["create"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition": "is_can_create"
-        },
-        {
-            "action": ["retrieve", "partial_update"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition_expression": "is_manager or is_user_relevant"
-        },
-        {
-            "action": ["user_relevant"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_user_relevant"
-        },
-        {
-            "action": ["destroy"],
-            "principal": "authenticated",
-            "effect": "deny",
-        }
-    ]
-
-    # ?chain = 1 & chain__campaign = & is_creatable = & ranklimits__is_creation_open = & ranklimits__total_limit = & ranklimits__total_limit__lt = & ranklimits__total_limit__gt = & ranklimits__open_limit = & ranklimits__open_limit__lt = & ranklimits__open_limit__gt =
-    def is_manager(self, request, view, action) -> bool:
-        managers = view.get_object().chain.campaign.managers.all()
-
-        return request.user in managers
-
-    def is_can_create(self, request, view, action) -> bool:
-        if request.data.get("chain"):
-            chain = request.data.get("chain")
-            campaign = str(Chain.objects.get(id=chain).campaign_id)
-            users_campaigns = managed_campaigns_id(request)
-            return campaign in users_campaigns
-        else:
-            return False
-
-    def is_manager_campaigns(self, request, view, action) -> bool:
-        if request.query_params:
-            campaign = request.query_params['chain__campaign']
-            users_campaigns = managed_campaigns_id(request)
-            return campaign in users_campaigns
-        else:
-            return False
-
-    def is_chain_of_campaign(self, request, view, action):
-        if request.query_params:
-            chain__campaign = str(Chain.objects.get(id=request.query_params['chain']).campaign_id)
-            users_campaigns = managed_campaigns_id(request)
-            return chain__campaign in users_campaigns
-        else:
-            return False
-
-    def is_user_relevant(self, request, view, action) -> bool:
-        queryset = TaskStage.objects.all()
-        filtered_stages = utils.filter_for_user_creatable_stages(queryset, request)
-
-        return bool(filtered_stages)
+# class TaskStageAccessPolicy(AccessPolicy):
+#     statements = [
+#         {
+#             "action": ["list"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             "condition_expression": "is_manager_campaigns and is_chain_of_campaign"  # todo: is manager
+#         },
+#         {
+#             "action": ["create"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             "condition": "is_can_create"
+#         },
+#         {
+#             "action": ["retrieve", "partial_update"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             "condition_expression": "is_manager or is_user_relevant"
+#         },
+#         {
+#             "action": ["user_relevant"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             # "condition": "is_user_relevant"
+#         },
+#         {
+#             "action": ["destroy"],
+#             "principal": "authenticated",
+#             "effect": "deny",
+#         }
+#     ]
+#
+#     # ?chain = 1 & chain__campaign = & is_creatable = & ranklimits__is_creation_open = & ranklimits__total_limit = & ranklimits__total_limit__lt = & ranklimits__total_limit__gt = & ranklimits__open_limit = & ranklimits__open_limit__lt = & ranklimits__open_limit__gt =
+#     def is_manager(self, request, view, action) -> bool:
+#         managers = view.get_object().chain.campaign.managers.all()
+#
+#         return request.user in managers
+#
+#     def is_can_create(self, request, view, action) -> bool:
+#         if request.data.get("chain"):
+#             chain = request.data.get("chain")
+#             campaign = str(Chain.objects.get(id=chain).campaign_id)
+#             users_campaigns = managed_campaigns_id(request)
+#             return campaign in users_campaigns
+#         else:
+#             return False
+#
+#     def is_manager_campaigns(self, request, view, action) -> bool:
+#         if request.query_params:
+#             campaign = request.query_params['chain__campaign']
+#             users_campaigns = managed_campaigns_id(request)
+#             return campaign in users_campaigns
+#         else:
+#             return False
+#
+#     def is_chain_of_campaign(self, request, view, action):
+#         if request.query_params:
+#             chain__campaign = str(Chain.objects.get(id=request.query_params['chain']).campaign_id)
+#             users_campaigns = managed_campaigns_id(request)
+#             return chain__campaign in users_campaigns
+#         else:
+#             return False
+#
+#     def is_user_relevant(self, request, view, action) -> bool:
+#         queryset = TaskStage.objects.all()
+#         filtered_stages = utils.filter_for_user_creatable_stages(queryset, request)
+#
+#         return bool(filtered_stages)
 
 
 class RankAccessPolicy(AccessPolicy):

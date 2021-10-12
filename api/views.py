@@ -124,8 +124,14 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStageReadSerializer
 
-    queryset = TaskStage.objects.all()
-    serializer_class = TaskStageSerializer
+    def get_queryset(self):
+        if self.action == 'user_relevant':
+            return TaskStage.objects.all()
+        else:
+            return TaskStageAccessPolicy.scope_queryset(
+                self.request, TaskStage.objects.all()
+            )
+
     filterset_fields = {
         'chain': ['exact'],
         'chain__campaign': ['exact'],
@@ -136,8 +142,6 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         'ranklimits__total_limit': ['exact', 'lt', 'gt'],
         'ranklimits__open_limit': ['exact', 'lt', 'gt']
     }
-
-    permission_classes = (TaskStageAccessPolicy,)
 
     @action(detail=False)
     def user_relevant(self, request):

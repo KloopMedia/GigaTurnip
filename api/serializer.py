@@ -78,7 +78,8 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                   'webhook_response_field']
 
 
-class TaskStageSerializer(serializers.ModelSerializer):
+class TaskStageSerializer(serializers.ModelSerializer,
+                          CampaignValidationCheck):
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
@@ -87,6 +88,15 @@ class TaskStageSerializer(serializers.ModelSerializer):
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field']
+
+    def validate_chain(self, value):
+        """
+        Check that the created stage belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add stage "
+                                          "to this chain")
 
 
 # class WebHookStageSerializer(serializers.ModelSerializer):
