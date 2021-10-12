@@ -217,10 +217,13 @@ class ConditionalStageViewSet(viewsets.ModelViewSet):
     Partial update conditional stage data.
     """
     filterset_fields = ['chain', ]
-    queryset = ConditionalStage.objects.all()
     serializer_class = ConditionalStageSerializer
+    permission_classes = (ConditionalStageAccessPolicy,)
 
-    permission_classes = (ConditionalStageAccessPolicy, )
+    def get_queryset(self):
+        return ConditionalStageAccessPolicy.scope_queryset(
+            self.request, ConditionalStage.objects.all()
+        )
 
 
 class CaseViewSet(viewsets.ModelViewSet):

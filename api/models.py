@@ -1,3 +1,5 @@
+from abc import ABCMeta, abstractmethod
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from polymorphic.models import PolymorphicModel
@@ -42,7 +44,15 @@ class SchemaProvider(models.Model):
         abstract = True
 
 
-class Campaign(BaseModel):
+class CampaignInterface:
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def get_campaign(self):
+        pass
+
+
+class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey("Track",
                                       on_delete=models.CASCADE,  # TODO Change deletion metgod
                                       blank=True,
@@ -64,11 +74,14 @@ class Campaign(BaseModel):
         else:
             return None, None
 
+    def get_campaign(self):
+        return self
+
     def __str__(self):
         return str("Campaign: " + self.name)
 
 
-class CampaignManagement(models.Model):
+class CampaignManagement(models.Model, CampaignInterface):
     user = models.ForeignKey(CustomUser,
                              on_delete=models.CASCADE,
                              related_name="campaign_managements")
@@ -79,12 +92,18 @@ class CampaignManagement(models.Model):
     class Meta:
         unique_together = ['user', 'campaign']
 
+    def get_campaign(self) -> Campaign:
+        return self.campaign
 
-class Chain(BaseModel):
+
+class Chain(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(Campaign,
                                  on_delete=models.CASCADE,
                                  related_name="chains",
                                  help_text="Campaign id")
+
+    def get_campaign(self) -> Campaign:
+        return self.campaign
 
     def __str__(self):
         return str("Chain: " +
@@ -92,7 +111,7 @@ class Chain(BaseModel):
                    self.campaign.__str__())
 
 
-class Stage(PolymorphicModel, BaseModel):
+class Stage(PolymorphicModel, BaseModel, CampaignInterface):
     x_pos = models.DecimalField(max_digits=17,
                                 decimal_places=14,
                                 help_text="Starting position of 'x' "
@@ -113,6 +132,9 @@ class Stage(PolymorphicModel, BaseModel):
                                        symmetrical=False,
                                        blank=True,
                                        help_text="List of previous id stages")
+
+    def get_campaign(self) -> Campaign:
+        return self.chain.campaign
 
     def __str__(self):
         return str("Stage: " +
@@ -229,7 +251,7 @@ class Case(models.Model):
                    str(self.id))
 
 
-class Task(models.Model):
+class Task(models.Model, CampaignInterface):
     assignee = models.ForeignKey(CustomUser,
                                  on_delete=models.CASCADE,  # TODO Change deletion
                                  related_name="tasks",
@@ -258,6 +280,9 @@ class Task(models.Model):
                                       help_text="Preceded tasks")
     complete = models.BooleanField(default=False)
 
+    def get_campaign(self) -> Campaign:
+        return self.stage.get_campaign()
+
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
 
@@ -272,7 +297,7 @@ class Rank(BaseModel):
         return self.name
 
 
-class Track(BaseModel):
+class Track(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(Campaign,
                                  related_name="tracks",
                                  on_delete=models.CASCADE,
@@ -285,6 +310,9 @@ class Track(BaseModel):
                                      blank=True,
                                      null=True,
                                      help_text="Rank id")
+
+    def get_campaign(self) -> Campaign:
+        return self.campaign
 
 
 class RankRecord(models.Model):
@@ -302,7 +330,7 @@ class RankRecord(models.Model):
         return str(self.rank.__str__() + " " + self.user.__str__())
 
 
-class RankLimit(models.Model):
+class RankLimit(models.Model, CampaignInterface):
     rank = models.ForeignKey(Rank,
                              on_delete=models.CASCADE,
                              help_text="Rank id")
@@ -333,6 +361,9 @@ class RankLimit(models.Model):
 
     class Meta:
         unique_together = ['rank', 'stage']
+
+    def get_campaign(self) -> Campaign:
+        return self.stage.get_campaign()
 
     def __str__(self):
         return str("Rank limit: " +

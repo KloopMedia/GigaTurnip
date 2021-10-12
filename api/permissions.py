@@ -1,3 +1,5 @@
+from abc import ABCMeta, abstractmethod
+
 from django.http import Http404, HttpResponseForbidden
 from django.core.exceptions import PermissionDenied
 from rest_access_policy import AccessPolicy
@@ -19,7 +21,6 @@ class CampaignAccessPolicy(AccessPolicy):
                        "join_campaign"],
             "principal": "authenticated",
             "effect": "allow",
-            # "condition": "is_manager_exist"
         },
         {
             "action": ["create"],
@@ -41,7 +42,6 @@ class CampaignAccessPolicy(AccessPolicy):
             "action": ["retrieve"],
             "principal": "authenticated",
             "effect": "allow",
-            # "condition": "is_manager" #todo: everybody if authenticated
         }
     ]
 
@@ -52,7 +52,9 @@ class CampaignAccessPolicy(AccessPolicy):
         return request.user in managers
 
 
-class ChainAccessPolicy(AccessPolicy):
+class ManagersOnlyAccessPolicy(AccessPolicy):
+    __metaclass__ = ABCMeta
+
     statements = [
         {
             "action": ["list", "retrieve"],
@@ -81,22 +83,34 @@ class ChainAccessPolicy(AccessPolicy):
     ]
 
     @classmethod
+    @abstractmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(campaign__campaign_managements__user=
-                               request.user)
+        pass
 
     @classmethod
     def is_user_campaign_manager(cls, user, value):
         return utils.is_user_campaign_manager(user, value.id)
 
     def is_manager(self, request, view, action) -> bool:
-        chain = view.get_object()
-        managers = chain.campaign.managers.all()
-
+        managers = view.get_object().get_campaign().managers.all()
         return request.user in managers
 
     def can_create(self, request, view, action) -> bool:
         return bool(request.user.managed_campaigns.all())
+
+
+class ChainAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(campaign__campaign_managements__user=
+                               request.user)
+
+
+class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(chain__campaign__campaign_managements__user=
+                               request.user)
 
 
 class TaskAccessPolicy(AccessPolicy):
@@ -254,67 +268,6 @@ class TaskStageAccessPolicy(AccessPolicy):
         filtered_stages = utils.filter_for_user_creatable_stages(queryset, request)
 
         return bool(filtered_stages)
-
-
-class ConditionalStageAccessPolicy(AccessPolicy):
-    statements = [
-        {
-            "action": ["list"],
-            "principal": "*",
-            "effect": "allow",
-            "condition": "is_chain_of_campaign"
-
-        },
-        {
-            "action": ["create"],
-            "principal": "*",
-            "effect": "allow",
-            "condition": "is_can_create"
-
-        },
-        {
-            "action": ["retrieve"],
-            "principal": "*",
-            "effect": "allow",
-            "condition": "is_manager"  # todo: which users can retrieve conditional stage
-
-        },
-        {
-            "action": ["partial_update"],
-            "principal": "*",
-            "effect": "allow",
-            "condition_expression": "is_manager and is_can_create"  # todo: which users can update conditional stage
-
-        },
-        {
-            "action": ["destroy"],
-            "principal": "*",
-            "effect": "deny",
-        }
-    ]
-
-    def is_manager(self, request, view, action) -> bool:
-        conditional_stage = view.get_object()
-        managers = conditional_stage.chain.campaign.managers.all()
-
-        return request.user in managers
-
-    def is_can_create(self, request, view, action) -> bool:
-        if request.data.get("chain"):
-            chain = request.data.get("chain")
-            campaign = str(Chain.objects.get(id=chain).campaign_id)
-            users_campaigns = managed_campaigns_id(request)
-            return campaign in users_campaigns
-        else:
-            return False
-
-    def is_chain_of_campaign(self, request, view, action):
-        if request.query_params:
-            chain__campaign = str(Chain.objects.get(id=request.query_params['chain']).campaign_id)
-            users_campaigns = managed_campaigns_id(request)
-            return chain__campaign in users_campaigns
-        else:
-            return False
 
 
 class RankAccessPolicy(AccessPolicy):

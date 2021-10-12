@@ -1,11 +1,15 @@
+from abc import ABCMeta, abstractproperty
+
 from rest_framework import serializers
 from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord
-from api.permissions import ChainAccessPolicy
+from api.permissions import ChainAccessPolicy, ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
+stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
+schema_provider_fields = ['json_schema', 'ui_schema', 'library']
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -14,7 +18,23 @@ class CampaignSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class ChainSerializer(serializers.ModelSerializer):
+class CampaignValidationCheck:
+    __metaclass__ = ABCMeta
+
+    context = None
+
+    def is_campaign_valid(self, value):
+        request = self.context.get("request")
+        if request and \
+                hasattr(request, "user") and \
+                ManagersOnlyAccessPolicy.is_user_campaign_manager(request.user,
+                                                                  value.get_campaign()):
+            return True
+        else:
+            return False
+
+
+class ChainSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = Chain
         fields = base_model_fields + ['campaign']
@@ -23,18 +43,26 @@ class ChainSerializer(serializers.ModelSerializer):
         """
         Check that the created chain belongs to a campaign that user manages.
         """
-        user = None
-        request = self.context.get("request")
-        if request and \
-                hasattr(request, "user") and \
-                ChainAccessPolicy.is_user_campaign_manager(request.user, value):
+        if self.is_campaign_valid(value):
             return value
         raise serializers.ValidationError("User may not add chain "
                                           "to this campaign")
 
 
-stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
-schema_provider_fields = ['json_schema', 'ui_schema', 'library']
+class ConditionalStageSerializer(serializers.ModelSerializer,
+                                 CampaignValidationCheck):
+    class Meta:
+        model = ConditionalStage
+        fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
+
+    def validate_chain(self, value):
+        """
+        Check that the created stage belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add stage "
+                                          "to this chain")
 
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
@@ -66,12 +94,6 @@ class TaskStageSerializer(serializers.ModelSerializer):
 #         model = WebHookStage
 #         fields = base_model_fields + stage_fields + schema_provider_fields + \
 #                  ['web_hook_address', ]
-
-
-class ConditionalStageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ConditionalStage
-        fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
 
 
 class CaseSerializer(serializers.ModelSerializer):
