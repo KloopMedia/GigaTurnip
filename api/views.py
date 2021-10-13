@@ -8,12 +8,16 @@ from api.models import Campaign, Chain, TaskStage, \
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
-    TrackSerializer, RankRecordSerializer, TaskCreateSerializer, TaskEditSerializer, \
-    TaskDefaultSerializer, TaskRequestAssignmentSerializer, TaskStageReadSerializer, CampaignManagementSerializer
+    TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
+    TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer, \
+    TaskStageReadSerializer, CampaignManagementSerializer
 from api.asyncstuff import process_completed_task
-from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy, TaskAccessPolicy, \
-    RankAccessPolicy, RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy, CampaignManagementAccessPolicy
+from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
+    TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
+    RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy
 from . import utils
+
 
 class CampaignViewSet(viewsets.ModelViewSet):
     """
@@ -66,7 +70,6 @@ class CampaignViewSet(viewsets.ModelViewSet):
             .filter_for_user_selectable_campaigns(self.get_queryset(), request)
         serializer = self.get_serializer(campaigns, many=True)
         return Response(serializer.data)
-
 
 
 class ChainViewSet(viewsets.ModelViewSet):
@@ -131,14 +134,17 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         Выбирает нужные сериалайзер (для чтения или обычный).
         """
 
-        if self.action == 'create' or self.action == 'update' or self.action == 'partial_update':
+        if self.action == 'create' or \
+                self.action == 'update' or \
+                self.action == 'partial_update':
             return TaskStageSerializer
         else:
             return TaskStageReadSerializer
 
     def get_queryset(self):
         if self.action == 'user_relevant' or self.action == 'create_task':
-            return utils.filter_for_user_creatable_stages(TaskStage.objects.all(), self.request)
+            return utils.filter_for_user_creatable_stages(TaskStage.objects.all(),
+                                                          self.request)
         else:
             return TaskStageAccessPolicy.scope_queryset(
                 self.request, TaskStage.objects.all()
@@ -157,32 +163,6 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task = Task(stage=self.get_object(), assignee=request.user, case=case)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
-
-
-# class WebHookStageViewSet(viewsets.ModelViewSet):
-#     """
-#     list:
-#     Return a list of all the existing webhook stages.
-#
-#     create:
-#     Create a new chain webhook stage.
-#
-#     delete:
-#     Delete webhook stage.
-#
-#     read:
-#     Get webhook stage data.
-#
-#     update:
-#     Update webhook stage data.
-#
-#     partial_update:
-#     Partial update webhook stage data.
-#     """
-#
-#     filterset_fields = ['chain', ]
-#     queryset = WebHookStage.objects.all()
-#     serializer_class = WebHookStageSerializer
 
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):

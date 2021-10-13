@@ -1,11 +1,10 @@
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta
 
 from rest_framework import serializers
-from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement
-from api.permissions import ChainAccessPolicy, ManagersOnlyAccessPolicy
+from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
@@ -97,13 +96,6 @@ class TaskStageSerializer(serializers.ModelSerializer,
             return value
         raise serializers.ValidationError("User may not add stage "
                                           "to this chain")
-
-
-# class WebHookStageSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = WebHookStage
-#         fields = base_model_fields + stage_fields + schema_provider_fields + \
-#                  ['web_hook_address', ]
 
 
 class CaseSerializer(serializers.ModelSerializer):
