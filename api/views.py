@@ -142,9 +142,14 @@ class TaskStageViewSet(viewsets.ModelViewSet):
             return TaskStageReadSerializer
 
     def get_queryset(self):
-        if self.action == 'user_relevant' or self.action == 'create_task':
+        if self.action == 'user_relevant':
             return utils.filter_for_user_creatable_stages(TaskStage.objects.all(),
                                                           self.request)
+        elif self.action == 'retrieve' or \
+                self.action == 'update' or \
+                self.action == 'partial_update' or \
+                self.action == 'create_task':
+            return TaskStage.objects.all()
         else:
             return TaskStageAccessPolicy.scope_queryset(
                 self.request, TaskStage.objects.all()

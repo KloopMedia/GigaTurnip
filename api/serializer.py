@@ -191,7 +191,8 @@ class TrackSerializer(serializers.ModelSerializer, CampaignValidationCheck):
                                           "to this campaign")
 
 
-class CampaignManagementSerializer(serializers.ModelSerializer, CampaignValidationCheck):
+class CampaignManagementSerializer(serializers.ModelSerializer,
+                                   CampaignValidationCheck):
     class Meta:
         model = CampaignManagement
         fields = '__all__'

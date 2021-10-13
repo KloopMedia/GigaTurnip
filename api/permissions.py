@@ -114,7 +114,37 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 
 
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
-    user_relevant_permissions = [
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["retrieve"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_manager or is_stage_user_creatable",
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
+
+        },
+        {
+            "action": ["partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        },
         {
             "action": ["user_relevant"],
             "principal": "authenticated",
@@ -126,9 +156,8 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "effect": "allow",
             "condition": "is_stage_user_creatable"
         },
-
     ]
-    statements = ManagersOnlyAccessPolicy().statements + user_relevant_permissions
+
 
     @classmethod
     def scope_queryset(cls, request, queryset):
@@ -137,6 +166,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
 
     def is_stage_user_creatable(self, request, view, action) -> bool:
         queryset = TaskStage.objects.filter(id=view.get_object().id)
+        print(bool(utils.filter_for_user_creatable_stages(queryset, request)))
         return bool(utils.filter_for_user_creatable_stages(queryset, request))
 
 
@@ -155,7 +185,8 @@ class TaskAccessPolicy(AccessPolicy):
         {
             "action": ["retrieve"],
             "principal": "authenticated",
-            "effect": "is_assignee or is_manager"
+            "effect": "allow",
+            "condition_expression": "is_assignee or is_manager"
         },
         {
             "action": ["create"],
@@ -171,7 +202,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["release_assignment"],
             "principal": "authenticated",
             "effect": "deny",
-            "condition": "is_assignee and is_not_complete"
+            "condition_expression": "is_assignee and is_not_complete"
         },
         {
             "action": ["request_assignment"],
