@@ -326,7 +326,7 @@ class Task(models.Model, CampaignInterface):
         return str("Task #:" + str(self.id) + self.case.__str__())
 
 
-class Rank(BaseModel):
+class Rank(BaseModel, CampaignInterface):
     stages = models.ManyToManyField(
         TaskStage,
         related_name="ranks",
@@ -341,6 +341,9 @@ class Rank(BaseModel):
         null=True,
         blank=True
     )
+
+    def get_campaign(self):
+        return self.track.campaign
 
     def __str__(self):
         return self.name
@@ -371,7 +374,7 @@ class Track(BaseModel, CampaignInterface):
         return self.campaign
 
 
-class RankRecord(models.Model):
+class RankRecord(models.Model, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
@@ -385,6 +388,9 @@ class RankRecord(models.Model):
 
     class Meta:
         unique_together = ['user', 'rank']
+
+    def get_campaign(self):
+        return self.rank.track.campaign
 
     def __str__(self):
         return str(self.rank.__str__() + " " + self.user.__str__())
