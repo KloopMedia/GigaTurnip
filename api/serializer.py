@@ -1,27 +1,67 @@
+from abc import ABCMeta
+
 from rest_framework import serializers
-from rest_framework.fields import CurrentUserDefault
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement
+from api.permissions import ManagersOnlyAccessPolicy
+
+base_model_fields = ['id', 'name', 'description']
+stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
+schema_provider_fields = ['json_schema', 'ui_schema', 'library']
 
 
 class CampaignSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Campaign
         fields = '__all__'
 
 
-class ChainSerializer(serializers.ModelSerializer):
+class CampaignValidationCheck:
+    __metaclass__ = ABCMeta
 
+    context = None
+
+    def is_campaign_valid(self, value):
+        request = self.context.get("request")
+        if request and \
+                hasattr(request, "user") and \
+                ManagersOnlyAccessPolicy.is_user_campaign_manager(request.user,
+                                                                  value.get_campaign()):
+            return True
+        else:
+            return False
+
+
+class ChainSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = Chain
-        fields = '__all__'
+        fields = base_model_fields + ['campaign']
+
+    def validate_campaign(self, value):
+        """
+        Check that the created chain belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add chain "
+                                          "to this campaign")
 
 
-base_model_fields = ['id', 'name', 'description']
-stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
-schema_provider_fields = ['json_schema', 'ui_schema', 'library', 'rich_text']
+class ConditionalStageSerializer(serializers.ModelSerializer,
+                                 CampaignValidationCheck):
+    class Meta:
+        model = ConditionalStage
+        fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
+
+    def validate_chain(self, value):
+        """
+        Check that the created stage belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add stage "
+                                          "to this chain")
 
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
@@ -37,8 +77,8 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                   'webhook_response_field']
 
 
-class TaskStageSerializer(serializers.ModelSerializer):
-
+class TaskStageSerializer(serializers.ModelSerializer,
+                          CampaignValidationCheck):
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
@@ -48,17 +88,14 @@ class TaskStageSerializer(serializers.ModelSerializer):
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field']
 
-# class WebHookStageSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = WebHookStage
-#         fields = base_model_fields + stage_fields + schema_provider_fields + \
-#                  ['web_hook_address', ]
-
-
-class ConditionalStageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ConditionalStage
-        fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
+    def validate_chain(self, value):
+        """
+        Check that the created stage belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add stage "
+                                          "to this chain")
 
 
 class CaseSerializer(serializers.ModelSerializer):
@@ -113,28 +150,58 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
 
 
 class RankSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Rank
         fields = '__all__'
 
 
 class RankRecordSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = RankRecord
         fields = '__all__'
 
 
-class RankLimitSerializer(serializers.ModelSerializer):
-
+class RankLimitSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = RankLimit
         fields = '__all__'
 
+    def validate_stage(self, value):
+        """
+        Check that the created rank limit belongs to a stage that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add rank limit "
+                                          "to this campaign")
 
-class TrackSerializer(serializers.ModelSerializer):
 
+class TrackSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = Track
         fields = '__all__'
+
+    def validate_campaign(self, value):
+        """
+        Check that the created track belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add track "
+                                          "to this campaign")
+
+
+class CampaignManagementSerializer(serializers.ModelSerializer,
+                                   CampaignValidationCheck):
+    class Meta:
+        model = CampaignManagement
+        fields = '__all__'
+
+    def validate_campaign(self, value):
+        """
+        Check that the created chain belongs to a campaign that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add campaign management "
+                                          "to this campaign")

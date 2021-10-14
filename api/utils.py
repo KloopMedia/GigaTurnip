@@ -1,10 +1,11 @@
-from api.models import TaskStage, Task, RankLimit, Campaign
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain
 
 
-def filter_managed_campaigns(request):
-	managed_campaigns = Campaign.objects.all() \
-		.filter(campaign_managements__user=request.user)
-	return managed_campaigns
+def is_user_campaign_manager(user, campaign_id):
+	campaigns = Campaign.objects \
+		.filter(id=campaign_id) \
+		.filter(campaign_managements__user=user)
+	return bool(campaigns)
 
 
 def filter_for_user_creatable_stages(queryset, request):
@@ -47,12 +48,12 @@ def filter_for_user_selectable_tasks(queryset, request):
 	return tasks
 
 
-def filter_tasks_for_manager(queryset, request):
-	managed_campaigns = filter_managed_campaigns(request)
-	queryset = queryset \
-		.filter(stage__chain__campaign__in=managed_campaigns.values_list('id'))
-	return queryset
+def filter_for_user_campaigns(queryset, request):
+	stages = TaskStage.objects.filter(ranks__users=request.user).distinct()
+	chains = Chain.objects.filter(stages__in=stages).distinct()
+	return queryset.filter(chains__in=chains).distinct()
 
 
-def filter_assignee_tasks(queryset, request):
-	return queryset.filter(assignee=request.user)
+def filter_for_user_selectable_campaigns(queryset, request):
+	return queryset\
+		.exclude(id__in=filter_for_user_campaigns(queryset, request))

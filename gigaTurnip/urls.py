@@ -56,6 +56,9 @@ router.register(api_v1 + r'tracks',
 router.register(api_v1 + r'rankrecords',
                 turnip_app.RankRecordViewSet,
                 basename='rankrecord')
+# router.register(api_v1 + r'campaignmanagements',
+#                 turnip_app.CampaignManagementViewSet,
+#                 basename='campaignmanagement')
 
 
 urlpatterns = [path('admin/', admin.site.urls),
