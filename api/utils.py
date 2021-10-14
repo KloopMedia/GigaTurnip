@@ -48,17 +48,6 @@ def filter_for_user_selectable_tasks(queryset, request):
 	return tasks
 
 
-def filter_tasks_for_manager(queryset, request):
-	managed_campaigns = user_managed_campaigns(request)
-	queryset = queryset \
-		.filter(stage__chain__campaign__in=managed_campaigns.values_list('id'))
-	return queryset
-
-
-# def filter_assignee_tasks(queryset, request):
-# 	return queryset.filter(assignee=request.user)
-
-
 def filter_for_user_campaigns(queryset, request):
 	stages = TaskStage.objects.filter(ranks__users=request.user).distinct()
 	chains = Chain.objects.filter(stages__in=stages).distinct()
@@ -68,8 +57,3 @@ def filter_for_user_campaigns(queryset, request):
 def filter_for_user_selectable_campaigns(queryset, request):
 	return queryset\
 		.exclude(id__in=filter_for_user_campaigns(queryset, request))
-
-
-# def get_campaign(obj):
-# 	if isinstance(obj, Chain):
-# 		return obj.campaign
