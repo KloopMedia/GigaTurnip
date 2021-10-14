@@ -76,6 +76,9 @@ class Campaign(BaseModel, CampaignInterface):
         related_name="managed_campaigns"
     )
 
+    open = models.BooleanField(default=False,
+                               help_text="If True, users can join")
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = RankRecord.objects.get_or_create(
@@ -314,17 +317,33 @@ class Task(models.Model, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
+    def get_displayed_prev_tasks(self):
+        return Task.objects.filter(case=self.case)\
+            .filter(stage__in=self.stage.displayed_prev_stages.all())\
+            .exclude(id=self.id)
+
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
 
 
-class Rank(BaseModel):
+class Rank(BaseModel, CampaignInterface):
     stages = models.ManyToManyField(
         TaskStage,
         related_name="ranks",
         through="RankLimit",
         help_text="Stages id"
     )
+    track = models.ForeignKey(
+        "Track",
+        related_name="ranks",
+        on_delete=models.CASCADE,
+        help_text="Track this rank belongs to",
+        null=True,
+        blank=True
+    )
+
+    def get_campaign(self):
+        return self.track.campaign
 
     def __str__(self):
         return self.name
@@ -337,13 +356,14 @@ class Track(BaseModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text="Campaign id"
     )
-    ranks = models.ManyToManyField(
-        Rank,
-        related_name="ranks",
-        help_text="Ranks id"
-    )
+    # ranks = models.ManyToManyField(
+    #     Rank,
+    #     related_name="ranks",
+    #     help_text="Ranks id"
+    # )
     default_rank = models.ForeignKey(
         Rank,
+        related_name="default_track",
         on_delete=models.CASCADE,
         blank=True,
         null=True,
@@ -354,7 +374,7 @@ class Track(BaseModel, CampaignInterface):
         return self.campaign
 
 
-class RankRecord(models.Model):
+class RankRecord(models.Model, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
@@ -368,6 +388,9 @@ class RankRecord(models.Model):
 
     class Meta:
         unique_together = ['user', 'rank']
+
+    def get_campaign(self):
+        return self.rank.track.campaign
 
     def __str__(self):
         return str(self.rank.__str__() + " " + self.user.__str__())

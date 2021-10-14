@@ -15,7 +15,6 @@ django-filter = "*"
 django-q = "*"
 coreapi = "*"
 requests = "*"
-psycopg2-binary = "*"
 
 [dev-packages]
 yapf = "*"
