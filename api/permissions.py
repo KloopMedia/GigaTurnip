@@ -186,7 +186,9 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["retrieve"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee or is_manager"
+            "condition_expression": "is_assignee or "
+                                    "is_manager or "
+                                    "can_user_request_assignment"
         },
         {
             "action": ["create"],
