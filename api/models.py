@@ -314,6 +314,11 @@ class Task(models.Model, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
+    def get_displayed_prev_tasks(self):
+        return Task.objects.filter(case=self.case)\
+            .filter(stage__in=self.stage.displayed_prev_stages.all())\
+            .exclude(id=self.id)
+
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
 

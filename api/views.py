@@ -356,11 +356,17 @@ class TaskViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post', 'get'])
-    def release_assignment(self, request, pk=None):  # TODO: Add permissions to block changing assignee
+    def release_assignment(self, request, pk=None):
         task = self.get_object()
         task.assignee = None
         task.save()
         return Response({'status': 'assignment released'})
+
+    @action(detail=True, methods=['post', 'get'])
+    def list_displayed_previous(self, request, pk=None):
+        tasks = self.get_object().get_displayed_prev_tasks()
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
 
 
 class RankViewSet(viewsets.ModelViewSet):

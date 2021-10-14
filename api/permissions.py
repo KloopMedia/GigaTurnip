@@ -202,7 +202,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["release_assignment"],
             "principal": "authenticated",
             "effect": "deny",
-            "condition_expression": "is_assignee and is_not_complete"
+            #"condition_expression": "is_assignee and is_not_complete"
         },
         {
             "action": ["request_assignment"],
@@ -215,7 +215,13 @@ class TaskAccessPolicy(AccessPolicy):
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee and is_not_complete"
-        }
+        },
+        {
+            "action": ["list_displayed_previous"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee or is_manager"
+        },
     ]
 
     @classmethod
