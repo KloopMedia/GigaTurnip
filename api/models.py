@@ -333,6 +333,15 @@ class Rank(BaseModel):
         through="RankLimit",
         help_text="Stages id"
     )
+    track = models.ForeignKey(
+        "Track",
+        related_name="ranks",
+        on_delete=models.CASCADE,
+        help_text="Track this rank belongs to",
+        null=True,
+        blank=True
+    )
+
     def __str__(self):
         return self.name
 
@@ -351,6 +360,7 @@ class Track(BaseModel, CampaignInterface):
     # )
     default_rank = models.ForeignKey(
         Rank,
+        related_name="default_track",
         on_delete=models.CASCADE,
         blank=True,
         null=True,
