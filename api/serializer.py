@@ -149,16 +149,35 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
                             'complete']
 
 
-class RankSerializer(serializers.ModelSerializer):
+class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = Rank
         fields = '__all__'
 
+    def validate_track(self, value):
+        """
+        Check that the created rank belongs to a track that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add rank "
+                                          "to this track")
 
-class RankRecordSerializer(serializers.ModelSerializer):
+
+class RankRecordSerializer(serializers.ModelSerializer,
+                           CampaignValidationCheck):
     class Meta:
         model = RankRecord
         fields = '__all__'
+
+    def validate_rank(self, value):
+        """
+        Check that the created RankRecord belongs to a Rank that user manages.
+        """
+        if self.is_campaign_valid(value):
+            return value
+        raise serializers.ValidationError("User may not add RankRecord "
+                                          "to this rank")
 
 
 class RankLimitSerializer(serializers.ModelSerializer, CampaignValidationCheck):
