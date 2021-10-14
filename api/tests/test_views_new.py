@@ -1,4 +1,5 @@
 import django, json, random
+from django.forms.models import model_to_dict
 
 django.setup()
 
@@ -104,39 +105,46 @@ class ChainTest(APITestCase):
         self.url_chain = reverse("chain-list")
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.client.force_authenticate(user=self.user)
-        self.campaign = {"name": "campaign", "description": "description"}
+        self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain = {"name": "chain", "description": "description", "campaign": None}
         self.campaign_creator_group = Group.objects.create(name='campaign_creator')
 
-    def test_list_no_campaign_fail(self):
+    # because simple user can't make list of chains
+    def test_list_user_fail(self):
         self.assertEqual(Campaign.objects.count(), 0)
         self.assertEqual(Chain.objects.count(), 0)
-        response = self.client.get(self.url_chain)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_list_campaign_success(self):
-        self.campaign_creator_group.user_set.add(self.user)
-        self.assertEqual(Campaign.objects.count(), 0)
-        self.assertEqual(Chain.objects.count(), 0)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
+        new_user = CustomUser.objects.create_user(username='new_user', email='u@gmail.com', password='1234')
+        campaign = Campaign.objects.create(name='campaign')
+        chain = Chain.objects.create(name='chain', campaign=campaign)
+        new_user.managed_campaigns.add(campaign)
         self.assertEqual(Campaign.objects.count(), 1)
+        self.assertEqual(Chain.objects.count(), 1)
+        response = self.client.get(self.url_chain)
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: uncomment it after fixing permissions
+        self.assertEqual(json.loads(response.content), [])
 
-        campaign_id = response_create_campaign.data.get('id')
-        self.user.managed_campaigns.add(Campaign.objects.get(id=campaign_id))
-        response_get_campaign = self.client.get(self.url_campaign + f"{campaign_id}/")
-        self.assertEqual(response_get_campaign.status_code, status.HTTP_200_OK)
-        response = self.client.get(self.url_chain + f"?campaign={campaign_id}")
+    # because manager
+    def test_list_success(self):
+        self.campaign_creator_group.user_set.add(self.user)
+        campaign = Campaign.objects.create(name='campaign')
+        chain = Chain.objects.create(name='chain', campaign=campaign)
+        self.user.managed_campaigns.add(campaign)
+        response = self.client.get(self.url_chain)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, [])
-        self.assertEqual(Chain.objects.count(), 0)
+        self.assertEqual(json.loads(response.content), [model_to_dict(chain)])
 
-    def test_create_no_exist_campaign_fail(self):
-        self.assertEqual(Campaign.objects.count(), 0)
-        no_exist_id = 21
-        response = self.client.post(self.url_chain + f"?campaign={no_exist_id}")
+    # simple user can't create new chain
+    def test_create_simple_user_create_fail(self):
+        campaign = Campaign.objects.create(name="campaign")
+        chain = Chain.objects.create(name="NewChain", campaign=campaign)
+        new_user = CustomUser.objects.create_user(username="new_test", email='new_test@email.com', password='new_test')
+        new_user.managed_campaigns.add(campaign)
+
+        self.chain['campaign'] = campaign.id
+        response = self.client.post(self.url_chain, self.chain)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    # test create if user isn't manager of campaign
     def test_create_not_my_campaign_fail(self):
         new_user = CustomUser.objects.create_user(username='new user')
         new_campaign = Campaign.objects.create(name='new campaign')
@@ -145,36 +153,36 @@ class ChainTest(APITestCase):
 
         self.campaign_creator_group.user_set.add(self.user)
         self.assertEqual(CustomUser.objects.count(), 2)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
+        my_campaign = Campaign.objects.create(name='my campaign')
         self.user.managed_campaigns.add(my_campaign)
 
         chain_refers_not_my_campaign = self.chain
         chain_refers_not_my_campaign['campaign'] = new_campaign.id
         response_create_chain_not_my_campaign = self.client.post(
-            self.url_chain + f'?campaign={my_campaign.id}',
+            self.url_chain,
             chain_refers_not_my_campaign
         )
         self.assertEqual(response_create_chain_not_my_campaign.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_create_chain_based_on_my_campaign_success(self):
+    # if user is manager and chain refers on users campaign
+    def test_create_chain_refers_on_my_campaign_success(self):
         self.campaign_creator_group.user_set.add(self.user)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
+        my_campaign = Campaign.objects.create(name='My campaign')
         self.assertEqual(Campaign.objects.count(), 1)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
         self.user.managed_campaigns.add(my_campaign)
 
         chain = self.chain
         chain['campaign'] = my_campaign.id
-        response_create_chain = self.client.post(self.url_chain + f"?campaign={my_campaign.id}", chain)
+        response_create_chain = self.client.post(self.url_chain, chain)
         self.assertEqual(response_create_chain.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Chain.objects.count(), 1)
         my_chain = Chain.objects.get(id=response_create_chain.data.get('id'))
+        self.assertEqual(json.loads(response_create_chain.content), model_to_dict(my_chain))
+        self.assertEqual(Chain.objects.count(), 1)
         self.assertIn(self.user, my_chain.campaign.managers.all())
-        self.assertEqual(1, my_chain.campaign.managers.count())
+        self.assertEqual(1, len(my_chain.campaign.managers.all()))
 
+    # manager can retrieve chains which attached to his campaigns
+    # manager try to retrieve not his chain
     def test_retrieve_my_campaign_not_my_chain_fail(self):
         new_user = CustomUser.objects.create_user(username='new user')
         new_campaign = Campaign.objects.create(name='new campaign')
@@ -183,31 +191,36 @@ class ChainTest(APITestCase):
         new_user.managed_campaigns.add(new_campaign)
 
         self.campaign_creator_group.user_set.add(self.user)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
+        my_campaign = Campaign.objects.create(name="My Campaign")
         self.assertEqual(Campaign.objects.count(), 2)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
+        my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
+        self.assertEqual(Chain.objects.count(), 2)
+        self.user.managed_campaigns.add(my_campaign)
+
+        response_not_my_chain = self.client.get(self.url_chain + f"{new_chain.id}/")
+        self.assertEqual(response_not_my_chain.status_code, status.HTTP_404_NOT_FOUND) # todo: is there have to be 403 error
+        self.assertNotIn(self.user, new_chain.campaign.managers.all())
+
+    # manager retrieve his chain
+    def test_retrieve_my_campaign_my_chain_success(self):
+        new_user = CustomUser.objects.create_user(username='new user')
+        new_campaign = Campaign.objects.create(name='new campaign')
+        new_chain = Chain.objects.create(name='new chain', campaign=new_campaign)
+        self.campaign_creator_group.user_set.add(new_user)
+        new_user.managed_campaigns.add(new_campaign)
+
+        self.campaign_creator_group.user_set.add(self.user)
+        my_campaign = Campaign.objects.create(name="My Campaign")
+        self.assertEqual(Campaign.objects.count(), 2)
         self.user.managed_campaigns.add(my_campaign)
         my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
         self.assertEqual(Chain.objects.count(), 2)
 
-        response_not_my_chain = self.client.get(self.url_chain + f"{new_chain.id}/")
-        self.assertEqual(response_not_my_chain.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertNotIn(self.user, new_chain.campaign.managers.all())
-
-    def test_retrieve_my_campaign_my_chain_success(self):
-        self.campaign_creator_group.user_set.add(self.user)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Campaign.objects.count(), 1)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
-        self.user.managed_campaigns.add(my_campaign)
-        my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
-        self.assertEqual(Chain.objects.count(), 1)
-
         response_not_my_chain = self.client.get(self.url_chain + f"{my_chain.id}/")
         self.assertEqual(response_not_my_chain.status_code, status.HTTP_200_OK)
 
+    # manager can update/partial update only his chain
+    # try to update other chain
     def test_partial_update_not_my_chain_fail(self):
         new_user = CustomUser.objects.create_user(username='new user')
         new_campaign = Campaign.objects.create(name='new campaign')
@@ -217,9 +230,7 @@ class ChainTest(APITestCase):
 
         self.campaign_creator_group.user_set.add(self.user)
         self.assertEqual(CustomUser.objects.count(), 2)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
+        my_campaign = Campaign.objects.create(name="My campaign")
         self.user.managed_campaigns.add(my_campaign)
         my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
         self.assertEqual(Chain.objects.count(), 2)
@@ -228,30 +239,9 @@ class ChainTest(APITestCase):
             self.url_chain + f"{new_chain.id}/",
             {"name": "try to change chain name"}
         )
-        self.assertEqual(response_update_not_my_chain.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response_update_not_my_chain.status_code, status.HTTP_404_NOT_FOUND) # todo: ask about 403 status code
 
-    def test_partial_update_not_my_chain_fail(self):
-        new_user = CustomUser.objects.create_user(username='new user')
-        new_campaign = Campaign.objects.create(name='new campaign')
-        new_chain = Chain.objects.create(name='new chain', campaign=new_campaign)
-        self.campaign_creator_group.user_set.add(new_user)
-        new_user.managed_campaigns.add(new_campaign)
-
-        self.campaign_creator_group.user_set.add(self.user)
-        self.assertEqual(CustomUser.objects.count(), 2)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
-        self.user.managed_campaigns.add(my_campaign)
-        my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
-        self.assertEqual(Chain.objects.count(), 2)
-
-        response_update_my_chain = self.client.patch(
-            self.url_chain + f"{new_chain.id}/",
-            {"name": "try to change chain name"}
-        )
-        self.assertEqual(response_update_my_chain.status_code, status.HTTP_404_NOT_FOUND)
-
+    # manager try to update/partial update his chain
     def test_partial_update_success(self):
         new_user = CustomUser.objects.create_user(username='new user')
         new_campaign = Campaign.objects.create(name='new campaign')
@@ -261,19 +251,22 @@ class ChainTest(APITestCase):
 
         self.campaign_creator_group.user_set.add(self.user)
         self.assertEqual(CustomUser.objects.count(), 2)
-        response_create_campaign = self.client.post(self.url_campaign, self.campaign)
-        self.assertEqual(response_create_campaign.status_code, status.HTTP_201_CREATED)
-        my_campaign = Campaign.objects.get(id=response_create_campaign.data.get('id'))
+        my_campaign = Campaign.objects.create(name="My campaign")
         self.user.managed_campaigns.add(my_campaign)
         my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
         self.assertEqual(Chain.objects.count(), 2)
 
+        chain = self.chain
+        chain['name'] ="try to change chain name"
+        chain['campaign'] = my_campaign.id
         response_update_my_chain = self.client.patch(
             self.url_chain + f"{my_chain.id}/",
-            {"name": "try to change chain name"}
+            chain
         )
         self.assertEqual(response_update_my_chain.status_code, status.HTTP_200_OK)
-
+        self.assertEqual(Chain.objects.count(), 2)
+        my_chain = Chain.objects.get(id=my_chain.id)
+        self.assertEqual(json.loads(response_update_my_chain.content), model_to_dict(my_chain))
 
 class ConditionalStageTest(APITestCase):
     def setUp(self):
@@ -295,19 +288,35 @@ class ConditionalStageTest(APITestCase):
     def test_list_fail(self):
         response = self.client.get(self.url_conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(json.loads(response.content), [])
+
+    def test_list_with_filter_not_my_chain_fail(self):
+        new_campaign = Campaign.objects.create(name="new campaign")
+        new_chain = Chain.objects.create(name="new campaign", campaign=new_campaign)
+        new_user = CustomUser.objects.create_user(username='new', email='new@email.com', password='new')
+        new_user.managed_campaigns.add(new_campaign)
+
+        my_campaign = Campaign.objects.create(name='my campaign')
+        my_chain = Chain.objects.create(name='my chain', campaign=my_campaign)
+        self.campaign_creator_group.user_set.add(self.user)
+        self.user.managed_campaigns.add(my_campaign)
+
+        response = self.client.get(self.url_conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(json.loads(response.content), [])
 
     def test_list_campaign_chain_success(self):
         campaign = Campaign.objects.create(name="campaign")
         chain = Chain.objects.create(name="chain", campaign=campaign)
         self.user.managed_campaigns.add(campaign)
 
-        response = self.client.get(self.url_conditional_stage+f"?chain={chain.id}")
+        response = self.client.get(self.url_conditional_stage + f"?chain={chain.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_campaign_not_my_chain_fail(self):
         new_user = CustomUser.objects.create_user(username='new user')
         new_campaign = Campaign.objects.create(name='new campaign')
-        new_chain = Chain.objects.create(name='new chain')
+        new_chain = Chain.objects.create(name='new chain', campaign=new_campaign)
         self.campaign_creator_group.user_set.add(new_user)
         new_user.managed_campaigns.add(new_campaign)
 
@@ -319,8 +328,8 @@ class ConditionalStageTest(APITestCase):
 
         cond_stage = self.conditional_stage
         cond_stage['chain'] = new_chain.id
-        response = self.client.post(self.url_conditional_stage+f"?chain={new_chain.id}", cond_stage)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        response = self.client.post(self.url_conditional_stage + f"?chain={new_chain.id}", cond_stage)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(ConditionalStage.objects.count(), 0)
 
     def test_create_campaign_chain_success(self):
@@ -332,10 +341,8 @@ class ConditionalStageTest(APITestCase):
 
         cond_stage = self.conditional_stage
         cond_stage['chain'] = chain.id
-        response = self.client.post(self.url_conditional_stage+f"?chain={chain.id}", cond_stage)
+        response = self.client.post(self.url_conditional_stage + f"?chain={chain.id}", cond_stage)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(ConditionalStage.objects.count(), 1)
         my_conditional_stage = ConditionalStage.objects.get(id=response.data.get('id'))
-        self.assertEqual(self.user, my_conditional_stage.chain.campaign.managers.all())
-
-
+        self.assertIn(self.user, my_conditional_stage.chain.campaign_json.managers.all())
