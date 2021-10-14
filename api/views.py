@@ -141,17 +141,25 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStageReadSerializer
 
+    # def get_queryset(self):
+    #     if self.action == 'retrieve' or \
+    #             self.action == 'update' or \
+    #             self.action == 'partial_update' or \
+    #             self.action == 'user_relevant' or \
+    #             self.action == 'create_task':
+    #         return TaskStage.objects.all()
+    #     else:
+    #         return TaskStageAccessPolicy.scope_queryset(
+    #             self.request, TaskStage.objects.all()
+    #         )
+
     def get_queryset(self):
-        if self.action == 'retrieve' or \
-                self.action == 'update' or \
-                self.action == 'partial_update' or \
-                self.action == 'user_relevant' or \
-                self.action == 'create_task':
-            return TaskStage.objects.all()
-        else:
+        if self.action == 'list':
             return TaskStageAccessPolicy.scope_queryset(
                 self.request, TaskStage.objects.all()
             )
+        else:
+            return TaskStage.objects.all()
 
     @action(detail=False)
     def user_relevant(self, request):

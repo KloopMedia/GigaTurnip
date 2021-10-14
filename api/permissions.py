@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track
+from api.models import Campaign, TaskStage, Track, Task
 from . import utils
 
 
@@ -116,7 +116,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list", "retrieve"],
+            "action": ["list"],
             "principal": "authenticated",
             "effect": "allow",
         },
@@ -158,7 +158,6 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
         },
     ]
 
-
     @classmethod
     def scope_queryset(cls, request, queryset):
         return queryset.filter(chain__campaign__campaign_managements__user=
@@ -166,7 +165,6 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
 
     def is_stage_user_creatable(self, request, view, action) -> bool:
         queryset = TaskStage.objects.filter(id=view.get_object().id)
-        print(bool(utils.filter_for_user_creatable_stages(queryset, request)))
         return bool(utils.filter_for_user_creatable_stages(queryset, request))
 
 
@@ -235,8 +233,10 @@ class TaskAccessPolicy(AccessPolicy):
         return task.complete is False
 
     def can_user_request_assignment(self, request, view, action):
-        return bool(utils.filter_for_user_selectable_tasks(view.queryset,
-                                                           request))
+        queryset = Task.objects.filter(id=view.get_object().id)
+        return bool(utils.filter_for_user_selectable_tasks(
+            queryset,
+            request))
 
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()
