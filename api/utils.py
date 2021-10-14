@@ -52,4 +52,5 @@ def filter_for_user_campaigns(queryset, request):
 
 def filter_for_user_selectable_campaigns(queryset, request):
 	return queryset\
-		.exclude(id__in=filter_for_user_campaigns(queryset, request))
+		.exclude(id__in=filter_for_user_campaigns(queryset, request))\
+		.exclude(open=False)
