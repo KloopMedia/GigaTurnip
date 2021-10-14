@@ -249,55 +249,61 @@ class TaskAccessPolicy(AccessPolicy):
         return request.user in managers
 
 
-class RankAccessPolicy(AccessPolicy):
-    statements = [
-        {
-            "action": ["list"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager_exist"
-        },
-        {
-            "action": ["create"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition": "is_manager_of_any_campaign"
-        },
-        {
-            "action": ["retrieve"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager"
+class RankAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(track__campaign__campaign_managements__user=
+                               request.user)
 
-        },
-        {
-            "action": ["partial_update"],
-            "principal": "authenticated",
-            "effect": "deny",
-            # "condition": "is_manager"
-
-        },
-        {
-            "action": ["destroy"],
-            "principal": "authenticated",
-            "effect": "deny"
-        }
-    ]
-
-    def is_manager_of_any_campaign(self, request, view, action) -> bool:
-        return bool(Campaign.objects.filter(managers=request.user))
-
-    def is_manager(self, request, view, action) -> bool:
-
-        rank = view.get_object()
-
-        tracks = Track.objects.filter(ranks__in=[rank.id]).all()
-        for track in tracks:
-            campaign = Campaign.objects.get(id=track.campaign_id)
-            managers = campaign.managers.all()
-            if request.user in managers:
-                return True
-        return False
+# class RankAccessPolicy(AccessPolicy):
+#     statements = [
+#         {
+#             "action": ["list"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             # "condition": "is_manager_exist"
+#         },
+#         {
+#             "action": ["create"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             "condition": "is_manager_of_any_campaign"
+#         },
+#         {
+#             "action": ["retrieve"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             # "condition": "is_manager"
+#
+#         },
+#         {
+#             "action": ["partial_update"],
+#             "principal": "authenticated",
+#             "effect": "deny",
+#             # "condition": "is_manager"
+#
+#         },
+#         {
+#             "action": ["destroy"],
+#             "principal": "authenticated",
+#             "effect": "deny"
+#         }
+#     ]
+#
+#     def is_manager_of_any_campaign(self, request, view, action) -> bool:
+#         return bool(Campaign.objects.filter(managers=request.user))
+#
+#     def is_manager(self, request, view, action) -> bool:
+#
+#         rank = view.get_object()
+#
+#         tracks = Track.objects.filter(ranks__in=[rank.id]).all()
+#         for track in tracks:
+#             campaign = Campaign.objects.get(id=track.campaign_id)
+#             managers = campaign.managers.all()
+#             if request.user in managers:
+#                 return True
+#         return False
 
 
 class RankLimitAccessPolicy(ManagersOnlyAccessPolicy):
@@ -308,35 +314,42 @@ class RankLimitAccessPolicy(ManagersOnlyAccessPolicy):
                                request.user)
 
 
-class RankRecordAccessPolicy(AccessPolicy):
-    statements = [
-        {
-            "action": ["list", "retrieve", "partial_update", "create"],
-            "principal": "authenticated",
-            "effect": "allow",
-            # "condition": "is_manager_exist"
-        },
-        {
-            "action": ["destroy"],
-            "principal": "authenticated",
-            "effect": "deny"
-        }
-    ]
+class RankRecordAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(rank__track__campaign__campaign_managements__user=
+                               request.user)
 
-    def is_manager_exist(self, request, view, action) -> bool:
-        return bool(Campaign.objects.filter(managers=request.user))
 
-    def is_manager(self, request, view, action) -> bool:
-
-        rank_limit = view.get_object()
-
-        tracks = Track.objects.filter(ranks__in=[rank_limit.rank_id]).all()
-        for track in tracks:
-            campaign = Campaign.objects.get(id=track.campaign_id)
-            managers = campaign.managers.all()
-            if request.user in managers:
-                return True
-        return False
+# class RankRecordAccessPolicy(AccessPolicy):
+#     statements = [
+#         {
+#             "action": ["list", "retrieve", "partial_update", "create"],
+#             "principal": "authenticated",
+#             "effect": "allow",
+#             # "condition": "is_manager_exist"
+#         },
+#         {
+#             "action": ["destroy"],
+#             "principal": "authenticated",
+#             "effect": "deny"
+#         }
+#     ]
+#
+#     def is_manager_exist(self, request, view, action) -> bool:
+#         return bool(Campaign.objects.filter(managers=request.user))
+#
+#     def is_manager(self, request, view, action) -> bool:
+#
+#         rank_limit = view.get_object()
+#
+#         tracks = Track.objects.filter(ranks__in=[rank_limit.rank_id]).all()
+#         for track in tracks:
+#             campaign = Campaign.objects.get(id=track.campaign_id)
+#             managers = campaign.managers.all()
+#             if request.user in managers:
+#                 return True
+#         return False
 
 
 class TrackAccessPolicy(ManagersOnlyAccessPolicy):

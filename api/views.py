@@ -356,10 +356,14 @@ class RankViewSet(viewsets.ModelViewSet):
     partial_update:
     Partial update rank data.
     """
-    queryset = Rank.objects.all()
-    serializer_class = RankSerializer
 
+    serializer_class = RankSerializer
     permission_classes = (RankAccessPolicy,)
+
+    def get_queryset(self):
+        return RankAccessPolicy.scope_queryset(
+            self.request, Rank.objects.all()
+        )
 
 
 class RankRecordViewSet(viewsets.ModelViewSet):
@@ -377,10 +381,13 @@ class RankRecordViewSet(viewsets.ModelViewSet):
     partial_update:
     Partial update rank record data.
     """
-    queryset = RankRecord.objects.all()
     serializer_class = RankRecordSerializer
-
     permission_classes = (RankRecordAccessPolicy,)
+
+    def get_queryset(self):
+        return RankRecordAccessPolicy.scope_queryset(
+            self.request, RankRecord.objects.all()
+        )
 
 
 class RankLimitViewSet(viewsets.ModelViewSet):
