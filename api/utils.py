@@ -19,14 +19,10 @@ def filter_for_user_creatable_stages(queryset, request):
 		tasks = Task.objects.filter(assignee=request.user.id) \
 			.filter(stage=stage).distinct()
 		total = len(tasks)
-		print(total)
 		incomplete = len(tasks.filter(complete=False))
-		print(incomplete)
 		ranklimits = RankLimit.objects.filter(stage=stage) \
 			.filter(rank__rankrecord__user__id=request.user.id)
 		for ranklimit in ranklimits:
-			print(ranklimit.total_limit)
-			print(ranklimit.open_limit)
 			if ((ranklimit.open_limit > incomplete and ranklimit.total_limit > total) or
 				(ranklimit.open_limit == 0 and ranklimit.total_limit > total) or
 				(ranklimit.open_limit > incomplete and ranklimit.total_limit == 0) or

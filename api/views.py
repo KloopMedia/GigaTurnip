@@ -141,18 +141,6 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStageReadSerializer
 
-    # def get_queryset(self):
-    #     if self.action == 'retrieve' or \
-    #             self.action == 'update' or \
-    #             self.action == 'partial_update' or \
-    #             self.action == 'user_relevant' or \
-    #             self.action == 'create_task':
-    #         return TaskStage.objects.all()
-    #     else:
-    #         return TaskStageAccessPolicy.scope_queryset(
-    #             self.request, TaskStage.objects.all()
-    #         )
-
     def get_queryset(self):
         if self.action == 'list':
             return TaskStageAccessPolicy.scope_queryset(
@@ -268,22 +256,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskRequestAssignmentSerializer
         else:
             return TaskDefaultSerializer
-
-    # def list(self, request, *args, **kwargs):
-    #     queryset = self.filter_queryset(self.get_queryset())
-    #     managed_campaigns = utils.user_managed_campaigns(request)
-    #     if bool(managed_campaigns):
-    #         queryset = utils.filter_tasks_for_manager(queryset, request)
-    #     else:
-    #         queryset = utils.filter_assignee_tasks(queryset, request)
-    #
-    #     page = self.paginate_queryset(queryset)
-    #     if page is not None:
-    #         serializer = self.get_serializer(page, many=True)
-    #         return self.get_paginated_response(serializer.data)
-    #
-    #     serializer = self.get_serializer(queryset, many=True)
-    #     return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
