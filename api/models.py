@@ -76,6 +76,9 @@ class Campaign(BaseModel, CampaignInterface):
         related_name="managed_campaigns"
     )
 
+    open = models.BooleanField(default=False,
+                               help_text="If True, users can join")
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = RankRecord.objects.get_or_create(
