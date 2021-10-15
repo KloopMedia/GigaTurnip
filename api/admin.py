@@ -24,11 +24,15 @@ class StageAdmin(admin.ModelAdmin):
 
 
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('id', 'stage', 'assignee', )
+    list_display = ('id',
+                    'case',
+                    'stage',
+                    'assignee', )
     list_filter = ('stage__chain__campaign',
                    'stage__chain',
                    'stage', )
     search_fields = ('id',
+                     'case__id',
                      'stage__name',
                      'assignee__email',
                      'stage__chain__name',
