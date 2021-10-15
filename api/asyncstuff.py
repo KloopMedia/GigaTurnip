@@ -45,6 +45,7 @@ def create_new_task(stage, in_task):
             params = in_task.responses
         if stage.webhook_params:
             params.update(stage.webhook_params)
+        params["in_task_id"] = in_task.id
         response = requests.get(stage.webhook_address, params=params)
         if stage.webhook_response_field:
             response = response.json()[stage.webhook_response_field]

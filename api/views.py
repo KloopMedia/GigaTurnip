@@ -9,7 +9,8 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
-    TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer, \
+    TaskEditSerializer, TaskDefaultSerializer,\
+    TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
@@ -213,19 +214,22 @@ class TaskViewSet(viewsets.ModelViewSet):
     list:
     Return a list of all the existing tasks.
     create:
-    Create a new task instance. Note: if task is completed, process_completed_task() function will be called.
+    Create a new task instance. Note: if task is completed,
+    process_completed_task() function will be called.
     delete:
     Delete task.
     read:
     Get task data.
     update:
-    Update task data. Note: if task is completed, process_completed_task() function will be called.
+    Update task data. Note: if task is completed,
+    process_completed_task() function will be called.
     partial_update:
     Partial update task data.
     user_relevant:
     Return a list of tasks where user is task assignee.
     user_selectable:
-    Return a list of not assigned uncompleted tasks that are allowed to the user.
+    Return a list of not assigned
+    uncompleted tasks that are allowed to the user.
     request_assignment:
     Assign user to requested task
     release_assignment:
@@ -269,9 +273,15 @@ class TaskViewSet(viewsets.ModelViewSet):
             #                       data['id'],
             #                       task_name='process_completed_task',
             #                       group='follow_chain'))
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -282,8 +292,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             serializer.save()
             if getattr(instance, '_prefetched_objects_cache', None):
-                # If 'prefetch_related' has been applied to a queryset, we need to
-                # forcibly invalidate the prefetch cache on the instance.
+                # If 'prefetch_related' has been applied to a queryset,
+                # we need to forcibly invalidate the prefetch
+                # cache on the instance.
                 instance._prefetched_objects_cache = {}
             data = serializer.data
             data['id'] = instance.id
@@ -296,7 +307,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             #                group='follow_chain'))
             return Response(data, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
 
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
@@ -312,7 +324,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_selectable(self, request):
         queryset_tasks = self.filter_queryset(self.get_queryset())
-        tasks = utils.filter_for_user_selectable_tasks(queryset_tasks, request)
+        tasks = utils.filter_for_user_selectable_tasks(
+            queryset_tasks,
+            request)
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 

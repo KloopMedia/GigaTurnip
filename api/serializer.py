@@ -26,14 +26,16 @@ class CampaignValidationCheck:
         request = self.context.get("request")
         if request and \
                 hasattr(request, "user") and \
-                ManagersOnlyAccessPolicy.is_user_campaign_manager(request.user,
-                                                                  value.get_campaign()):
+                ManagersOnlyAccessPolicy.is_user_campaign_manager(
+                    request.user,
+                    value.get_campaign()):
             return True
         else:
             return False
 
 
-class ChainSerializer(serializers.ModelSerializer, CampaignValidationCheck):
+class ChainSerializer(serializers.ModelSerializer,
+                      CampaignValidationCheck):
     class Meta:
         model = Chain
         fields = base_model_fields + ['campaign']
@@ -90,7 +92,8 @@ class TaskStageSerializer(serializers.ModelSerializer,
 
     def validate_chain(self, value):
         """
-        Check that the created stage belongs to a campaign that user manages.
+        Check that the created stage belongs
+        to a campaign that user manages.
         """
         if self.is_campaign_valid(value):
             return value
@@ -125,7 +128,9 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
-    assignee = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    assignee = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
 
     class Meta:
         model = Task
@@ -136,7 +141,9 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
 
 class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
-    assignee = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    assignee = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
 
     class Meta:
         model = Task
@@ -180,14 +187,16 @@ class RankRecordSerializer(serializers.ModelSerializer,
                                           "to this rank")
 
 
-class RankLimitSerializer(serializers.ModelSerializer, CampaignValidationCheck):
+class RankLimitSerializer(serializers.ModelSerializer,
+                          CampaignValidationCheck):
     class Meta:
         model = RankLimit
         fields = '__all__'
 
     def validate_stage(self, value):
         """
-        Check that the created rank limit belongs to a stage that user manages.
+        Check that the created rank limit belongs
+        to a stage that user manages.
         """
         if self.is_campaign_valid(value):
             return value
@@ -195,14 +204,16 @@ class RankLimitSerializer(serializers.ModelSerializer, CampaignValidationCheck):
                                           "to this campaign")
 
 
-class TrackSerializer(serializers.ModelSerializer, CampaignValidationCheck):
+class TrackSerializer(serializers.ModelSerializer,
+                      CampaignValidationCheck):
     class Meta:
         model = Track
         fields = '__all__'
 
     def validate_campaign(self, value):
         """
-        Check that the created track belongs to a campaign that user manages.
+        Check that the created track belongs
+        to a campaign that user manages.
         """
         if self.is_campaign_valid(value):
             return value
@@ -218,9 +229,10 @@ class CampaignManagementSerializer(serializers.ModelSerializer,
 
     def validate_campaign(self, value):
         """
-        Check that the created chain belongs to a campaign that user manages.
+        Check that the created chain belongs
+        to a campaign that user manages.
         """
         if self.is_campaign_valid(value):
             return value
-        raise serializers.ValidationError("User may not add campaign management "
-                                          "to this campaign")
+        raise serializers.ValidationError(
+            "User may not add campaign management to this campaign")

@@ -356,11 +356,6 @@ class Track(BaseModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text="Campaign id"
     )
-    # ranks = models.ManyToManyField(
-    #     Rank,
-    #     related_name="ranks",
-    #     help_text="Ranks id"
-    # )
     default_rank = models.ForeignKey(
         Rank,
         related_name="default_track",
