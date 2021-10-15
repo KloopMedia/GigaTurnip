@@ -99,10 +99,11 @@ def process_conditional(stage, in_task):
                         response = process_webhook(out_task.stage, in_task)
                         out_task.responses = response
                         out_task.complete = True
+                        out_task.save()
                         process_completed_task(out_task)
                     else:
                         out_task.complete = False
-                    out_task.save()
+                        out_task.save()
             else:
                 create_new_task(stage, in_task)
 
