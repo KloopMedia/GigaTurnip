@@ -35,22 +35,40 @@ def process_out_stages(current_stage, task):
         create_new_task(stage, task)
 
 
+def process_webhook(stage, in_task):
+    params = {}
+    if stage.webhook_payload_field:
+        params[stage.webhook_payload_field] = json.dumps(in_task.responses)
+    else:
+        params = in_task.responses
+    if stage.webhook_params:
+        params.update(stage.webhook_params)
+    params["in_task_id"] = in_task.id
+    response = requests.get(stage.webhook_address, params=params)
+    if stage.webhook_response_field:
+        response = response.json()[stage.webhook_response_field]
+    else:
+        response = response.json()
+    return response
+
+
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
     if stage.webhook_address:
-        params = {}
-        if stage.webhook_payload_field:
-            params[stage.webhook_payload_field] = json.dumps(in_task.responses)
-        else:
-            params = in_task.responses
-        if stage.webhook_params:
-            params.update(stage.webhook_params)
-        params["in_task_id"] = in_task.id
-        response = requests.get(stage.webhook_address, params=params)
-        if stage.webhook_response_field:
-            response = response.json()[stage.webhook_response_field]
-        else:
-            response = response.json()
+        # params = {}
+        # if stage.webhook_payload_field:
+        #     params[stage.webhook_payload_field] = json.dumps(in_task.responses)
+        # else:
+        #     params = in_task.responses
+        # if stage.webhook_params:
+        #     params.update(stage.webhook_params)
+        # params["in_task_id"] = in_task.id
+        # response = requests.get(stage.webhook_address, params=params)
+        # if stage.webhook_response_field:
+        #     response = response.json()[stage.webhook_response_field]
+        # else:
+        #     response = response.json()
+        response = process_webhook(stage, in_task)
         data["responses"] = response
         data["complete"] = True
         new_task = Task.objects.create(**data)
@@ -77,7 +95,13 @@ def process_conditional(stage, in_task):
             out_tasks = Task.objects.filter(in_tasks=in_task).filter(stage=stage)
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
-                    out_task.complete = False
+                    if out_task.stage.webhook_address:
+                        response = process_webhook(out_task.stage, in_task)
+                        out_task.responses = response
+                        out_task.complete = True
+                        process_completed_task(out_task)
+                    else:
+                        out_task.complete = False
                     out_task.save()
             else:
                 create_new_task(stage, in_task)
