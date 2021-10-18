@@ -613,39 +613,38 @@ class TaskStageTest(APITestCase):
     # user with creatable task  stage retrieve task stage
     def test_retrieve_stage_user_creatable_success(self):
         new_task_stage = TaskStage.objects.create(name="new Task stage is creatable True", x_pos=1, y_pos=1,
-                                                   chain=self.chain, is_creatable=True)
+                                                  chain=self.chain, is_creatable=True)
         new_rank = Rank.objects.create(name="rank")
         rank_record = RankRecord.objects.create(user=self.user, rank=new_rank)
         rank_limit = RankLimit.objects.create(rank=new_rank, stage=new_task_stage,
-                                            open_limit=2, total_limit=3,
-                                            is_creation_open=True)
+                                              open_limit=2, total_limit=3,
+                                              is_creation_open=True)
         task = Task.objects.create(assignee=self.user, stage=new_task_stage,
                                    complete=False)
 
-        response = self.client.get(self.url_task_stage+f"{new_task_stage.id}/")
+        response = self.client.get(self.url_task_stage + f"{new_task_stage.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.content)['id'], new_task_stage.id)
-
 
     # only managers can update or partial update campaigns
     # user try to partial_update task stage
     def test_partial_update_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
         self.assertNotIn(self.user, self.campaign.managers.all())
-        response = self.client.patch(self.url_task_stage+f"{self.task_stage.id}", {"name":"Changed taskstage name"})
+        response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}", {"name": "Changed taskstage name"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(self.task_stage.name, TaskStage.objects.get(id=self.task_stage.id))
         self.assertEqual(Campaign.objects.count(), 1)
         self.assertEqual(Chain.objects.count(), 1)
         self.assertEqual(TaskStage.objects.count(), 1)
 
-
     # manager partial_update task stage
     def test_partial_update_success(self):
         self.user.managed_campaigns.add(self.campaign)
         self.assertIn(self.user, self.campaign.managers.all())
 
-        changed_name = {"name":"Changed taskstage name"}
-        response = self.client.patch(self.url_task_stage+f"{self.task_stage.id}", changed_name)
+        changed_name = {"name": "Changed taskstage name"}
+        response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}", changed_name)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(changed_name['name'], TaskStage.objects.get(id=self.task_stage.id))
+
