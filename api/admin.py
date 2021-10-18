@@ -23,6 +23,10 @@ class StageAdmin(admin.ModelAdmin):
                      'chain__campaign__name', )
 
 
+class CaseAdmin(admin.ModelAdmin):
+    search_fields = ('pk', )
+
+
 class TaskAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'case',
@@ -37,6 +41,8 @@ class TaskAdmin(admin.ModelAdmin):
                      'assignee__email',
                      'stage__chain__name',
                      'stage__chain__campaign__name')
+    autocomplete_fields = ('in_tasks', )
+    raw_id_fields = ('stage', 'assignee', 'case', )
 
 
 admin.site.register(CustomUser, CustomUserAdmin)
@@ -44,7 +50,7 @@ admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
 admin.site.register(TaskStage, StageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
-admin.site.register(Case)
+admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank)
 admin.site.register(RankLimit)
