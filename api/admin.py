@@ -34,7 +34,8 @@ class TaskAdmin(admin.ModelAdmin):
                     'assignee', )
     list_filter = ('stage__chain__campaign',
                    'stage__chain',
-                   'stage', )
+                   'stage',
+                   'complete', )
     search_fields = ('id',
                      'case__id',
                      'stage__name',
