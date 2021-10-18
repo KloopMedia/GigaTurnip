@@ -135,13 +135,13 @@ class Chain(BaseModel, CampaignInterface):
 class Stage(PolymorphicModel, BaseModel, CampaignInterface):
     x_pos = models.DecimalField(
         max_digits=17,
-        decimal_places=14,
+        decimal_places=3,
         help_text="Starting position of 'x' coordinate "
                   "to draw on Giga Turnip Chain frontend interface"
     )
     y_pos = models.DecimalField(
         max_digits=17,
-        decimal_places=14,
+        decimal_places=3,
         help_text="Starting position of 'y' coordinate "
                   "to draw on Giga Turnip Chain frontend interface"
     )
