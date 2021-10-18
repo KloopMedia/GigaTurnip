@@ -631,9 +631,9 @@ class TaskStageTest(APITestCase):
     def test_partial_update_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
         self.assertNotIn(self.user, self.campaign.managers.all())
-        response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}", {"name": "Changed taskstage name"})
+        response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}/", {"name": "Changed taskstage name"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(self.task_stage.name, TaskStage.objects.get(id=self.task_stage.id))
+        self.assertEqual(self.task_stage.name, TaskStage.objects.get(id=self.task_stage.id).name)
         self.assertEqual(Campaign.objects.count(), 1)
         self.assertEqual(Chain.objects.count(), 1)
         self.assertEqual(TaskStage.objects.count(), 1)
@@ -644,7 +644,221 @@ class TaskStageTest(APITestCase):
         self.assertIn(self.user, self.campaign.managers.all())
 
         changed_name = {"name": "Changed taskstage name"}
-        response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}", changed_name)
+        response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}/", changed_name)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(changed_name['name'], TaskStage.objects.get(id=self.task_stage.id))
+        self.assertEqual(changed_name['name'], TaskStage.objects.get(id=self.task_stage.id).name)
+
+
+class TaskTest(APITestCase):
+    # todo: test release_assignment, request_assignment, list_displayed_previous
+    def setUp(self):
+        self.url_campaign = reverse("campaign-list")
+        self.url_chain = reverse("chain-list")
+        self.url_conditional_stage = reverse('conditionalstage-list')
+        self.url_task_stage = reverse('taskstage-list')
+        self.url_tasks = reverse('task-list')
+
+        self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
+        self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
+                                                       password='new_user')
+        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+
+        self.client.force_authenticate(user=self.user)
+
+        self.campaign = Campaign.objects.create(name="Campaign")
+        self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        self.conditional_stage = ConditionalStage.objects.create(name="Conditional Stage", x_pos=1, y_pos=1,
+                                                                 chain=self.chain)
+        self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                   chain=self.chain)
+
+        self.campaign_json = {"name": "campaign", "description": "description"}
+        self.chain_json = {"name": "chain", "description": "description", "campaign": None}
+        self.task_stage_json = {
+            "name": "conditional_stage",
+            "chain": None,
+            "x_pos": 1,
+            "y_pos": 1
+        }
+        self.task_stage_json_modified = self.task_stage_json
+        self.task_stage_json_modified['name'] = "Modified conditional stage"
+        self.campaign_creator_group = Group.objects.create(name='campaign_creator')
+
+    # Only managers can list tasks
+    def test_list_not_manager_fail(self):
+        task = [Task.objects.create(assignee=self.new_user, stage=self.task_stage,
+                                    complete=False) for x in range(5)]
+        self.assertEqual(Task.objects.count(), 5)
+        response = self.client.get(self.url_tasks)
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: there is have to be 403 error
+        self.assertEqual(json.loads(response.content), [])
+
+    def test_list_manager_success(self):
+        self.user.managed_campaigns.add(self.campaign)
+        task = [Task.objects.create(assignee=self.new_user, stage=self.task_stage,
+                                    complete=False) for x in range(5)]
+        another_manager = CustomUser.objects.create(username="another_manager", email='an@email.com',
+                                                    password='another')
+        another_campaign = Campaign.objects.create(name="Campaign")
+        another_chain = Chain.objects.create(name="Chain", campaign=another_campaign)
+        another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                      chain=another_chain)
+        another_task = [Task.objects.create(assignee=self.new_user, stage=another_task_stage,
+                                            complete=False) for x in range(5)]
+        self.assertEqual(Task.objects.count(), 10)
+        response = self.client.get(self.url_tasks)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.content)), 5)
+
+    """ User can do retrieve task if :
+     user is manager, task is assigned to you, filter_for_user_selectable_tasks"""
+
+    # not manager, task isn't assigned, no filter_for_user_selectable_tasks
+    def test_retrieve_nohing_fail(self):
+        self.new_user.managed_campaigns.add(self.campaign)
+        task = Task.objects.create(assignee=self.employer, stage=self.task_stage,
+                                   complete=False)
+        self.assertNotIn(self.user, self.campaign.managers.all())
+        self.assertNotEqual(self.user, task.assignee)
+        queryset = Task.objects.filter(id=task.id)
+        selectable_tasks = queryset \
+            .filter(complete=False) \
+            .filter(assignee__isnull=True) \
+            .filter(stage__ranks__users=self.user.id) \
+            .filter(stage__ranklimits__is_selection_open=True) \
+            .filter(stage__ranklimits__is_listing_allowed=True) \
+            .distinct()
+        self.assertFalse(bool(selectable_tasks))
+
+        response = self.client.get(self.url_tasks + f"{task.id}/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # User is manager, task isn't assigned, no user_selectable_tasks
+    def test_retrieve_manager_success(self):
+        self.user.managed_campaigns.add(self.campaign)
+        task = Task.objects.create(assignee=self.employer, stage=self.task_stage,
+                                   complete=False)
+        self.assertIn(self.user, self.campaign.managers.all())
+        self.assertNotEqual(self.user, task.assignee)
+        queryset = Task.objects.filter(id=task.id)
+        selectable_tasks = queryset \
+            .filter(complete=False) \
+            .filter(assignee__isnull=True) \
+            .filter(stage__ranks__users=self.user.id) \
+            .filter(stage__ranklimits__is_selection_open=True) \
+            .filter(stage__ranklimits__is_listing_allowed=True) \
+            .distinct()
+        self.assertFalse(bool(selectable_tasks))
+
+        response = self.client.get(self.url_tasks + f"{task.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    # task is not 
+    def test_retrieve_assignee_success(self):
+        self.new_user.managed_campaigns.add(self.campaign)
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage,
+                                   complete=False)
+        self.assertNotIn(self.user, self.campaign.managers.all())
+        self.assertEqual(self.user, task.assignee)
+        queryset = Task.objects.filter(id=task.id)
+        selectable_tasks = queryset \
+            .filter(complete=False) \
+            .filter(assignee__isnull=True) \
+            .filter(stage__ranks__users=self.user.id) \
+            .filter(stage__ranklimits__is_selection_open=True) \
+            .filter(stage__ranklimits__is_listing_allowed=True) \
+            .distinct()
+        self.assertFalse(bool(selectable_tasks))
+
+        response = self.client.get(self.url_tasks + f"{task.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(json.loads(response.content)['id'], task.id)
+
+    def test_retrieve_can_user_request_assignment_success(self):
+        new_rank = Rank.objects.create(name="rank")
+        rank_record = RankRecord.objects.create(user=self.user, rank=new_rank)
+        rank_limit = RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+                                              open_limit=2, total_limit=3,
+                                              is_selection_open=True, is_listing_allowed=True)
+
+        self.new_user.managed_campaigns.add(self.campaign)
+        task = Task.objects.create(stage=self.task_stage,
+                                   complete=False)
+        self.assertNotIn(self.user, self.campaign.managers.all())
+        self.assertNotEqual(self.user, task.assignee)
+
+        queryset = Task.objects.filter(id=task.id)
+        selectable_tasks = queryset \
+            .filter(complete=False) \
+            .filter(assignee__isnull=True) \
+            .filter(stage__ranks__users=self.user.id) \
+            .filter(stage__ranklimits__is_selection_open=True) \
+            .filter(stage__ranklimits__is_listing_allowed=True) \
+            .distinct()
+        self.assertTrue(bool(selectable_tasks))
+
+        response = self.client.get(self.url_tasks + f"{task.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(json.loads(response.content)['id'], task.id)
+
+    # if queryset of tasks satisfies filter_for_user_selectable tasks
+    def test_user_selectable_not_manager_fail(self):
+        new_rank = Rank.objects.create(name="rank")
+        rank_record = RankRecord.objects.create(user=self.new_user, rank=new_rank)
+        rank_limit = RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+                                              open_limit=2, total_limit=3,
+                                              is_selection_open=True, is_listing_allowed=True)
+
+        self.assertNotIn(self.user, self.campaign.managers.all())
+        task = [Task.objects.create(stage=self.task_stage,
+                                    complete=False) for x in range(5)]
+        self.assertEqual(Task.objects.count(), 5)
+        response = self.client.get(self.url_tasks + "user_selectable/")
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: there is have to be 403 error
+        self.assertEqual(json.loads(response.content), [])
+
+    # queryset satisfies filter_for_user_selectable_tasks
+    def test_user_selectable_success(self):
+        new_rank = Rank.objects.create(name="rank")
+        rank_record = RankRecord.objects.create(user=self.user, rank=new_rank)
+        rank_limit = RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+                                              open_limit=2, total_limit=3,
+                                              is_selection_open=True, is_listing_allowed=True)
+
+        self.user.managed_campaigns.add(self.campaign)
+        task = [Task.objects.create(stage=self.task_stage,
+                                    complete=False) for x in range(5)]
+        another_manager = CustomUser.objects.create(username="another_manager", email='an@email.com',
+                                                    password='another')
+        another_campaign = Campaign.objects.create(name="Campaign")
+        another_chain = Chain.objects.create(name="Chain", campaign=another_campaign)
+        another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                      chain=another_chain)
+        another_task = [Task.objects.create( stage=another_task_stage,
+                                            complete=False) for x in range(5)]
+        self.assertEqual(Task.objects.count(), 10)
+        response = self.client.get(self.url_tasks + "user_selectable/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.content)), 5)
+
+    # User can see only assigned tasks
+    def test_user_relevant_fail(self):
+        [Task.objects.create(assignee=self.employer, stage=self.task_stage,
+                                    complete=False) for x in range(5)]
+        [Task.objects.create(stage=self.task_stage,
+                             complete=False) for x in range(5)]
+        self.assertEqual(Task.objects.count(), 10)
+        response = self.client.get(self.url_tasks + "user_relevant/")
+        self.assertEqual(json.loads(response.content), [])
+
+    # watch assigned tasks
+    def test_user_relevant_success(self):
+        [Task.objects.create(assignee=self.user, stage=self.task_stage,
+                                    complete=False) for x in range(5)]
+        [Task.objects.create(stage=self.task_stage,
+                             complete=False) for x in range(5)]
+        self.assertEqual(Task.objects.count(), 10)
+        response = self.client.get(self.url_tasks + "user_relevant/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.content)), 5)
 
