@@ -6,7 +6,8 @@ django.setup()
 from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import Group
-from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Rank, RankLimit, Task, RankRecord
+from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Rank, RankLimit, Task, RankRecord, \
+    Track
 from rest_framework import status
 
 
@@ -753,7 +754,7 @@ class TaskTest(APITestCase):
         response = self.client.get(self.url_tasks + f"{task.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    # task is not 
+    # task is not
     def test_retrieve_assignee_success(self):
         self.new_user.managed_campaigns.add(self.campaign)
         task = Task.objects.create(assignee=self.user, stage=self.task_stage,
@@ -862,3 +863,152 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)), 5)
 
+
+class RankTest(APITestCase):
+    def setUp(self):
+        self.url_rank = reverse('rank-list')
+
+        self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
+        self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
+                                                       password='new_user')
+        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+
+        self.client.force_authenticate(user=self.user)
+
+        self.campaign = Campaign.objects.create(name="Campaign")
+        self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        self.conditional_stage = ConditionalStage.objects.create(name="Conditional Stage", x_pos=1, y_pos=1,
+                                                                 chain=self.chain)
+        self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                   chain=self.chain)
+        self.rank_json = {
+            "name": "rank created in tests",
+            "description": ""
+        }
+
+    # If user is manager and he has campaign and track with ranks can see ranks
+    # simple user want to see ranks,
+    def test_list_fail(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        new_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
+        another_campaign = Campaign.objects.create(name="another_campaign")
+        another_track = Track.objects.create(name="My Track", campaign=another_campaign)
+        another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
+        self.new_user.managed_campaigns.add(another_campaign)
+        self.assertEqual(Rank.objects.count(), 10)
+
+        response = self.client.get(self.url_rank)
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        self.assertEqual(json.loads(response.content), [])
+
+    # manager gets his ranks
+    def test_list_success(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        new_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
+        self.user.managed_campaigns.add(self.campaign)
+
+        another_campaign = Campaign.objects.create(name="another_campaign")
+        another_track = Track.objects.create(name="My Track", campaign=another_campaign)
+        another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
+        self.new_user.managed_campaigns.add(another_campaign)
+        self.assertEqual(Rank.objects.count(), 10)
+
+        response = self.client.get(self.url_rank)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotEqual(json.loads(response.content), [])
+        self.assertEqual(len(json.loads(response.content)), 5)
+
+    # Only manager can retrieve his ranks
+    # simple user try to get some rank
+    def test_retrieve_fail(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        new_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
+        another_campaign = Campaign.objects.create(name="another_campaign")
+        another_track = Track.objects.create(name="My Track", campaign=another_campaign)
+        another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
+        self.employer.managed_campaigns.add(self.campaign)
+        self.new_user.managed_campaigns.add(another_campaign)
+        self.assertEqual(Rank.objects.count(), 10)
+
+        for rank in Rank.objects.all():
+            response = self.client.get(self.url_rank + f"{rank.id}/")
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # manager get his rank
+    def test_retrieve_success(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        my_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
+        self.user.managed_campaigns.add(self.campaign)
+
+        another_campaign = Campaign.objects.create(name="another_campaign")
+        another_track = Track.objects.create(name="My Track", campaign=another_campaign)
+        another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
+        self.new_user.managed_campaigns.add(another_campaign)
+        self.assertEqual(Rank.objects.count(), 10)
+
+        for rank in my_ranks:
+            response = self.client.get(self.url_rank + f"{rank.id}/")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertNotEqual(json.loads(response.content), {})
+
+    # only managers of any campaign can create ranks
+    # simple user try to create rank it will fail
+    def test_create_simple_user_fail(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        self.assertEqual(Rank.objects.count(), 0)
+        self.new_user.managed_campaigns.add(self.campaign)
+        self.assertNotIn(self.user, self.campaign.managers.all())
+        self.rank_json['track'] = track.id
+
+        response = self.client.post(self.url_rank, self.rank_json)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Rank.objects.count(), 0)
+
+    # manager try to create rank it will successful create
+    def test_create_manager_success(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        self.assertEqual(Rank.objects.count(), 0)
+        self.user.managed_campaigns.add(self.campaign)
+        self.assertIn(self.user, self.campaign.managers.all())
+        self.rank_json['track'] = track.id
+
+        response = self.client.post(self.url_rank, self.rank_json)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(json.loads(response.content)['name'], self.rank_json['name'])
+
+    # only manager of campaign can update rank
+    # simple user try to update rank it will fail
+    def test_partial_update_simple_user_fail(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        self.assertEqual(Rank.objects.count(), 0)
+        self.new_user.managed_campaigns.add(self.campaign)
+        new_rank = Rank.objects.create(name="new rank", track=track)
+        self.assertNotIn(self.user, self.campaign.managers.all())
+        self.rank_json['track'] = track.id
+
+        to_update = {"name":"UPDATED"}
+        response = self.client.patch(self.url_rank+f"{track.id}/", to_update)
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # there is hav to be 403 error
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(Rank.objects.count(), 1)
+        self.assertEqual(new_rank, Rank.objects.get(id=new_rank.id))
+        self.assertEqual(new_rank.name, Rank.objects.get(id=new_rank.id).name)
+        self.assertNotEqual(new_rank.name, to_update['name'])
+
+    # only manager of campaign can update rank
+    # simple user try to update rank it will be successfully updated
+    def test_partial_update_manager_success(self):
+        track = Track.objects.create(name="My Track", campaign=self.campaign)
+        self.assertEqual(Rank.objects.count(), 0)
+        self.user.managed_campaigns.add(self.campaign)
+        new_rank = Rank.objects.create(name="new rank", track=track)
+        self.assertIn(self.user, self.campaign.managers.all())
+        self.rank_json['track'] = track.id
+
+        to_update = {"name": "UPDATED"}
+        response = self.client.patch(self.url_rank + f"{track.id}/", to_update)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Rank.objects.count(), 1)
+        self.assertNotEqual(new_rank.name, Rank.objects.get(id=new_rank.id).name)
+        self.assertEqual(to_update['name'], Rank.objects.get(id=new_rank.id).name)
