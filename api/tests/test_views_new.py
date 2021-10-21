@@ -662,7 +662,7 @@ class TaskTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
                                                        password='new_user')
-        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+        self.employee = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
 
         self.client.force_authenticate(user=self.user)
 
@@ -717,7 +717,7 @@ class TaskTest(APITestCase):
     # not manager, task isn't assigned, no filter_for_user_selectable_tasks
     def test_retrieve_nohing_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
-        task = Task.objects.create(assignee=self.employer, stage=self.task_stage,
+        task = Task.objects.create(assignee=self.employee, stage=self.task_stage,
                                    complete=False)
         self.assertNotIn(self.user, self.campaign.managers.all())
         self.assertNotEqual(self.user, task.assignee)
@@ -737,7 +737,7 @@ class TaskTest(APITestCase):
     # User is manager, task isn't assigned, no user_selectable_tasks
     def test_retrieve_manager_success(self):
         self.user.managed_campaigns.add(self.campaign)
-        task = Task.objects.create(assignee=self.employer, stage=self.task_stage,
+        task = Task.objects.create(assignee=self.employee, stage=self.task_stage,
                                    complete=False)
         self.assertIn(self.user, self.campaign.managers.all())
         self.assertNotEqual(self.user, task.assignee)
@@ -844,7 +844,7 @@ class TaskTest(APITestCase):
 
     # User can see only assigned tasks
     def test_user_relevant_fail(self):
-        [Task.objects.create(assignee=self.employer, stage=self.task_stage,
+        [Task.objects.create(assignee=self.employee, stage=self.task_stage,
                              complete=False) for x in range(5)]
         [Task.objects.create(stage=self.task_stage,
                              complete=False) for x in range(5)]
@@ -871,7 +871,7 @@ class RankTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
                                                        password='new_user')
-        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+        self.employee = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
 
         self.client.force_authenticate(user=self.user)
 
@@ -926,7 +926,7 @@ class RankTest(APITestCase):
         another_campaign = Campaign.objects.create(name="another_campaign")
         another_track = Track.objects.create(name="My Track", campaign=another_campaign)
         another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
-        self.employer.managed_campaigns.add(self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
         self.new_user.managed_campaigns.add(another_campaign)
         self.assertEqual(Rank.objects.count(), 10)
 
@@ -1020,7 +1020,7 @@ class RankRecordTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
                                                        password='new_user')
-        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+        self.employee = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
 
         self.client.force_authenticate(user=self.user)
 
@@ -1032,7 +1032,7 @@ class RankRecordTest(APITestCase):
                                                    chain=self.chain)
         self.rank_record_json = {
             "rank": None,
-            "user": self.employer.id
+            "user": self.employee.id
         }
 
     # If user is manager and he has campaign and track with ranks can see ranksrecord
@@ -1040,12 +1040,12 @@ class RankRecordTest(APITestCase):
     def test_list_simple_user_fail(self):
         track = Track.objects.create(name="My Track", campaign=self.campaign)
         new_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in new_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in new_ranks]
 
         another_campaign = Campaign.objects.create(name="another_campaign")
         another_track = Track.objects.create(name="My Track", campaign=another_campaign)
         another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in another_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in another_ranks]
 
         self.new_user.managed_campaigns.add(another_campaign)
         self.new_user.managed_campaigns.add(self.campaign)
@@ -1059,13 +1059,13 @@ class RankRecordTest(APITestCase):
     def test_list_manager_success(self):
         track = Track.objects.create(name="My Track", campaign=self.campaign)
         new_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in new_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in new_ranks]
         self.user.managed_campaigns.add(self.campaign)
 
         another_campaign = Campaign.objects.create(name="another_campaign")
         another_track = Track.objects.create(name="My Track", campaign=another_campaign)
         another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in another_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in another_ranks]
         self.new_user.managed_campaigns.add(another_campaign)
         self.assertEqual(RankRecord.objects.count(), 10)
 
@@ -1079,15 +1079,15 @@ class RankRecordTest(APITestCase):
     def test_retrieve_fail(self):
         track = Track.objects.create(name="My Track", campaign=self.campaign)
         new_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in new_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in new_ranks]
         self.assertEqual(RankRecord.objects.count(), 5)
 
         another_campaign = Campaign.objects.create(name="another_campaign")
         another_track = Track.objects.create(name="My Track", campaign=another_campaign)
         another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in another_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in another_ranks]
 
-        self.employer.managed_campaigns.add(self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
         self.new_user.managed_campaigns.add(another_campaign)
         self.assertEqual(RankRecord.objects.count(), 10)
 
@@ -1100,13 +1100,13 @@ class RankRecordTest(APITestCase):
     def test_retrieve_success(self):
         track = Track.objects.create(name="My Track", campaign=self.campaign)
         my_ranks = [Rank.objects.create(name="new rank", track=track) for i in range(5)]
-        my_rank_records = [RankRecord.objects.create(rank=i, user=self.employer) for i in my_ranks]
+        my_rank_records = [RankRecord.objects.create(rank=i, user=self.employee) for i in my_ranks]
         self.user.managed_campaigns.add(self.campaign)
 
         another_campaign = Campaign.objects.create(name="another_campaign")
         another_track = Track.objects.create(name="My Track", campaign=another_campaign)
         another_ranks = [Rank.objects.create(name="new rank", track=another_track) for i in range(5)]
-        [RankRecord.objects.create(rank=i, user=self.employer) for i in another_ranks]
+        [RankRecord.objects.create(rank=i, user=self.employee) for i in another_ranks]
         self.new_user.managed_campaigns.add(another_campaign)
         self.assertEqual(Rank.objects.count(), 10)
 
@@ -1150,7 +1150,7 @@ class RankRecordTest(APITestCase):
     def test_partial_update_simple_user_fail(self):
         track = Track.objects.create(name="My Track", campaign=self.campaign)
         rank = Rank.objects.create(name="New Rank", track=track)
-        rank_record = RankRecord.objects.create(rank=rank, user=self.employer)
+        rank_record = RankRecord.objects.create(rank=rank, user=self.employee)
 
         self.assertEqual(Rank.objects.count(), 1)
         self.assertEqual(RankRecord.objects.count(), 1)
@@ -1159,8 +1159,8 @@ class RankRecordTest(APITestCase):
         new_rank = Rank.objects.create(name="new rank", track=track)
         self.assertNotIn(self.user, self.campaign.managers.all())
 
-        new_employer = CustomUser.objects.create(username="new_empl", email='new_empl@email.com', password='new_empl')
-        to_update = {"user": new_employer.id}
+        new_employee = CustomUser.objects.create(username="new_empl", email='new_empl@email.com', password='new_empl')
+        to_update = {"user": new_employee.id}
         response = self.client.patch(self.url_rankrecord + f"{rank_record.id}/", to_update)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # there is hav to be 403 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -1169,19 +1169,19 @@ class RankRecordTest(APITestCase):
     def test_partial_update_manager_success(self):
         track = Track.objects.create(name="My Track", campaign=self.campaign)
         rank = Rank.objects.create(name="New Rank", track=track)
-        rank_record = RankRecord.objects.create(rank=rank, user=self.employer)
+        rank_record = RankRecord.objects.create(rank=rank, user=self.employee)
 
         self.assertEqual(Rank.objects.count(), 1)
         self.assertEqual(RankRecord.objects.count(), 1)
         self.user.managed_campaigns.add(self.campaign)
         self.assertIn(self.user, self.campaign.managers.all())
 
-        new_employer = CustomUser.objects.create(username="new_empl", email='new_empl@email.com', password='new_empl')
-        to_update = {"user": new_employer.id}
+        new_employee = CustomUser.objects.create(username="new_empl", email='new_empl@email.com', password='new_empl')
+        to_update = {"user": new_employee.id}
         response = self.client.patch(self.url_rankrecord + f"{rank_record.id}/", to_update)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         updated_rank_record = RankRecord.objects.get(id=rank_record.id)
-        self.assertEqual(new_employer, updated_rank_record.user)
+        self.assertEqual(new_employee, updated_rank_record.user)
         self.assertEqual(rank, updated_rank_record.rank)
 
 
@@ -1193,7 +1193,7 @@ class RankLimitTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
                                                        password='new_user')
-        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+        self.employee = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
 
         self.client.force_authenticate(user=self.user)
 
@@ -1272,7 +1272,7 @@ class RankLimitTest(APITestCase):
         [RankLimit.objects.create(rank=rank, stage=another_taskstage, total_limit=5, open_limit=3) for rank in
          another_ranks]
 
-        self.employer.managed_campaigns.add(self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
         self.new_user.managed_campaigns.add(another_campaign)
         self.assertNotIn(self.user, self.campaign.managers.all())
         self.assertNotIn(self.user, another_campaign.managers.all())
@@ -1388,7 +1388,7 @@ class TrackTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
                                                        password='new_user')
-        self.employer = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+        self.employee = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
 
         self.client.force_authenticate(user=self.user)
 
@@ -1446,7 +1446,7 @@ class TrackTest(APITestCase):
         another_tracks = [Track.objects.create(campaign=another_campaign) for i in range(5)]
         self.assertEqual(Track.objects.count(), 10)
 
-        self.employer.managed_campaigns.add(self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
         self.new_user.managed_campaigns.add(another_campaign)
         self.assertNotIn(self.user, self.campaign.managers.all())
         self.assertNotIn(self.user, another_campaign.managers.all())
