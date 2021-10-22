@@ -18,6 +18,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy
 from . import utils
+from .utils import paginate
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -323,14 +324,11 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
+    @paginate
     @action(detail=False)
     def user_selectable(self, request):
-        queryset_tasks = self.filter_queryset(self.get_queryset())
-        tasks = utils.filter_for_user_selectable_tasks(
-            queryset_tasks,
-            request)
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        tasks = self.filter_queryset(self.get_queryset())
+        return utils.filter_for_user_selectable_tasks(tasks, request)
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
