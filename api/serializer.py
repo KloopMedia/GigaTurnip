@@ -162,14 +162,16 @@ class TaskSelectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ['case',
+        fields = ['id',
+                  'case',
                   'in_tasks',
                   'assignee',
                   'stage',
                   'responses',
                   'complete',
                   'displayed_prev_tasks']
-        read_only_fields = ['case',
+        read_only_fields = ['id',
+                            'case',
                             'in_tasks',
                             'assignee',
                             'stage',
