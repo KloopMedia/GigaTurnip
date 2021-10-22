@@ -9,9 +9,9 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
-    TaskEditSerializer, TaskDefaultSerializer,\
+    TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer
+    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -258,6 +258,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
+        elif self.action == 'user_selectable':
+            return TaskSelectSerializer
         else:
             return TaskDefaultSerializer
 
