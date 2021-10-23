@@ -156,6 +156,34 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
                             'complete']
 
 
+class TaskSelectSerializer(serializers.ModelSerializer):
+    displayed_prev_tasks = serializers.SerializerMethodField()
+    stage = TaskStageReadSerializer(read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ['id',
+                  'case',
+                  'in_tasks',
+                  'assignee',
+                  'stage',
+                  'responses',
+                  'complete',
+                  'displayed_prev_tasks']
+        read_only_fields = ['id',
+                            'case',
+                            'in_tasks',
+                            'assignee',
+                            'stage',
+                            'responses',
+                            'complete']
+
+    def get_displayed_prev_tasks(self, obj):
+        tasks = obj.get_displayed_prev_tasks()
+        serializer = TaskDefaultSerializer(tasks, many=True)
+        return serializer.data
+
+
 class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
     class Meta:
         model = Rank
