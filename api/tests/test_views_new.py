@@ -11,89 +11,74 @@ from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage,
 from rest_framework import status
 
 
+# todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
+
 class CampaignTest(APITestCase):
     def setUp(self):
         self.url = reverse("campaign-list")
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
+        self.new_user = CustomUser.objects.create_user(username='new_user', email='new_user@email.com',
+                                                       password='new_user')
         self.client.force_authenticate(user=self.user)
-        self.campaign = {"name": "name", "description": "description"}
+        self.campaign_json = {"name": "name", "description": "description"}
+        self.new_name = {"name": "new_name"}
+
         self.campaign_creator_group = Group.objects.create(name='campaign_creator')
 
+    # Only user with role campaign_creator can create campaign
+    # user with no role try create campaign it will fail
     def test_create_campaign_fail(self):
-        response = self.client.post(self.url, self.campaign)
+        response = self.client.post(self.url, self.campaign_json)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Campaign.objects.count(), 0)
 
+    # user with role campaign creator try create campaign
     def test_create_campaign_success(self):
         self.campaign_creator_group.user_set.add(self.user)
-        response = self.client.post(self.url, self.campaign)
+        response = self.client.post(self.url, self.campaign_json)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Campaign.objects.get(id=response.data.get('id')).name, self.campaign.get('name'))
 
-        self.campaign_creator_group.user_set.remove(self.user)
-        self.assertEqual(self.campaign_creator_group.user_set.count(), 0)
-
+    # Everybody who authenticated can get list of campaigns
     def test_list_campaign_success(self):
+        [Campaign.objects.create(name=f"Campaign #{i}") for i in range(5)]
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.content)), 5)
 
-    def test_retrieve_campaign_dnot_exist_fail(self):
-        self.assertEqual(Campaign.objects.count(), 0)
+    # Everybody who authenticated can retrieve campaign
+    # user try to get not existing campaign
+    def test_retrieve_campaign_not_exist_fail(self):
         response = self.client.get(self.url + "1/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    # list existing campaign
     def test_retrieve_campaign_exist_success(self):
-        self.assertEqual(Campaign.objects.count(), 0)
-        self.campaign_creator_group.user_set.add(self.user)
-        response = self.client.post(self.url, self.campaign)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Campaign.objects.count(), 1)
-
-        response = self.client.get(self.url + str(response.data.get("id")) + '/')
+        campaign = Campaign.objects.create(name="new campaign")
+        response = self.client.get(self.url + f'{campaign.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    # Only campaign manager can update campaign
+    # simple user try partial_update campaign
     def test_parital_update_not_manager_fail(self):
-        self.campaign_creator_group.user_set.add(self.user)
-        response = self.client.post(self.url, self.campaign)
-        campaign_id = response.data.get('id')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Campaign.objects.get(id=campaign_id).name, self.campaign.get('name'))
-
-        new_name = {"name": "new_name"}
-        response = self.client.patch(self.url + str(campaign_id) + "/", new_name)
+        campaign = Campaign.objects.create(name="new campaign")
+        response = self.client.patch(self.url + f'{campaign.id}/', self.new_name)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_partial_update_success(self):
         self.campaign_creator_group.user_set.add(self.user)
-        response = self.client.post(self.url, self.campaign)
-        campaign_id = response.data.get('id')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Campaign.objects.get(id=campaign_id).name, self.campaign.get('name'))
-        self.assertEqual(0, Campaign.objects.get(id=campaign_id).managers.count())
+        campaign = Campaign.objects.create(name='new campaign')
 
-        self.assertEqual(0, Campaign.objects.get(id=campaign_id).managers.count())
-        self.user.managed_campaigns.add(Campaign.objects.get(id=campaign_id))
+        self.user.managed_campaigns.add(campaign)
         new_name = {"name": "new_name"}
-        response = self.client.patch(self.url + str(campaign_id) + "/", new_name)
+        response = self.client.patch(self.url + str(campaign.id) + "/", self.new_name)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(Campaign.objects.get(id=campaign_id).name, new_name.get('name'))
-        self.assertEqual(Campaign.objects.count(), 1)
+        self.assertEqual(Campaign.objects.get(id=campaign.id).name, new_name.get('name'))
 
     def test_destroy(self):
-        self.campaign_creator_group.user_set.add(self.user)
-        response = self.client.post(self.url, self.campaign)
-        campaign_id = response.data.get('id')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Campaign.objects.get(id=campaign_id).name, self.campaign.get('name'))
-        self.assertEqual(0, Campaign.objects.get(id=campaign_id).managers.count())
+        campaign = Campaign.objects.create(name='new campaign')
 
-        self.assertEqual(0, Campaign.objects.get(id=campaign_id).managers.count())
-        self.user.managed_campaigns.add(Campaign.objects.get(id=campaign_id))
-        response = self.client.delete(self.url + str(campaign_id) + "/")
+        self.user.managed_campaigns.add(campaign)
+        response = self.client.delete(self.url + f"{campaign.id}/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Campaign.objects.count(), 1)
 
@@ -110,7 +95,7 @@ class ChainTest(APITestCase):
         self.chain = {"name": "chain", "description": "description", "campaign": None}
         self.campaign_creator_group = Group.objects.create(name='campaign_creator')
 
-    # because simple user can't make list of chains
+    # because simple user can't list chains
     def test_list_user_fail(self):
         self.assertEqual(Campaign.objects.count(), 0)
         self.assertEqual(Chain.objects.count(), 0)
@@ -821,13 +806,13 @@ class TaskTest(APITestCase):
     # queryset satisfies filter_for_user_selectable_tasks
     def test_user_selectable_success(self):
         new_rank = Rank.objects.create(name="rank")
-        rank_record = RankRecord.objects.create(user=self.user, rank=new_rank)
-        rank_limit = RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
                                               open_limit=2, total_limit=3,
                                               is_selection_open=True, is_listing_allowed=True)
 
         self.user.managed_campaigns.add(self.campaign)
-        task = [Task.objects.create(stage=self.task_stage,
+        [Task.objects.create(stage=self.task_stage,
                                     complete=False) for x in range(5)]
         another_manager = CustomUser.objects.create(username="another_manager", email='an@email.com',
                                                     password='another')
