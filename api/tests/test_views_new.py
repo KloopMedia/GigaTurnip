@@ -11,7 +11,7 @@ from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage,
 from rest_framework import status
 
 
-todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
+# todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
 
 class CampaignTest(APITestCase):
     def setUp(self):
