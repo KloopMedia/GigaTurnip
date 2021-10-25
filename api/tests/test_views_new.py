@@ -493,6 +493,10 @@ class TaskTest(APITestCase):
                                                                  chain=self.chain)
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                    chain=self.chain)
+        self.another_campaign = Campaign.objects.create(name="Campaign")
+        self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
+        self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                      chain=self.another_chain)
 
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
@@ -505,6 +509,16 @@ class TaskTest(APITestCase):
         self.task_stage_json_modified = self.task_stage_json
         self.task_stage_json_modified['name'] = "Modified conditional stage"
         self.campaign_creator_group = Group.objects.create(name='campaign_creator')
+
+    def get_selectable_tasks(self, task, user):
+        queryset = Task.objects.filter(id=task.id)
+        return queryset \
+            .filter(complete=False) \
+            .filter(assignee__isnull=True) \
+            .filter(stage__ranks__users=user.id) \
+            .filter(stage__ranklimits__is_selection_open=True) \
+            .filter(stage__ranklimits__is_listing_allowed=True) \
+            .distinct()
 
     # Only managers can list tasks
     def test_list_not_manager_fail(self):
@@ -519,13 +533,9 @@ class TaskTest(APITestCase):
         self.user.managed_campaigns.add(self.campaign)
         task = [Task.objects.create(assignee=self.new_user, stage=self.task_stage,
                                     complete=False) for x in range(5)]
-        another_manager = CustomUser.objects.create(username="another_manager", email='an@email.com',
-                                                    password='another')
-        another_campaign = Campaign.objects.create(name="Campaign")
-        another_chain = Chain.objects.create(name="Chain", campaign=another_campaign)
-        another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                      chain=another_chain)
-        another_task = [Task.objects.create(assignee=self.new_user, stage=another_task_stage,
+
+        self.new_user.managed_campaigns.add(self.another_campaign)
+        another_task = [Task.objects.create(assignee=self.new_user, stage=self.another_task_stage,
                                             complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 10)
         response = self.client.get(self.url_tasks)
@@ -540,16 +550,8 @@ class TaskTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
         task = Task.objects.create(assignee=self.employee, stage=self.task_stage,
                                    complete=False)
-        self.assertNotIn(self.user, self.campaign.managers.all())
-        self.assertNotEqual(self.user, task.assignee)
-        queryset = Task.objects.filter(id=task.id)
-        selectable_tasks = queryset \
-            .filter(complete=False) \
-            .filter(assignee__isnull=True) \
-            .filter(stage__ranks__users=self.user.id) \
-            .filter(stage__ranklimits__is_selection_open=True) \
-            .filter(stage__ranklimits__is_listing_allowed=True) \
-            .distinct()
+
+        selectable_tasks = self.get_selectable_tasks(task, self.user)
         self.assertFalse(bool(selectable_tasks))
 
         response = self.client.get(self.url_tasks + f"{task.id}/")
@@ -560,16 +562,9 @@ class TaskTest(APITestCase):
         self.user.managed_campaigns.add(self.campaign)
         task = Task.objects.create(assignee=self.employee, stage=self.task_stage,
                                    complete=False)
-        self.assertIn(self.user, self.campaign.managers.all())
-        self.assertNotEqual(self.user, task.assignee)
-        queryset = Task.objects.filter(id=task.id)
-        selectable_tasks = queryset \
-            .filter(complete=False) \
-            .filter(assignee__isnull=True) \
-            .filter(stage__ranks__users=self.user.id) \
-            .filter(stage__ranklimits__is_selection_open=True) \
-            .filter(stage__ranklimits__is_listing_allowed=True) \
-            .distinct()
+
+        selectable_tasks = self.get_selectable_tasks(task, self.user)
+
         self.assertFalse(bool(selectable_tasks))
 
         response = self.client.get(self.url_tasks + f"{task.id}/")
@@ -580,16 +575,8 @@ class TaskTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
         task = Task.objects.create(assignee=self.user, stage=self.task_stage,
                                    complete=False)
-        self.assertNotIn(self.user, self.campaign.managers.all())
-        self.assertEqual(self.user, task.assignee)
-        queryset = Task.objects.filter(id=task.id)
-        selectable_tasks = queryset \
-            .filter(complete=False) \
-            .filter(assignee__isnull=True) \
-            .filter(stage__ranks__users=self.user.id) \
-            .filter(stage__ranklimits__is_selection_open=True) \
-            .filter(stage__ranklimits__is_listing_allowed=True) \
-            .distinct()
+
+        selectable_tasks = self.get_selectable_tasks(task, self.user)
         self.assertFalse(bool(selectable_tasks))
 
         response = self.client.get(self.url_tasks + f"{task.id}/")
@@ -598,25 +585,16 @@ class TaskTest(APITestCase):
 
     def test_retrieve_can_user_request_assignment_success(self):
         new_rank = Rank.objects.create(name="rank")
-        rank_record = RankRecord.objects.create(user=self.user, rank=new_rank)
-        rank_limit = RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
                                               open_limit=2, total_limit=3,
                                               is_selection_open=True, is_listing_allowed=True)
 
         self.new_user.managed_campaigns.add(self.campaign)
         task = Task.objects.create(stage=self.task_stage,
                                    complete=False)
-        self.assertNotIn(self.user, self.campaign.managers.all())
-        self.assertNotEqual(self.user, task.assignee)
 
-        queryset = Task.objects.filter(id=task.id)
-        selectable_tasks = queryset \
-            .filter(complete=False) \
-            .filter(assignee__isnull=True) \
-            .filter(stage__ranks__users=self.user.id) \
-            .filter(stage__ranklimits__is_selection_open=True) \
-            .filter(stage__ranklimits__is_listing_allowed=True) \
-            .distinct()
+        selectable_tasks = self.get_selectable_tasks(task, self.user)
         self.assertTrue(bool(selectable_tasks))
 
         response = self.client.get(self.url_tasks + f"{task.id}/")
@@ -626,13 +604,13 @@ class TaskTest(APITestCase):
     # if queryset of tasks satisfies filter_for_user_selectable tasks
     def test_user_selectable_not_manager_fail(self):
         new_rank = Rank.objects.create(name="rank")
-        rank_record = RankRecord.objects.create(user=self.new_user, rank=new_rank)
-        rank_limit = RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+        RankRecord.objects.create(user=self.new_user, rank=new_rank)
+        RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
                                               open_limit=2, total_limit=3,
                                               is_selection_open=True, is_listing_allowed=True)
 
         self.assertNotIn(self.user, self.campaign.managers.all())
-        task = [Task.objects.create(stage=self.task_stage,
+        [Task.objects.create(stage=self.task_stage,
                                     complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 5)
         response = self.client.get(self.url_tasks + "user_selectable/")
@@ -650,13 +628,9 @@ class TaskTest(APITestCase):
         self.user.managed_campaigns.add(self.campaign)
         [Task.objects.create(stage=self.task_stage,
                                     complete=False) for x in range(5)]
-        another_manager = CustomUser.objects.create(username="another_manager", email='an@email.com',
-                                                    password='another')
-        another_campaign = Campaign.objects.create(name="Campaign")
-        another_chain = Chain.objects.create(name="Chain", campaign=another_campaign)
-        another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                      chain=another_chain)
-        another_task = [Task.objects.create(stage=another_task_stage,
+
+        self.new_user.managed_campaigns.add(self.another_campaign)
+        [Task.objects.create(stage=self.another_task_stage,
                                             complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 10)
         response = self.client.get(self.url_tasks + "user_selectable/")
@@ -1387,7 +1361,3 @@ class TrackTest(APITestCase):
         response = self.client.patch(self.url_track + f"{track.id}/", to_update)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.content), model_to_dict(Track.objects.get(id=track.id)))
-
-
-class CampaignManagementTest(APITestCase):
-    pass
