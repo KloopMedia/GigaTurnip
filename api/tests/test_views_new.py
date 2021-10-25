@@ -358,6 +358,11 @@ class TaskStageTest(APITestCase):
                                                                  chain=self.chain)
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                    chain=self.chain)
+
+        self.another_campaign = Campaign.objects.create(name="New Campaign")
+        self.another_chain = Chain.objects.create(name="New Chain", campaign=self.another_campaign)
+        self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                      chain=self.another_chain)
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
         self.task_stage_json = {
@@ -374,12 +379,7 @@ class TaskStageTest(APITestCase):
     # User try to list TaskStages
     def test_list_simple_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Chain.objects.count(), 1)
-        self.assertEqual(ConditionalStage.objects.count(), 1)
-        campaign_managers = self.campaign.managers.all()
-        self.assertIn(self.new_user, campaign_managers)
-        self.assertNotIn(self.user, campaign_managers)
+        self.assertNotIn(self.user, self.campaign.managers.all())
 
         response = self.client.get(self.url_task_stage)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: ask about error. there is habe to be 403 status code
@@ -387,58 +387,29 @@ class TaskStageTest(APITestCase):
 
     # Manager try to list campaigns
     def test_list_manager_success(self):
-        new_campaign = Campaign.objects.create(name="New Campaign")
-        new_chain = Chain.objects.create(name="New Chain", campaign=new_campaign)
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
-
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(TaskStage.objects.count(), 2)
 
         response = self.client.get(self.url_task_stage)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         my_task_stages = TaskStage.objects.all().filter(chain__campaign__managers=self.user)
         self.assertEqual(len(json.loads(response.content)), len(my_task_stages))
-        self.assertNotEqual(json.loads(response.content), [])
 
     # Only managers can create task stage
     # simple user try create task stage
     def test_create_fail(self):
-        new_campaign = Campaign.objects.create(name="New Campaign")
-        new_chain = Chain.objects.create(name="New Chain", campaign=new_campaign)
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.new_user.managed_campaigns.add(self.campaign)
 
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(TaskStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_campaign.managers.all())
-        self.assertNotIn(self.user, self.campaign.managers.all())
-
         task_stage_json = self.task_stage_json
-        task_stage_json['chain'] = new_chain.id
+        task_stage_json['chain'] = self.another_chain.id
         response = self.client.post(self.url_task_stage, task_stage_json)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)  # todo: is there have to be 403 status code
 
     # manager try create task stage
     def test_create_success(self):
-        new_campaign = Campaign.objects.create(name="New Campaign")
-        new_chain = Chain.objects.create(name="New Chain", campaign=new_campaign)
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
-
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(TaskStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_campaign.managers.all())
-        self.assertIn(self.user, self.campaign.managers.all())
 
         task_stage_json = self.task_stage_json
         task_stage_json['chain'] = self.chain.id
@@ -446,72 +417,53 @@ class TaskStageTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_task_stage = TaskStage.objects.get(id=response.data.get('id'))
         self.assertEqual(json.loads(response.content)['id'], model_to_dict(created_task_stage)['id'])
-        self.assertEqual(TaskStage.objects.count(), 3)
 
     # Only managers and stage user creatable users can retrieve task stage
     # simple user try to retrieve task stage
     def test_retrieve_simple_user_fail(self):
-        new_campaign = Campaign.objects.create(name="New Campaign")
-        new_chain = Chain.objects.create(name="New Chain", campaign=new_campaign)
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.new_user.managed_campaigns.add(self.campaign)
-        self.assertNotIn(self.user, new_campaign.managers.all())
-        self.assertNotIn(self.user, self.campaign.managers.all())
 
-        for i in [new_task_stage, self.task_stage]:
+        for i in [self.another_task_stage, self.task_stage]:
             response = self.client.get(self.url_task_stage + f"{i.id}/")
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # manager try to retrieve task stage
     def test_retrieve_manager_success(self):
-        new_campaign = Campaign.objects.create(name="New Campaign")
-        new_chain = Chain.objects.create(name="New Chain", campaign=new_campaign)
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
-        self.user.managed_campaigns.add(new_campaign)
-        self.assertIn(self.user, new_campaign.managers.all())
-        self.assertIn(self.user, self.campaign.managers.all())
+        self.user.managed_campaigns.add(self.another_campaign)
 
-        for i in [new_task_stage, self.task_stage]:
+        for i in [self.another_task_stage, self.task_stage]:
             response = self.client.get(self.url_task_stage + f"{i.id}/")
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     # user with creatable task  stage retrieve task stage
     def test_retrieve_stage_user_creatable_success(self):
-        new_task_stage = TaskStage.objects.create(name="new Task stage is creatable True", x_pos=1, y_pos=1,
-                                                  chain=self.chain, is_creatable=True)
+        self.another_task_stage.is_creatable = True
+        self.another_task_stage.save()
         new_rank = Rank.objects.create(name="rank")
-        rank_record = RankRecord.objects.create(user=self.user, rank=new_rank)
-        rank_limit = RankLimit.objects.create(rank=new_rank, stage=new_task_stage,
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        RankLimit.objects.create(rank=new_rank, stage=self.another_task_stage,
                                               open_limit=2, total_limit=3,
                                               is_creation_open=True)
-        task = Task.objects.create(assignee=self.user, stage=new_task_stage,
+        Task.objects.create(assignee=self.user, stage=self.another_task_stage,
                                    complete=False)
 
-        response = self.client.get(self.url_task_stage + f"{new_task_stage.id}/")
+        response = self.client.get(self.url_task_stage + f"{self.another_task_stage.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(json.loads(response.content)['id'], new_task_stage.id)
+        self.assertEqual(json.loads(response.content)['id'], self.another_task_stage.id)
 
     # only managers can update or partial update campaigns
     # user try to partial_update task stage
     def test_partial_update_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
-        self.assertNotIn(self.user, self.campaign.managers.all())
         response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}/", {"name": "Changed taskstage name"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(self.task_stage.name, TaskStage.objects.get(id=self.task_stage.id).name)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Chain.objects.count(), 1)
-        self.assertEqual(TaskStage.objects.count(), 1)
 
     # manager partial_update task stage
     def test_partial_update_success(self):
         self.user.managed_campaigns.add(self.campaign)
-        self.assertIn(self.user, self.campaign.managers.all())
 
         changed_name = {"name": "Changed taskstage name"}
         response = self.client.patch(self.url_task_stage + f"{self.task_stage.id}/", changed_name)
