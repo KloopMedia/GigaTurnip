@@ -11,9 +11,8 @@ from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage,
 from rest_framework import status
 
 
-# todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
-
 class CampaignTest(APITestCase):
+      # todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
     def setUp(self):
         self.url = reverse("campaign-list")
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
@@ -222,6 +221,11 @@ class ConditionalStageTest(APITestCase):
         self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
         self.conditional_stage = ConditionalStage.objects.create(name="Conditional Stage", x_pos=1, y_pos=1,
                                                                  chain=self.chain)
+        self.another_campaign = Campaign.objects.create(name="other campaign")
+        self.another_chain = Chain.objects.create(name="other chain", campaign=self.another_campaign)
+        self.another_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
+                                                                chain=self.another_chain)
+
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
         self.conditional_stage_json = {
@@ -238,9 +242,6 @@ class ConditionalStageTest(APITestCase):
     # simple user try list cond stages
     def test_list_simple_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(ConditionalStage.objects.count(), 1)
-        self.assertEqual(Chain.objects.count(), 1)
         response = self.client.get(self.url_conditional_stage)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is must be 403 status_code
         self.assertEqual(json.loads(response.content), [])
@@ -248,48 +249,32 @@ class ConditionalStageTest(APITestCase):
     # manager try list his conditional stage
     def test_list_manager_success(self):
         self.user.managed_campaigns.add(self.campaign)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(ConditionalStage.objects.count(), 1)
-        self.assertEqual(Chain.objects.count(), 1)
 
         response = self.client.get(self.url_conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        my_conditional_stages = ConditionalStage.objects.all().filter(
-            chain__campaign__campaign_managements__user=self.user)
-        self.assertEqual(len(json.loads(response.content)), len(my_conditional_stages))
+        self.assertEqual(len(json.loads(response.content)), 1)
 
     # Manager can create chain refers on his campaigns
     # user try create conditional stage refers on other chain
     def test_create_campaign_not_my_chain_fail(self):
-        new_campaign = Campaign.objects.create(name='new campaign')
-        new_chain = Chain.objects.create(name='new chain', campaign=new_campaign)
-        self.campaign_creator_group.user_set.add(self.new_user)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
 
         self.user.managed_campaigns.add(self.campaign)
 
-        self.assertEqual(ConditionalStage.objects.count(), 1)
-
         cond_stage = self.conditional_stage_json
-        cond_stage['chain'] = new_chain.id
+        cond_stage['chain'] = self.another_chain.id
         response = self.client.post(self.url_conditional_stage, cond_stage)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(ConditionalStage.objects.count(), 1)
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertNotIn(self.user, new_chain.campaign.managers.all())
+        self.assertNotIn(self.user, self.another_chain.campaign.managers.all())
 
     # create cond_stage refers to my chain
     def test_create_my_chain_success(self):
         self.user.managed_campaigns.add(self.campaign)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Chain.objects.count(), 1)
-        self.assertEqual(ConditionalStage.objects.count(), 1)
 
         self.conditional_stage_json['chain'] = self.chain.id
         response = self.client.post(self.url_conditional_stage, self.conditional_stage_json)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(ConditionalStage.objects.count(), 2)
+        self.assertEqual(ConditionalStage.objects.count(), 3)
         my_conditional_stage = ConditionalStage.objects.get(id=response.data.get('id'))
         self.assertIn(self.user, my_conditional_stage.chain.campaign.managers.all())
         self.assertEqual(json.loads(response.content)['id'], model_to_dict(my_conditional_stage)['id'])
@@ -298,67 +283,34 @@ class ConditionalStageTest(APITestCase):
     # simple user try to retrieve conditional stage
     def test_retrieve_simple_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
-        self.assertEqual(Campaign.objects.count(), 1)
-        self.assertEqual(Chain.objects.count(), 1)
-        self.assertEqual(ConditionalStage.objects.count(), 1)
-        self.assertEqual(self.user.managed_campaigns.count(), 0)
         response = self.client.get(self.url_conditional_stage + f"{self.conditional_stage.id}/")
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: is there have to be 403 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager try to retrieve other conditional stage
     def test_retrieve_manager_not_his_cond_stage_fail(self):
-        new_campaign = Campaign.objects.create(name="other campaign")
-        new_chain = Chain.objects.create(name="other chain", campaign=new_campaign)
-        new_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
-                                                                chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
 
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(ConditionalStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_conditional_stage.chain.campaign.managers.all())
-
-        response = self.client.get(self.url_conditional_stage + f"{new_conditional_stage.id}/")
+        response = self.client.get(self.url_conditional_stage + f"{self.another_conditional_stage.id}/")
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)# todo: is there have to be 403 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager try to retrieve other conditional stage
     def test_retrieve_manager_cond_stage_success(self):
-        new_campaign = Campaign.objects.create(name="other campaign")
-        new_chain = Chain.objects.create(name="other chain", campaign=new_campaign)
-        new_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
-                                                                chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
-
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(ConditionalStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_conditional_stage.chain.campaign.managers.all())
 
         response = self.client.get(self.url_conditional_stage + f"{self.conditional_stage.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_content = json.loads(response.content)
-
         self.assertEqual(self.conditional_stage, ConditionalStage.objects.get(id=response_content.get('id')))
 
     # Only managers can update conditional stage
     # simple user try to partial_update cond stage
     def test_partial_update_simple_user_fail(self):
-        new_campaign = Campaign.objects.create(name="other campaign")
-        new_chain = Chain.objects.create(name="other chain", campaign=new_campaign)
-        new_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
-                                                                chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.new_user.managed_campaigns.add(self.campaign)
-
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(ConditionalStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_campaign.managers.all())
-        self.assertNotIn(self.user, self.campaign.managers.all())
 
         change_name = {"name": self.conditional_stage_json_modified['name']}
         response = self.client.patch(self.url_conditional_stage + f"{self.conditional_stage.id}/", change_name)
@@ -368,42 +320,22 @@ class ConditionalStageTest(APITestCase):
 
     # manager try to partial update not his cond stage
     def test_partial_update_manager_not_his_cond_stage_fail(self):
-        new_campaign = Campaign.objects.create(name="other campaign")
-        new_chain = Chain.objects.create(name="other chain", campaign=new_campaign)
-        new_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
-                                                                chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
 
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(ConditionalStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_campaign.managers.all())
-        self.assertIn(self.user, self.campaign.managers.all())
-
         change_name = {"name": self.conditional_stage_json_modified['name']}
-        response = self.client.patch(self.url_conditional_stage + f"{new_conditional_stage.id}/", change_name)
+        response = self.client.patch(self.url_conditional_stage + f"{self.another_conditional_stage.id}/", change_name)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: is there have to be 403 status code
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(new_conditional_stage.name, ConditionalStage.objects.get(id=new_conditional_stage.id).name)
+        self.assertEqual(self.another_conditional_stage.name, ConditionalStage.objects.get(id=self.another_conditional_stage.id).name)
 
     # manager try update his conditional stage
     def test_partial_update_manager_success(self):
-        new_campaign = Campaign.objects.create(name="other campaign")
-        new_chain = Chain.objects.create(name="other chain", campaign=new_campaign)
-        new_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
-                                                                chain=new_chain)
-        self.new_user.managed_campaigns.add(new_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.user.managed_campaigns.add(self.campaign)
 
-        self.assertEqual(Campaign.objects.count(), 2)
-        self.assertEqual(Chain.objects.count(), 2)
-        self.assertEqual(ConditionalStage.objects.count(), 2)
-        self.assertNotIn(self.user, new_campaign.managers.all())
-        self.assertIn(self.user, self.campaign.managers.all())
-
         change_name = {"name": self.conditional_stage_json_modified['name']}
-        response = self.client.patch(self.url_conditional_stage + f"{self.campaign.id}/", change_name)
+        response = self.client.patch(self.url_conditional_stage + f"{self.conditional_stage.id}/", change_name)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.content)['name'], ConditionalStage.objects.get(id=self.campaign.id).name)
 
