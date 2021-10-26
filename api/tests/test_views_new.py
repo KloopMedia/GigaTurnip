@@ -914,6 +914,15 @@ class RankLimitTest(APITestCase):
         self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                    chain=self.chain)
+        self.ranks = [Rank.objects.create(name="new rank") for i in range(5)]
+        self.rank_limits = [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for rank in self.ranks]
+        self.another_campaign = Campaign.objects.create(name="another_campaign")
+        self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
+        self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                   chain=self.another_chain)
+        self.another_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
+        self.another_rank_limits = [RankLimit.objects.create(rank=rank, stage=self.another_task_stage, total_limit=5, open_limit=3) for rank in self.another_ranks]
+
         self.rank_limit_json = {
             "open_limit": 3,
             "total_limit": 5,
@@ -927,19 +936,8 @@ class RankLimitTest(APITestCase):
     # Only campaign manager can list ranklimit
     # simple user try to get list of ranklimits it will fail
     def test_list_simple_user_fail(self):
-        new_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for rank in new_ranks]
-
-        another_campaign = Campaign.objects.create(name="another_campaign")
-        another_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for rank in
-         another_ranks]
-
-        self.new_user.managed_campaigns.add(another_campaign)
+        self.new_user.managed_campaigns.add(self.another_campaign)
         self.new_user.managed_campaigns.add(self.campaign)
-        self.assertEqual(Rank.objects.count(), 10)
-        self.assertNotIn(self.user, self.campaign.managers.all())
-        self.assertNotIn(self.user, another_campaign.managers.all())
 
         response = self.client.get(self.url_ranklimit)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
@@ -947,22 +945,8 @@ class RankLimitTest(APITestCase):
 
     # manager list his rank limits it will be success
     def test_list_manager_success(self):
-        new_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for rank in new_ranks]
-
-        another_campaign = Campaign.objects.create(name="another_campaign")
-        another_chain = Chain.objects.create(name="another chain", campaign=another_campaign)
-        another_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        another_taskstage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                     chain=another_chain)
-        [RankLimit.objects.create(rank=rank, stage=another_taskstage, total_limit=5, open_limit=3) for rank in
-         another_ranks]
-
         self.user.managed_campaigns.add(self.campaign)
-        self.new_user.managed_campaigns.add(another_campaign)
-        self.assertEqual(Rank.objects.count(), 10)
-        self.assertIn(self.user, self.campaign.managers.all())
-        self.assertNotIn(self.user, another_campaign.managers.all())
+        self.new_user.managed_campaigns.add(self.another_campaign)
 
         response = self.client.get(self.url_ranklimit)
         self.assertNotEqual(json.loads(response.content), [])
@@ -972,25 +956,8 @@ class RankLimitTest(APITestCase):
     # Only manager can retrieve his rank limits
     # simple user try to get some rank_limits
     def test_retrieve_fail(self):
-        new_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for rank in new_ranks]
-        self.assertEqual(Rank.objects.count(), 5)
-        self.assertEqual(RankLimit.objects.count(), 5)
-
-        another_campaign = Campaign.objects.create(name="another_campaign")
-        another_chain = Chain.objects.create(name="another chain", campaign=another_campaign)
-        another_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        another_taskstage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                     chain=another_chain)
-        [RankLimit.objects.create(rank=rank, stage=another_taskstage, total_limit=5, open_limit=3) for rank in
-         another_ranks]
-
         self.employee.managed_campaigns.add(self.campaign)
-        self.new_user.managed_campaigns.add(another_campaign)
-        self.assertNotIn(self.user, self.campaign.managers.all())
-        self.assertNotIn(self.user, another_campaign.managers.all())
-        self.assertEqual(Rank.objects.count(), 10)
-        self.assertEqual(RankLimit.objects.count(), 10)
+        self.new_user.managed_campaigns.add(self.another_campaign)
 
         for rank_limit in RankLimit.objects.all():
             response = self.client.get(self.url_ranklimit + f"{rank_limit.id}/")
@@ -999,28 +966,11 @@ class RankLimitTest(APITestCase):
 
     # manager get his rank limits
     def test_retrieve_success(self):
-        new_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        my_rank_limits = [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for
-                          rank in new_ranks]
-        self.assertEqual(Rank.objects.count(), 5)
-        self.assertEqual(RankLimit.objects.count(), 5)
-
-        another_campaign = Campaign.objects.create(name="another_campaign")
-        another_chain = Chain.objects.create(name="another chain", campaign=another_campaign)
-        another_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        another_taskstage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                     chain=another_chain)
-        [RankLimit.objects.create(rank=rank, stage=another_taskstage, total_limit=5, open_limit=3) for rank in
-         another_ranks]
 
         self.user.managed_campaigns.add(self.campaign)
-        self.new_user.managed_campaigns.add(another_campaign)
-        self.assertIn(self.user, self.campaign.managers.all())
-        self.assertNotIn(self.user, another_campaign.managers.all())
-        self.assertEqual(Rank.objects.count(), 10)
-        self.assertEqual(RankLimit.objects.count(), 10)
+        self.new_user.managed_campaigns.add(self.another_campaign)
 
-        for rank_limit in my_rank_limits:
+        for rank_limit in self.rank_limits:
             response = self.client.get(self.url_ranklimit + f"{rank_limit.id}/")
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertNotEqual(json.loads(response.content), {})
@@ -1032,9 +982,6 @@ class RankLimitTest(APITestCase):
 
         rank = Rank.objects.create(name="New Rank")
 
-        self.assertEqual(Rank.objects.count(), 1)
-        self.assertEqual(RankLimit.objects.count(), 0)
-        self.assertNotIn(self.user, self.campaign.managers.all())
         self.rank_limit_json['rank'] = rank.id
         self.rank_limit_json['stage'] = self.task_stage.id
 
@@ -1048,15 +995,11 @@ class RankLimitTest(APITestCase):
 
         rank = Rank.objects.create(name="New Rank")
 
-        self.assertEqual(Rank.objects.count(), 1)
-        self.assertEqual(RankLimit.objects.count(), 0)
-        self.assertIn(self.user, self.campaign.managers.all())
         self.rank_limit_json['rank'] = rank.id
         self.rank_limit_json['stage'] = self.task_stage.id
 
         response = self.client.post(self.url_ranklimit, self.rank_limit_json)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(RankLimit.objects.count(), 1)
         created_rank_limit = json.loads(response.content)
         my_rank_limit = RankLimit.objects.get(id=created_rank_limit["id"])
         self.assertEqual(model_to_dict(my_rank_limit), created_rank_limit)
@@ -1065,33 +1008,21 @@ class RankLimitTest(APITestCase):
     # simple user try to update rank limit it will fail
     def test_partial_update_simple_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
-        rank = Rank.objects.create(name="New Rank")
-        rank_limit = RankLimit.objects.create(rank=rank, stage=self.task_stage, open_limit=3, total_limit=3)
-
-        self.assertEqual(Rank.objects.count(), 1)
-        self.assertEqual(RankLimit.objects.count(), 1)
-        self.assertNotIn(self.user, self.campaign.managers.all())
 
         to_update = {"open_limit": 4}
-        response = self.client.patch(self.url_ranklimit + f"{rank_limit.id}/", to_update)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # there is hav to be 403 error
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        for rank_limit in self.rank_limits:
+            response = self.client.patch(self.url_ranklimit + f"{rank_limit.id}/", to_update)
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # there is hav to be 403 error
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager update rank limit it will be successfully updated
     def test_partial_update_manager_success(self):
         self.user.managed_campaigns.add(self.campaign)
-        rank = Rank.objects.create(name="New Rank")
-        rank_limit = RankLimit.objects.create(rank=rank, stage=self.task_stage, open_limit=3, total_limit=3)
-
-        self.assertEqual(Rank.objects.count(), 1)
-        self.assertEqual(RankLimit.objects.count(), 1)
-        self.assertIn(self.user, self.campaign.managers.all())
 
         to_update = {"open_limit": 4}
-        self.rank_limit_json['open_limit'] = to_update['open_limit']
-        response = self.client.patch(self.url_ranklimit + f"{rank_limit.id}/", to_update)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(json.loads(response.content), model_to_dict(RankLimit.objects.get(id=rank_limit.id)))
+        for rank_limit in self.rank_limits:
+            response = self.client.patch(self.url_ranklimit + f"{rank_limit.id}/", to_update)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class TrackTest(APITestCase):
