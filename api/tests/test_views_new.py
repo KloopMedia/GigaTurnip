@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import Group
 from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Rank, RankLimit, Task, RankRecord, \
-    Track, CampaignManagement
+    Track, CampaignManagement, Stage, Case
 from rest_framework import status
 
 
@@ -496,7 +496,7 @@ class TaskTest(APITestCase):
         self.another_campaign = Campaign.objects.create(name="Campaign")
         self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                      chain=self.another_chain)
+                                                           chain=self.another_chain)
 
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
@@ -587,8 +587,8 @@ class TaskTest(APITestCase):
         new_rank = Rank.objects.create(name="rank")
         RankRecord.objects.create(user=self.user, rank=new_rank)
         RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
-                                              open_limit=2, total_limit=3,
-                                              is_selection_open=True, is_listing_allowed=True)
+                                 open_limit=2, total_limit=3,
+                                 is_selection_open=True, is_listing_allowed=True)
 
         self.new_user.managed_campaigns.add(self.campaign)
         task = Task.objects.create(stage=self.task_stage,
@@ -606,12 +606,12 @@ class TaskTest(APITestCase):
         new_rank = Rank.objects.create(name="rank")
         RankRecord.objects.create(user=self.new_user, rank=new_rank)
         RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
-                                              open_limit=2, total_limit=3,
-                                              is_selection_open=True, is_listing_allowed=True)
+                                 open_limit=2, total_limit=3,
+                                 is_selection_open=True, is_listing_allowed=True)
 
         self.assertNotIn(self.user, self.campaign.managers.all())
         [Task.objects.create(stage=self.task_stage,
-                                    complete=False) for x in range(5)]
+                             complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 5)
         response = self.client.get(self.url_tasks + "user_selectable/")
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: there is have to be 403 error
@@ -622,16 +622,16 @@ class TaskTest(APITestCase):
         new_rank = Rank.objects.create(name="rank")
         RankRecord.objects.create(user=self.user, rank=new_rank)
         RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
-                                              open_limit=2, total_limit=3,
-                                              is_selection_open=True, is_listing_allowed=True)
+                                 open_limit=2, total_limit=3,
+                                 is_selection_open=True, is_listing_allowed=True)
 
         self.user.managed_campaigns.add(self.campaign)
         [Task.objects.create(stage=self.task_stage,
-                                    complete=False) for x in range(5)]
+                             complete=False) for x in range(5)]
 
         self.new_user.managed_campaigns.add(self.another_campaign)
         [Task.objects.create(stage=self.another_task_stage,
-                                            complete=False) for x in range(5)]
+                             complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 10)
         response = self.client.get(self.url_tasks + "user_selectable/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -657,6 +657,23 @@ class TaskTest(APITestCase):
         response = self.client.get(self.url_tasks + "user_relevant/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)), 5)
+
+    # there is task_stage after task. new tasks are creating depending on assigning
+    def test_complete_next_task_stage_RA(self):
+        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
+                                                   chain=self.chain)
+        new_task_stage.in_stages.add(self.task_stage)
+        self.new_user.managed_campaigns.add(self.campaign)
+
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        created_tasks = Task.objects.filter(stage=new_task_stage)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for i in created_tasks:
+            self.assertEqual(i.stage, new_task_stage)
+            self.assertEqual(i.case, task.case)
+        self.assertEqual(len(created_tasks), self.task_stage.out_stages.count())
 
 
 class RankTest(APITestCase):
