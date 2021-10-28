@@ -704,7 +704,7 @@ class TaskTest(APITestCase):
         for i in created_tasks:
             self.assertEqual(i.stage, new_task_stage)
             self.assertEqual(i.case, task.case)
-        self.assertEqual(len(Task.objects.filter(case=case).count()), 2)
+        self.assertEqual(Task.objects.filter(case=case).count(), 2)
 
     def test_complete_next_ping_pong(self):
         pass
