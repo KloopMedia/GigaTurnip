@@ -12,7 +12,7 @@ from rest_framework import status
 
 
 class CampaignTest(APITestCase):
-      # todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
+    # todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
     def setUp(self):
         self.url = reverse("campaign-list")
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
@@ -223,8 +223,9 @@ class ConditionalStageTest(APITestCase):
                                                                  chain=self.chain)
         self.another_campaign = Campaign.objects.create(name="other campaign")
         self.another_chain = Chain.objects.create(name="other chain", campaign=self.another_campaign)
-        self.another_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1, y_pos=1,
-                                                                chain=self.another_chain)
+        self.another_conditional_stage = ConditionalStage.objects.create(name="Other Conditional Stage", x_pos=1,
+                                                                         y_pos=1,
+                                                                         chain=self.another_chain)
 
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
@@ -327,7 +328,8 @@ class ConditionalStageTest(APITestCase):
         response = self.client.patch(self.url_conditional_stage + f"{self.another_conditional_stage.id}/", change_name)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: is there have to be 403 status code
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(self.another_conditional_stage.name, ConditionalStage.objects.get(id=self.another_conditional_stage.id).name)
+        self.assertEqual(self.another_conditional_stage.name,
+                         ConditionalStage.objects.get(id=self.another_conditional_stage.id).name)
 
     # manager try update his conditional stage
     def test_partial_update_manager_success(self):
@@ -362,7 +364,7 @@ class TaskStageTest(APITestCase):
         self.another_campaign = Campaign.objects.create(name="New Campaign")
         self.another_chain = Chain.objects.create(name="New Chain", campaign=self.another_campaign)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                      chain=self.another_chain)
+                                                           chain=self.another_chain)
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
         self.task_stage_json = {
@@ -445,10 +447,10 @@ class TaskStageTest(APITestCase):
         new_rank = Rank.objects.create(name="rank")
         RankRecord.objects.create(user=self.user, rank=new_rank)
         RankLimit.objects.create(rank=new_rank, stage=self.another_task_stage,
-                                              open_limit=2, total_limit=3,
-                                              is_creation_open=True)
+                                 open_limit=2, total_limit=3,
+                                 is_creation_open=True)
         Task.objects.create(assignee=self.user, stage=self.another_task_stage,
-                                   complete=False)
+                            complete=False)
 
         response = self.client.get(self.url_task_stage + f"{self.another_task_stage.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -661,7 +663,7 @@ class TaskTest(APITestCase):
     # there is task_stage after task. new tasks are creating depending on assigning
     def test_complete_next_task_stage_RA(self):
         new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                   chain=self.chain)
+                                                  chain=self.chain)
         new_task_stage.in_stages.add(self.task_stage)
         self.new_user.managed_campaigns.add(self.campaign)
 
@@ -674,6 +676,38 @@ class TaskTest(APITestCase):
             self.assertEqual(i.stage, new_task_stage)
             self.assertEqual(i.case, task.case)
         self.assertEqual(len(created_tasks), self.task_stage.out_stages.count())
+
+    ##there is conditional_stage after task. new tasks are creating depending on assigning, not ping_pong
+    def test_complete_next_cond_stage_RA(self):
+        responses = {"verified": "Да"}
+
+        self.new_user.managed_campaigns.add(self.campaign)
+
+        new_task_stage = TaskStage.objects.create(name="Task stage created test complete", x_pos=1, y_pos=1,
+                                                  chain=self.chain)
+        new_cond_stage = ConditionalStage.objects.create(name="Conditional Stage test complete", x_pos=1, y_pos=1,
+                                                         chain=self.chain)
+        new_cond_stage.conditions = [{"field": "verified", "value": "Да", "condition": "=="}]
+        new_cond_stage.save()
+
+        new_cond_stage.in_stages.add(self.task_stage)
+        new_task_stage.in_stages.add(new_cond_stage)
+
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        task.responses = responses
+        task.save()
+        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        created_tasks = Task.objects.filter(stage=new_task_stage) \
+            .filter(stage__in_stages=new_cond_stage)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for i in created_tasks:
+            self.assertEqual(i.stage, new_task_stage)
+            self.assertEqual(i.case, task.case)
+        self.assertEqual(len(Task.objects.filter(case=case).count()), 2)
+
+    def test_complete_next_ping_pong(self):
+        pass
 
 
 class RankTest(APITestCase):
@@ -699,9 +733,9 @@ class RankTest(APITestCase):
         self.another_campaign = Campaign.objects.create(name="Campaign")
         self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
         self.another_conditional_stage = ConditionalStage.objects.create(name="Conditional Stage", x_pos=1, y_pos=1,
-                                                                 chain=self.another_chain)
+                                                                         chain=self.another_chain)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                   chain=self.another_chain)
+                                                           chain=self.another_chain)
         self.another_track = Track.objects.create(name="My Track", campaign=self.another_campaign)
         self.another_ranks = [Rank.objects.create(name="new rank", track=self.another_track) for i in range(5)]
 
@@ -932,13 +966,16 @@ class RankLimitTest(APITestCase):
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                    chain=self.chain)
         self.ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        self.rank_limits = [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for rank in self.ranks]
+        self.rank_limits = [RankLimit.objects.create(rank=rank, stage=self.task_stage, total_limit=5, open_limit=3) for
+                            rank in self.ranks]
         self.another_campaign = Campaign.objects.create(name="another_campaign")
         self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                   chain=self.another_chain)
+                                                           chain=self.another_chain)
         self.another_ranks = [Rank.objects.create(name="new rank") for i in range(5)]
-        self.another_rank_limits = [RankLimit.objects.create(rank=rank, stage=self.another_task_stage, total_limit=5, open_limit=3) for rank in self.another_ranks]
+        self.another_rank_limits = [
+            RankLimit.objects.create(rank=rank, stage=self.another_task_stage, total_limit=5, open_limit=3) for rank in
+            self.another_ranks]
 
         self.rank_limit_json = {
             "open_limit": 3,
@@ -1094,7 +1131,7 @@ class TrackTest(APITestCase):
         self.employee.managed_campaigns.add(self.campaign)
         self.new_user.managed_campaigns.add(self.another_campaign)
 
-        tracks = self.tracks+self.another_tracks
+        tracks = self.tracks + self.another_tracks
         for rank_limit in tracks:
             response = self.client.get(self.url_track + f"{rank_limit.id}/")
             # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
