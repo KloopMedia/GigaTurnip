@@ -670,12 +670,32 @@ class TaskTest(APITestCase):
         case = Case.objects.create()
         task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
         response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
-        created_tasks = Task.objects.filter(stage=new_task_stage)
+        created_tasks = Task.objects.filter(case=case).filter(stage__in_stages__in=[self.task_stage])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for i in created_tasks:
             self.assertEqual(i.stage, new_task_stage)
             self.assertEqual(i.case, task.case)
         self.assertEqual(len(created_tasks), self.task_stage.out_stages.count())
+
+    # there is task_stage after task. new tasks are creating depending on assigning
+    def test_complete_next_task_stage_RA_network(self):
+        new_task_stage = TaskStage.objects.create(name="Task stage №1", x_pos=1, y_pos=1,
+                                                  chain=self.chain)
+        new_task_stage2 = TaskStage.objects.create(name="Task stage №2", x_pos=1, y_pos=1,
+                                                  chain=self.chain)
+        new_task_stage.in_stages.add(self.task_stage)
+        new_task_stage2.in_stages.add(self.task_stage)
+        self.new_user.managed_campaigns.add(self.campaign)
+
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        created_tasks = Task.objects.filter(case=case).filter(stage__in_stages__in=[self.task_stage])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for i in created_tasks:
+            self.assertIn(i.stage, self.task_stage.out_stages.all())
+            self.assertEqual(i.case, task.case)
+        self.assertEqual(len(created_tasks), 2)
 
     # there is conditional_stage after task. new tasks are creating depending on assigning, not ping_pong.
     # Task will successfully create because condition is true
