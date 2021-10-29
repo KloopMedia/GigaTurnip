@@ -95,7 +95,7 @@ class CampaignManagementModelTest(TestCase):
 		self.assertEqual(self.campaign_management.user.email, 'example12324@inbox.com')
 
 	def test_foreign_field_campaign(self):
-		self.assertEqual(self.campaign_management.campaign.name, 'Test campaign 12324!')
+		self.assertEqual(self.campaign_management.campaign_json.name, 'Test campaign 12324!')
 
 
 class ChainModelTest(TestCase):
@@ -114,11 +114,11 @@ class ChainModelTest(TestCase):
 		self.assertEqual(field_campaign, 'campaign')
 
 	def test_foreign_key_campaign(self):
-		self.assertEqual(self.chain.campaign.name, "Test campaign 12324!")
+		self.assertEqual(self.chain.campaign_json.name, "Test campaign 12324!")
 
 	def test_object_name(self):
 		chain_name = "Chain: " + self.chain.name
-		campaign_str = self.chain.campaign.__str__()
+		campaign_str = self.chain.campaign_json.__str__()
 		expected_object_name = str(chain_name + " " + campaign_str)
 		self.assertEqual(expected_object_name, str(self.chain))
 
@@ -146,7 +146,7 @@ class StageModelTest(TestCase):
 		self.assertEqual(field_in_stages, 'in stages')
 
 	def test_foreign_field_chain(self):
-		self.assertEqual(self.stage.chain.campaign.name, "Test campaign 12324!")
+		self.assertEqual(self.stage.chain.campaign_json.name, "Test campaign 12324!")
 		self.assertEqual(self.stage.chain.name, "New chain for tests 12324!")
 
 	def test_chain_can_be_attached_to_multiple_stages(self):
@@ -212,7 +212,7 @@ class TaskStageModelTest(TestCase):
 		self.assertEqual(field_library, "library")
 
 	def test_foreign_field_chain(self):
-		self.assertEqual(self.task_stage.chain.campaign.name, "Test campaign 12324!")
+		self.assertEqual(self.task_stage.chain.campaign_json.name, "Test campaign 12324!")
 		self.assertEqual(self.task_stage.chain.name, "New chain for tests 12324!")
 
 
@@ -311,7 +311,7 @@ class TaskModelTest(TestCase):
 
 	def test_foreign_field_stage(self):
 		self.assertEqual(self.task.stage.chain.name, "New chain for tests 12324!")
-		self.assertEqual(self.task.stage.chain.campaign.name, "Test campaign 12324!")
+		self.assertEqual(self.task.stage.chain.campaign_json.name, "Test campaign 12324!")
 		self.assertEqual(self.task.stage.x_pos, 1)
 		self.assertEqual(self.task.stage.y_pos, 1)
 
@@ -382,7 +382,7 @@ class TrackModelTest(TestCase):
 		self.assertEqual(field_ranks, "ranks")
 
 	def test_foreign_field_campaign(self):
-		self.assertEqual(self.track.campaign.name, "Test campaign 12324!")
+		self.assertEqual(self.track.campaign_json.name, "Test campaign 12324!")
 
 	def test_foreign_field_default_rank(self):
 		self.assertEqual(self.track.default_rank.name, 'My default rank 42321!')
@@ -468,7 +468,7 @@ class RankLimitModelTest(TestCase):
 
 	def	test_foreign_field_stage(self):
 		self.assertEqual(self.rank_limit.stage.chain.name,"New chain for tests 12324!")
-		self.assertEqual(self.rank_limit.stage.chain.campaign.name, "Test campaign 12324!")
+		self.assertEqual(self.rank_limit.stage.chain.campaign_json.name, "Test campaign 12324!")
 
 	def test_object_name(self):
 		expected_name = str("Rank limit: " + self.rank_limit.rank.__str__() + " " + self.rank_limit.stage.__str__())
