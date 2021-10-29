@@ -318,8 +318,8 @@ class Task(models.Model, CampaignInterface):
         return self.stage.get_campaign()
 
     def get_displayed_prev_tasks(self):
-        return Task.objects.filter(case=self.case)\
-            .filter(stage__in=self.stage.displayed_prev_stages.all())\
+        return Task.objects.filter(case=self.case) \
+            .filter(stage__in=self.stage.displayed_prev_stages.all()) \
             .exclude(id=self.id)
 
     def __str__(self):
@@ -440,3 +440,91 @@ class RankLimit(models.Model, CampaignInterface):
                    self.rank.__str__() +
                    " " +
                    self.stage.__str__())
+
+
+class Log(models.Model, CampaignInterface):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    json = models.JSONField(blank=True)
+    time_created = models.DateTimeField(auto_now_add=True)
+    campaign = models.ForeignKey(
+        Campaign,
+        related_name="logs",
+        on_delete=models.CASCADE,
+        help_text="Campaign related to the issue in the log"
+    )
+    chain = models.ForeignKey(
+        Chain,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="Chain related to the issue in the log"
+    )
+    stage = models.ForeignKey(
+        Stage,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="Stage related to the issue in the log"
+    )
+    case = models.ForeignKey(
+        Case,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="Case related to the issue in the log"
+    )
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="Task related to the issue in the log"
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="User related to the issue in the log"
+    )
+    track = models.ForeignKey(
+        Track,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="Track related to the issue in the log"
+    )
+    rank = models.ForeignKey(
+        Rank,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="Rank related to the issue in the log"
+    )
+    rank_limit = models.ForeignKey(
+        RankLimit,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        blank=True,
+        null=True,
+        help_text="RankLimit related to the issue in the log"
+    )
+    rank_record = models.ForeignKey(
+        RankLimit,
+        on_delete=models.CASCADE,
+        related_name="rr_logs",
+        blank=True,
+        null=True,
+        help_text="RankRecord related to the issue in the log"
+    )
+
+    def get_campaign(self) -> Campaign:
+        return self.campaign
