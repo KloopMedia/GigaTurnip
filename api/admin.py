@@ -3,7 +3,7 @@ from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 
 from .models import Campaign, Chain, \
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track
+    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log
 
 
 class TaskResponsesStatusFilter(SimpleListFilter):
@@ -73,6 +73,22 @@ class TaskAdmin(admin.ModelAdmin):
     autocomplete_fields = ('in_tasks', )
     raw_id_fields = ('stage', 'assignee', 'case', )
 
+class LogAdmin(admin.ModelAdmin):
+    list_display = ('id',
+                    'name',
+                    'campaign',
+                    'stage',
+                    'user', )
+    list_filter = ('campaign',
+                   'stage',
+                   'stage',
+                   'time_created')
+    search_fields = ('id',
+                     'name',
+                     'stage__name'
+                     )
+    raw_id_fields = ('stage', 'user', 'case', 'task')
+
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
@@ -86,3 +102,4 @@ admin.site.register(RankLimit)
 admin.site.register(RankRecord)
 admin.site.register(CampaignManagement)
 admin.site.register(Track)
+admin.site.register(Log, LogAdmin)
