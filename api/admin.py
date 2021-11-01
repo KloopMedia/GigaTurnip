@@ -58,12 +58,16 @@ class TaskAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'case',
                     'stage',
-                    'assignee', )
+                    'assignee',
+                    'created_at',
+                    'updated_at')
     list_filter = ('stage__chain__campaign',
                    'stage__chain',
                    'stage',
                    'complete',
-                   TaskResponsesStatusFilter, )
+                   TaskResponsesStatusFilter,
+                   'created_at',
+                   'updated_at')
     search_fields = ('id',
                      'case__id',
                      'stage__name',
@@ -72,22 +76,26 @@ class TaskAdmin(admin.ModelAdmin):
                      'stage__chain__campaign__name')
     autocomplete_fields = ('in_tasks', )
     raw_id_fields = ('stage', 'assignee', 'case', )
+    readonly_fields = ('created_at', 'updated_at')
 
 class LogAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'name',
                     'campaign',
                     'stage',
-                    'user', )
+                    'user',
+                    'created_at',
+                    'updated_at')
     list_filter = ('campaign',
                    'stage',
                    'stage',
-                   'time_created')
+                   'created_at')
     search_fields = ('id',
                      'name',
                      'stage__name'
                      )
     raw_id_fields = ('stage', 'user', 'case', 'task')
+    readonly_fields = ('created_at', 'updated_at')
 
 
 admin.site.register(CustomUser, CustomUserAdmin)
