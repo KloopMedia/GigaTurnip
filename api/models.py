@@ -548,12 +548,12 @@ class Log(models.Model, CampaignInterface):
 #KHAKIM_DEBUG
 class Message(BaseDates, CampaignInterface):
 
-    name = models.CharField(
+    title = models.CharField(
         max_length=150,
-        help_text="Instance name"
+        help_text="Instance title"
     )
 
-    message = models.TextField(
+    text = models.TextField(
         null=True,
         blank=True,
         help_text="Text message"
@@ -566,9 +566,9 @@ class Message(BaseDates, CampaignInterface):
         help_text="Campaign id"
     )
 
-    important = models.BooleanField(
-        default=False,
-        help_text="True if important")
+    important = models.IntegerField(
+        default=3,
+        help_text="The lower the more important")
 
     # TODO запихать в GET без ендоинта
     def open(self, request):
@@ -585,7 +585,7 @@ class Message(BaseDates, CampaignInterface):
         return self.campaign
 
     def __str__(self):
-        return str("#" + str(self.id) + ": " + self.name.__str__() + " - " + self.message.__str__()[:100])
+        return str("#" + str(self.id) + ": " + self.title.__str__() + " - " + self.text.__str__()[:100])
 
 
 class MessageStatus(BaseDates, CampaignInterface):
@@ -617,4 +617,4 @@ class MessageStatus(BaseDates, CampaignInterface):
         return self.message.campaign
 
     def __str__(self):
-        return str("Message id #" + self.message.id.__str__() + ": " + self.message.name.__str__() + " - " + self.message.message.__str__()[:100])
+        return str("Message id #" + self.message.id.__str__() + ": " + self.message.name.__str__() + " - " + self.message.text.__str__()[:100])
