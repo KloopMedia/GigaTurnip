@@ -727,6 +727,34 @@ class TaskTest(APITestCase):
             self.assertEqual(i.case, task.case)
         self.assertEqual(Task.objects.filter(case=case).count(), 2)
 
+    def test_complete_next_cond_stage_success_network(self):
+        responses = {"verified": "Да"}
+
+        self.new_user.managed_campaigns.add(self.campaign)
+
+        task_stages=[]
+        for i in range(5):
+            conditions = [{"field": "verified", "value": "Да", "condition": "=="}]
+            task_stage = TaskStage.objects.create(name=f"Task stage created test complete #{i}", x_pos=1, y_pos=1,
+                                                  chain=self.chain)
+            cond_stage = ConditionalStage.objects.create(name=f"Conditional Stage test complete #{i}", x_pos=1, y_pos=1,
+                                            chain=self.chain, conditions=conditions)
+            cond_stage.in_stages.add(self.task_stage)
+            task_stage.in_stages.add(cond_stage)
+            task_stages.append(task_stage)
+
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        task.responses = responses
+        task.save()
+        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        created_tasks = Task.objects.filter(case=case).exclude(id=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(created_tasks.count(), len(task_stages))
+        stages = [j.stage for j in created_tasks]
+        for i in task_stages:
+            self.assertIn(i, stages)
+
     # there is conditional_stage after task. new tasks are creating depending on assigning, not ping_pong.
     # Task wouldn't create because condition is false
     def test_complete_next_cond_stage_fail(self):
