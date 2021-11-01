@@ -617,4 +617,4 @@ class MessageStatus(BaseDates, CampaignInterface):
         return self.message.campaign
 
     def __str__(self):
-        return str("Message id #" + self.message.id.__str__() + ": " + self.message.name.__str__() + " - " + self.message.text.__str__()[:100])
+        return str("Message id #" + self.message.id.__str__() + ": " + self.message.title.__str__() + " - " + self.message.text.__str__()[:100])
