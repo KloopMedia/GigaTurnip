@@ -501,6 +501,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     Partial update message data.
     """
 
+    filterset_fields = ['important', ]
     serializer_class = MessageSerializer
 
     # TODO добавить фильтры ранги и кампании
