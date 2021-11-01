@@ -60,6 +60,14 @@ router.register(api_v1 + r'rankrecords',
 #                 turnip_app.CampaignManagementViewSet,
 #                 basename='campaignmanagement')
 
+router.register(api_v1 + r'messages',
+                turnip_app.MessageViewSet,
+                basename='message')
+
+router.register(api_v1 + r'messagestatuses',
+                turnip_app.MessageStatusViewSet,
+                basename='messagestatus')
+
 
 urlpatterns = [path('admin/', admin.site.urls),
                path('docs/', include_docs_urls(title='Giga Turnip API Documentation'))

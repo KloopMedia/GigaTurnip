@@ -4,19 +4,21 @@ from rest_framework.response import Response
 
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
-    RankLimit, Track, RankRecord, CampaignManagement
+    RankLimit, Track, RankRecord, CampaignManagement, \
+    Message, MessageStatus
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer
+    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
+    MessageSerializer, MessageStatusSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, MessageAccessPolicy, MessageStatusesAccessPolicy
 from . import utils
 from .utils import paginate
 
@@ -481,3 +483,82 @@ class CampaignManagementViewSet(viewsets.ModelViewSet):
         return CampaignManagementAccessPolicy.scope_queryset(
             self.request, CampaignManagement.objects.all()
         )
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing messages.
+    create:
+    Create a new campaign message.
+    delete:
+    Delete message.
+    read:
+    Get message data.
+    update:
+    Update message data.
+    partial_update:
+    Partial update message data.
+    """
+
+    serializer_class = MessageSerializer
+
+    # TODO добавить фильтры ранги и кампании
+
+    # TODO сообщение добавить сортировку по Дате
+
+    # TODO добавить paginations
+
+    permission_classes = (MessageAccessPolicy,)
+
+    def get_queryset(self):
+        return MessageAccessPolicy.scope_queryset(
+            self.request, Message.objects.all()
+        )
+
+    @action(detail=False)
+    def list_user_messages(self, request, pk=None):
+        messages = utils.filter_for_user_messages(self.get_queryset(),
+                                                  request)
+        serializer = self.get_serializer(messages, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True)
+    def open_message(self, request, pk):
+        message_status, created = self.get_object().open(request)
+        message_status_json = MessageStatusSerializer(instance=message_status).data
+        if message_status and created:
+            return Response({'status': status.HTTP_201_CREATED,
+                             'rank_record': message_status_json})
+        elif message_status and not created:
+            return Response({'status': status.HTTP_200_OK,
+                             'rank_record': message_status_json})
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class MessageStatusViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing message statuses.
+    create:
+    Create a new campaign management message status.
+    delete:
+    Delete message status.
+    read:
+    Get message status data.
+    update:
+    Update message status data.
+    partial_update:
+    Partial update message status data.
+    """
+
+    serializer_class = MessageStatusSerializer
+
+    permission_classes = (MessageStatusesAccessPolicy,)
+
+    def get_queryset(self):
+        return MessageStatusesAccessPolicy.scope_queryset(
+            self.request, MessageStatus.objects.all()
+        )
+

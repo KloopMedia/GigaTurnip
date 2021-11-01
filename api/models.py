@@ -53,6 +53,21 @@ class SchemaProvider(models.Model):
         abstract = True
 
 
+class BaseDates(models.Model):
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Date of creation"
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="Last update date"
+    )
+
+    class Meta:
+        abstract = True
+
+
 class CampaignInterface:
     __metaclass__ = ABCMeta
 
@@ -528,3 +543,78 @@ class Log(models.Model, CampaignInterface):
 
     def get_campaign(self) -> Campaign:
         return self.campaign
+
+
+#KHAKIM_DEBUG
+class Message(BaseDates, CampaignInterface):
+
+    name = models.CharField(
+        max_length=150,
+        help_text="Instance name"
+    )
+
+    message = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Text message"
+    )
+
+    campaign = models.ForeignKey(
+        Campaign,
+        on_delete=models.CASCADE,
+        related_name="messages",
+        help_text="Campaign id"
+    )
+
+    important = models.BooleanField(
+        default=False,
+        help_text="True if important")
+
+    # TODO запихать в GET без ендоинта
+    def open(self, request):
+        if request.user is not None:
+            rank_record, created = MessageStatus.objects.get_or_create(
+                user=request.user,
+                message=self
+            )
+            return rank_record, created
+        else:
+            return None, None
+
+    def get_campaign(self) -> Campaign:
+        return self.campaign
+
+    def __str__(self):
+        return str("#" + str(self.id) + ": " + self.name.__str__() + " - " + self.message.__str__()[:100])
+
+
+class MessageStatus(BaseDates, CampaignInterface):
+
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        help_text="User id"
+    )
+
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        help_text="Message id",
+        related_name="message_statuses",
+    )
+
+    viewed = models.BooleanField(
+        default=False,
+        help_text="True if user open the message")
+
+    viewed_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Date viewed"
+    )
+
+    def get_campaign(self) -> Campaign:
+        return self.message.campaign
+
+    def __str__(self):
+        return str("Message id #" + self.message.id.__str__() + ": " + self.message.name.__str__() + " - " + self.message.message.__str__()[:100])

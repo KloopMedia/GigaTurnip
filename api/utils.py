@@ -3,7 +3,7 @@ from functools import wraps
 from django.db.models import QuerySet
 from rest_framework.response import Response
 
-from api.models import TaskStage, Task, RankLimit, Campaign, Chain
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Message
 
 
 def is_user_campaign_manager(user, campaign_id):
@@ -76,3 +76,10 @@ def paginate(func):
         return Response(serializer.data)
 
     return inner
+
+
+def filter_for_user_messages(queryset, request):
+    return queryset.filter(message_statuses__user=request.user)
+
+# TODO пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
+#  и у которых пока нету статустов для этого пользователя

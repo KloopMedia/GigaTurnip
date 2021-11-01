@@ -283,3 +283,30 @@ class TrackAccessPolicy(ManagersOnlyAccessPolicy):
         return queryset.filter(
             campaign__campaign_managements__user=request.user
         )
+
+
+class MessageAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["open_message"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["list", "retrieve", "list_user_messages"],
+            "principal": "authenticated",
+            "effect": "allow",
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(campaign__campaign_managements__user=
+                               request.user)
+
+
+class MessageStatusesAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(message__campaign__campaign_managements__user=
+                               request.user)
