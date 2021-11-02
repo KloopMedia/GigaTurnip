@@ -3,7 +3,7 @@ from abc import ABCMeta
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Message, MessageStatus
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -266,16 +266,16 @@ class CampaignManagementSerializer(serializers.ModelSerializer,
             "User may not add campaign management to this campaign")
 
 
-class MessageSerializer(serializers.ModelSerializer,
-                                   CampaignValidationCheck):
+class NotificationSerializer(serializers.ModelSerializer,
+                             CampaignValidationCheck):
     class Meta:
-        model = Message
+        model = Notification
         fields = '__all__'
 
 
-class MessageStatusSerializer(serializers.ModelSerializer,
+class NotificationStatusSerializer(serializers.ModelSerializer,
                                    CampaignValidationCheck):
     class Meta:
-        model = MessageStatus
+        model = NotificationStatus
         fields = '__all__'
 

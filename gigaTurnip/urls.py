@@ -59,14 +59,12 @@ router.register(api_v1 + r'rankrecords',
 # router.register(api_v1 + r'campaignmanagements',
 #                 turnip_app.CampaignManagementViewSet,
 #                 basename='campaignmanagement')
-
-router.register(api_v1 + r'messages',
-                turnip_app.MessageViewSet,
-                basename='message')
-
-router.register(api_v1 + r'messagestatuses',
-                turnip_app.MessageStatusViewSet,
-                basename='messagestatus')
+router.register(api_v1 + r'notifications',
+                turnip_app.NotificationViewSet,
+                basename='notification')
+# router.register(api_v1 + r'notificationstatuses',
+#                 turnip_app.NotificationStatusViewSet,
+#                 basename='notificationstatus')
 
 
 urlpatterns = [path('admin/', admin.site.urls),

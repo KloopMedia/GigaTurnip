@@ -545,7 +545,7 @@ class Log(models.Model, CampaignInterface):
         return self.campaign
 
 
-class Message(BaseDates, CampaignInterface):
+class Notification(BaseDates, CampaignInterface):
 
     title = models.CharField(
         max_length=150,
@@ -555,17 +555,17 @@ class Message(BaseDates, CampaignInterface):
     text = models.TextField(
         null=True,
         blank=True,
-        help_text="Text message"
+        help_text="Text notification"
     )
 
     campaign = models.ForeignKey(
         Campaign,
         on_delete=models.CASCADE,
-        related_name="messages",
+        related_name="notifications",
         help_text="Campaign id"
     )
 
-    important = models.IntegerField(
+    importance = models.IntegerField(
         default=3,
         help_text="The lower the more important")
 
@@ -580,9 +580,9 @@ class Message(BaseDates, CampaignInterface):
     # TODO запихать в GET без ендоинта
     def open(self, request):
         if request.user is not None:
-            rank_record, created = MessageStatus.objects.get_or_create(
+            rank_record, created = NotificationStatus.objects.get_or_create(
                 user=request.user,
-                message=self
+                notification=self
             )
             return rank_record, created
         else:
@@ -595,7 +595,7 @@ class Message(BaseDates, CampaignInterface):
         return str("#" + str(self.id) + ": " + self.title.__str__() + " - " + self.text.__str__()[:100])
 
 
-class MessageStatus(BaseDates, CampaignInterface):
+class NotificationStatus(BaseDates, CampaignInterface):
 
     user = models.ForeignKey(
         CustomUser,
@@ -603,16 +603,16 @@ class MessageStatus(BaseDates, CampaignInterface):
         help_text="User id"
     )
 
-    message = models.ForeignKey(
-        Message,
+    notification = models.ForeignKey(
+        Notification,
         on_delete=models.CASCADE,
-        help_text="Message id",
-        related_name="message_statuses",
+        help_text="Notification id",
+        related_name="notification_statuses",
     )
 
     viewed = models.BooleanField(
         default=False,
-        help_text="True if user open the message")
+        help_text="True if user open the notification")
 
     viewed_at = models.DateTimeField(
         blank=True,
@@ -621,7 +621,7 @@ class MessageStatus(BaseDates, CampaignInterface):
     )
 
     def get_campaign(self) -> Campaign:
-        return self.message.campaign
+        return self.notification.campaign
 
     def __str__(self):
-        return str("Message id #" + self.message.id.__str__() + ": " + self.message.title.__str__() + " - " + self.message.text.__str__()[:100])
+        return str("Notification id #" + self.notification.id.__str__() + ": " + self.notification.title.__str__() + " - " + self.notification.text.__str__()[:100])

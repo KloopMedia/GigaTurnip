@@ -3,7 +3,7 @@ from functools import wraps
 from django.db.models import QuerySet
 from rest_framework.response import Response
 
-from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Message
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification
 
 
 def is_user_campaign_manager(user, campaign_id):
@@ -78,26 +78,38 @@ def paginate(func):
     return inner
 
 
-def filter_for_user_messages(queryset, request):
-    messages = queryset.filter(message_statuses__user=request.user)
-
-    important = request.query_params.get('important')
-    if important:
-        messages = messages.filter(message_statuses__user=request.user)
-
-    return messages.order_by('-created_at')
-
-
-def filter_for_user_rank_messages(queryset, request):
+def filter_for_user_notifications(queryset, request):
     '''
     пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
     и у которых пока нету статустов для этого пользователя
     '''
-    messages = queryset.filter(rank__rankrecord__user__id=request.user.id) \
-                       .exclude(message_statuses__user=request.user)
 
-    important = request.query_params.get('important')
-    if important:
-        messages = messages.filter(message_statuses__user=request.user)
+    notifications = queryset.filter(rank__rankrecord__user__id=request.user.id)
 
-    return messages.order_by('-created_at')
+    #campaign
+    campaign = request.query_params.get('campaign')
+    if campaign:
+        notifications = notifications.filter(campaign=campaign)
+
+    # viewed
+    viewed = request.query_params.get('viewed')
+    if viewed is not None:
+        if viewed == 'true':
+            notifications = notifications.filter(notification_statuses__viewed=True)
+        else:
+            notifications = notifications.filter(notification_statuses__viewed=False)
+
+    # assigned
+    assigned = request.query_params.get('assigned')
+    if assigned is not None:
+        if assigned == 'true':
+            notifications = notifications.filter(notification_statuses__user=request.user)
+        else:
+            notifications = notifications.exclude(notification_statuses__user=request.user)
+
+    #importance
+    importance = request.query_params.get('importance')
+    if importance:
+        notifications = notifications.filter(importance=importance)
+
+    return notifications.order_by('-created_at')

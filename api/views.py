@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Message, MessageStatus
+    Notification, NotificationStatus
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -15,12 +15,12 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    MessageSerializer, MessageStatusSerializer
+    NotificationSerializer, NotificationStatusSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, MessageAccessPolicy, MessageStatusesAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, NotificationStatusesAccessPolicy
 from . import utils
 from .utils import paginate
 
@@ -487,91 +487,91 @@ class CampaignManagementViewSet(viewsets.ModelViewSet):
         )
 
 
-class MessageViewSet(viewsets.ModelViewSet):
+class NotificationViewSet(viewsets.ModelViewSet):
     """
     list:
     Return a list of all the existing messages.
     create:
-    Create a new campaign message.
+    Create a new campaign notification.
     delete:
-    Delete message.
+    Delete notification.
     read:
-    Get message data.
+    Get notification data.
     update:
-    Update message data.
+    Update notification data.
     partial_update:
-    Partial update message data.
+    Partial update notification data.
     """
 
-    filterset_fields = ['important', 'campaign', 'rank']
-    serializer_class = MessageSerializer
+    filterset_fields = ['importance', 'campaign', 'rank']
+    serializer_class = NotificationSerializer
 
-    permission_classes = (MessageAccessPolicy,)
+    permission_classes = (NotificationAccessPolicy,)
 
     def get_queryset(self):
-        return MessageAccessPolicy.scope_queryset(
-            self.request, Message.objects.all().order_by('-created_at')
+        return NotificationAccessPolicy.scope_queryset(
+            self.request, Notification.objects.all().order_by('-created_at')
         )
 
     def retrieve(self, request, pk=None):
-        queryset = Message.objects.all()
-        message = get_object_or_404(queryset, pk=pk)
+        queryset = Notification.objects.all()
+        notification = get_object_or_404(queryset, pk=pk)
 
-        message.open(request)
+        notification.open(request)
 
-        serializer = MessageSerializer(message)
+        serializer = NotificationSerializer(notification)
         return Response(serializer.data)
 
     @paginate
     @action(detail=False)
-    def list_user_messages(self, request, pk=None):
-        messages = utils.filter_for_user_messages(self.get_queryset(),
-                                                  request)
-        return messages
+    def list_user_notifications(self, request, pk=None):
+        notifications = utils.filter_for_user_notifications(self.get_queryset(),
+                                                            request)
+        return notifications
 
-    @paginate
-    @action(detail=False)
-    def list_user_rank_messages(self, request, pk=None):
-        messages = utils.filter_for_user_rank_messages(self.get_queryset(),
-                                                  request)
-        return messages
+    # @paginate
+    # @action(detail=False)
+    # def list_user_rank_messages(self, request, pk=None):
+    #     messages = utils.filter_for_user_rank_notifications(self.get_queryset(),
+    #                                                         request)
+    #     return messages
 
     @action(detail=True)
-    def open_message(self, request, pk):
-        message_status, created = self.get_object().open(request)
-        message_status_json = MessageStatusSerializer(instance=message_status).data
-        if message_status and created:
+    def open_notification(self, request, pk):
+        notification_status, created = self.get_object().open(request)
+        notification_status_json = NotificationStatusSerializer(instance=notification_status).data
+        if notification_status and created:
             return Response({'status': status.HTTP_201_CREATED,
-                             'message_status': message_status_json})
-        elif message_status and not created:
+                             'notification_status': notification_status_json})
+        elif notification_status and not created:
             return Response({'status': status.HTTP_200_OK,
-                             'message_status': message_status_json})
+                             'notification_status': notification_status_json})
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
-class MessageStatusViewSet(viewsets.ModelViewSet):
+class NotificationStatusViewSet(viewsets.ModelViewSet):
     """
     list:
-    Return a list of all the existing message statuses.
+    Return a list of all the existing notification statuses.
     create:
-    Create a new campaign management message status.
+    Create a new campaign management notification status.
     delete:
-    Delete message status.
+    Delete notification status.
     read:
-    Get message status data.
+    Get notification status data.
     update:
-    Update message status data.
+    Update notification status data.
     partial_update:
-    Partial update message status data.
+    Partial update notification status data.
     """
 
-    serializer_class = MessageStatusSerializer
+    serializer_class = NotificationStatusSerializer
 
-    permission_classes = (MessageStatusesAccessPolicy,)
+    permission_classes = (NotificationStatusesAccessPolicy,)
 
     def get_queryset(self):
-        return MessageStatusesAccessPolicy.scope_queryset(
-            self.request, MessageStatus.objects.all()
+        return NotificationStatusesAccessPolicy.scope_queryset(
+            self.request, NotificationStatus.objects.all()
         )
 
