@@ -293,7 +293,7 @@ class MessageAccessPolicy(ManagersOnlyAccessPolicy):
             "effect": "allow",
         },
         {
-            "action": ["list", "retrieve", "list_user_messages"],
+            "action": ["list", "retrieve", "list_user_messages", "list_user_rank_messages"],
             "principal": "authenticated",
             "effect": "allow",
         }

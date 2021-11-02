@@ -79,16 +79,25 @@ def paginate(func):
 
 
 def filter_for_user_messages(queryset, request):
+    messages = queryset.filter(message_statuses__user=request.user)
+
     important = request.query_params.get('important')
-
     if important:
-        messages = queryset \
-            .filter(message_statuses__user=request.user) \
-            .filter(important=important)
-    else:
-        messages = queryset.filter(message_statuses__user=request.user)
+        messages = messages.filter(message_statuses__user=request.user)
 
-    return messages
+    return messages.order_by('-created_at')
 
-# TODO пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
-#  и у которых пока нету статустов для этого пользователя
+
+def filter_for_user_rank_messages(queryset, request):
+    '''
+    пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
+    и у которых пока нету статустов для этого пользователя
+    '''
+    messages = queryset.filter(rank__rankrecord__user__id=request.user.id) \
+                       .exclude(message_statuses__user=request.user)
+
+    important = request.query_params.get('important')
+    if important:
+        messages = messages.filter(message_statuses__user=request.user)
+
+    return messages.order_by('-created_at')

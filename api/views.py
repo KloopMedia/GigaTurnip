@@ -2,6 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from django.shortcuts import get_object_or_404
+
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
@@ -501,28 +503,38 @@ class MessageViewSet(viewsets.ModelViewSet):
     Partial update message data.
     """
 
-    filterset_fields = ['important', ]
+    filterset_fields = ['important', 'campaign', 'rank']
     serializer_class = MessageSerializer
-
-    # TODO добавить фильтры ранги и кампании
-
-    # TODO сообщение добавить сортировку по Дате
-
-    # TODO добавить paginations
 
     permission_classes = (MessageAccessPolicy,)
 
     def get_queryset(self):
         return MessageAccessPolicy.scope_queryset(
-            self.request, Message.objects.all()
+            self.request, Message.objects.all().order_by('-created_at')
         )
 
+    def retrieve(self, request, pk=None):
+        queryset = Message.objects.all()
+        message = get_object_or_404(queryset, pk=pk)
+
+        message.open(request)
+
+        serializer = MessageSerializer(message)
+        return Response(serializer.data)
+
+    @paginate
     @action(detail=False)
     def list_user_messages(self, request, pk=None):
         messages = utils.filter_for_user_messages(self.get_queryset(),
                                                   request)
-        serializer = self.get_serializer(messages, many=True)
-        return Response(serializer.data)
+        return messages
+
+    @paginate
+    @action(detail=False)
+    def list_user_rank_messages(self, request, pk=None):
+        messages = utils.filter_for_user_rank_messages(self.get_queryset(),
+                                                  request)
+        return messages
 
     @action(detail=True)
     def open_message(self, request, pk):
@@ -530,10 +542,10 @@ class MessageViewSet(viewsets.ModelViewSet):
         message_status_json = MessageStatusSerializer(instance=message_status).data
         if message_status and created:
             return Response({'status': status.HTTP_201_CREATED,
-                             'rank_record': message_status_json})
+                             'message_status': message_status_json})
         elif message_status and not created:
             return Response({'status': status.HTTP_200_OK,
-                             'rank_record': message_status_json})
+                             'message_status': message_status_json})
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 

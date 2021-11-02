@@ -545,7 +545,6 @@ class Log(models.Model, CampaignInterface):
         return self.campaign
 
 
-#KHAKIM_DEBUG
 class Message(BaseDates, CampaignInterface):
 
     title = models.CharField(
@@ -569,6 +568,14 @@ class Message(BaseDates, CampaignInterface):
     important = models.IntegerField(
         default=3,
         help_text="The lower the more important")
+
+    rank = models.ForeignKey(
+        Rank,
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        help_text="Rank id"
+    )
 
     # TODO запихать в GET без ендоинта
     def open(self, request):
