@@ -79,7 +79,16 @@ def paginate(func):
 
 
 def filter_for_user_messages(queryset, request):
-    return queryset.filter(message_statuses__user=request.user)
+    important = request.query_params.get('important')
+
+    if important:
+        messages = queryset \
+            .filter(message_statuses__user=request.user) \
+            .filter(important=important)
+    else:
+        messages = queryset.filter(message_statuses__user=request.user)
+
+    return messages
 
 # TODO пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
 #  и у которых пока нету статустов для этого пользователя
