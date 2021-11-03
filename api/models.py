@@ -610,16 +610,6 @@ class NotificationStatus(BaseDates, CampaignInterface):
         related_name="notification_statuses",
     )
 
-    viewed = models.BooleanField(
-        default=False,
-        help_text="True if user open the notification")
-
-    viewed_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="Date viewed"
-    )
-
     def get_campaign(self) -> Campaign:
         return self.notification.campaign
 

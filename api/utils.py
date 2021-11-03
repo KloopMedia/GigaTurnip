@@ -94,14 +94,6 @@ def filter_for_user_notifications(queryset, request):
     viewed = request.query_params.get('viewed')
     if viewed is not None:
         if viewed == 'true':
-            notifications = notifications.filter(notification_statuses__viewed=True)
-        else:
-            notifications = notifications.filter(notification_statuses__viewed=False)
-
-    # assigned
-    assigned = request.query_params.get('assigned')
-    if assigned is not None:
-        if assigned == 'true':
             notifications = notifications.filter(notification_statuses__user=request.user)
         else:
             notifications = notifications.exclude(notification_statuses__user=request.user)

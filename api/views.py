@@ -520,12 +520,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         queryset = Notification.objects.all()
         notification = get_object_or_404(queryset, pk=pk)
 
-        notification_status, created = notification.open(request)
-
-        if notification_status and created:
-            notification_status.viewed = True
-            notification_status.viewed_at = datetime.now()
-            notification_status.save()
+        notification.open(request)
 
         serializer = NotificationSerializer(notification)
         return Response(serializer.data)
@@ -537,12 +532,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
                                                             request)
         return notifications
 
-    # @paginate
-    # @action(detail=False)
-    # def list_user_rank_messages(self, request, pk=None):
-    #     messages = utils.filter_for_user_rank_notifications(self.get_queryset(),
-    #                                                         request)
-    #     return messages
 
     @action(detail=True)
     def open_notification(self, request, pk):
