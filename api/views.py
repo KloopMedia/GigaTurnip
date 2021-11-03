@@ -25,6 +25,9 @@ from . import utils
 from .utils import paginate
 
 
+from datetime import datetime
+
+
 class CampaignViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -517,7 +520,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
         queryset = Notification.objects.all()
         notification = get_object_or_404(queryset, pk=pk)
 
-        notification.open(request)
+        notification_status, created = notification.open(request)
+
+        if notification_status and created:
+            notification_status.viewed = True
+            notification_status.viewed_at = datetime.now()
+            notification_status.save()
 
         serializer = NotificationSerializer(notification)
         return Response(serializer.data)
