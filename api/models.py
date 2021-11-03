@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from polymorphic.models import PolymorphicModel
 
+from datetime import datetime
+
 
 class CustomUser(AbstractUser):
     ranks = models.ManyToManyField(
@@ -577,12 +579,13 @@ class Notification(BaseDates, CampaignInterface):
         help_text="Rank id"
     )
 
-    # TODO запихать в GET без ендоинта
     def open(self, request):
         if request.user is not None:
             rank_record, created = NotificationStatus.objects.get_or_create(
                 user=request.user,
-                notification=self
+                notification=self,
+                viewed=True,
+                viewed_at=datetime.now()
             )
             return rank_record, created
         else:
