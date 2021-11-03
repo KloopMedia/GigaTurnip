@@ -2,23 +2,30 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from django.shortcuts import get_object_or_404
+
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
-    RankLimit, Track, RankRecord, CampaignManagement
+    RankLimit, Track, RankRecord, CampaignManagement, \
+    Notification, NotificationStatus
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer
+    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
+    NotificationSerializer, NotificationStatusSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, NotificationStatusesAccessPolicy
 from . import utils
 from .utils import paginate
+
+
+from datetime import datetime
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -481,3 +488,87 @@ class CampaignManagementViewSet(viewsets.ModelViewSet):
         return CampaignManagementAccessPolicy.scope_queryset(
             self.request, CampaignManagement.objects.all()
         )
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing messages.
+    create:
+    Create a new campaign notification.
+    delete:
+    Delete notification.
+    read:
+    Get notification data.
+    update:
+    Update notification data.
+    partial_update:
+    Partial update notification data.
+    """
+
+    filterset_fields = ['importance', 'campaign', 'rank']
+    serializer_class = NotificationSerializer
+
+    permission_classes = (NotificationAccessPolicy,)
+
+    def get_queryset(self):
+        return NotificationAccessPolicy.scope_queryset(
+            self.request, Notification.objects.all().order_by('-created_at')
+        )
+
+    def retrieve(self, request, pk=None):
+        queryset = Notification.objects.all()
+        notification = get_object_or_404(queryset, pk=pk)
+
+        notification.open(request)
+
+        serializer = NotificationSerializer(notification)
+        return Response(serializer.data)
+
+    @paginate
+    @action(detail=False)
+    def list_user_notifications(self, request, pk=None):
+        notifications = utils.filter_for_user_notifications(self.get_queryset(),
+                                                            request)
+        return notifications
+
+
+    @action(detail=True)
+    def open_notification(self, request, pk):
+        notification_status, created = self.get_object().open(request)
+        notification_status_json = NotificationStatusSerializer(instance=notification_status).data
+        if notification_status and created:
+            return Response({'status': status.HTTP_201_CREATED,
+                             'notification_status': notification_status_json})
+        elif notification_status and not created:
+            return Response({'status': status.HTTP_200_OK,
+                             'notification_status': notification_status_json})
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationStatusViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing notification statuses.
+    create:
+    Create a new campaign management notification status.
+    delete:
+    Delete notification status.
+    read:
+    Get notification status data.
+    update:
+    Update notification status data.
+    partial_update:
+    Partial update notification status data.
+    """
+
+    serializer_class = NotificationStatusSerializer
+
+    permission_classes = (NotificationStatusesAccessPolicy,)
+
+    def get_queryset(self):
+        return NotificationStatusesAccessPolicy.scope_queryset(
+            self.request, NotificationStatus.objects.all()
+        )
+

@@ -3,7 +3,7 @@ from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 
 from .models import Campaign, Chain, \
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log
+    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, Notification, NotificationStatus
 
 
 class TaskResponsesStatusFilter(SimpleListFilter):
@@ -130,3 +130,5 @@ admin.site.register(RankRecord)
 admin.site.register(CampaignManagement)
 admin.site.register(Track)
 admin.site.register(Log, LogAdmin)
+admin.site.register(Notification)
+admin.site.register(NotificationStatus)
