@@ -81,7 +81,6 @@ def paginate(func):
 def filter_for_user_notifications(queryset, request):
     '''
     пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
-    и у которых пока нету статустов для этого пользователя
     '''
 
     notifications = queryset.filter(rank__rankrecord__user__id=request.user.id)

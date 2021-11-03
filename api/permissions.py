@@ -286,11 +286,9 @@ class TrackAccessPolicy(ManagersOnlyAccessPolicy):
 
 
 class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
-    statements = [
+    statements = ManagersOnlyAccessPolicy.statements + [
         {
-            "action": ["list",
-                       "retrieve",
-                       "list_user_notifications",
+            "action": ["list_user_notifications",
                        "open_notification"],
             "principal": "authenticated",
             "effect": "allow",
@@ -299,12 +297,12 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(campaign__campaign_managements__user=
+        return queryset.filter(rank__rankrecord__user=
                                request.user)
 
 
 class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(notification__campaign__campaign_managements__user=
+        return queryset.filter(rank__rankrecord__user=
                                request.user)
