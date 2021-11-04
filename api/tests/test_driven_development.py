@@ -241,3 +241,16 @@ class NotificationTest(APITestCase):
         content = json.loads(response.content)['results']
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(content), 3)
+
+    def test_open_notification_success(self):
+        RankRecord.objects.create(user=self.user, rank=self.rank)
+        notification_id = self.notification[0].id
+        notification_status = {"user": self.user.id, "notification": notification_id}
+        response = self.client.post(self.url + f"open_notification/{notification_id}/", notification_status)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_open_notification(self):
+        notification_id = self.notification[0].id
+        notification_status = {"user": self.user.id, "notification": notification_id}
+        response = self.client.post(self.url + f"open_notification/{notification_id}/", notification_status)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
