@@ -1,3 +1,4 @@
+import datetime
 from abc import ABCMeta, abstractmethod
 
 from django.contrib.auth.models import AbstractUser
@@ -5,7 +6,24 @@ from django.db import models
 from polymorphic.models import PolymorphicModel
 
 
-class CustomUser(AbstractUser):
+class BaseDatesModel(models.Model):
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        #default=datetime.datetime(2001, 1, 1),
+        help_text="Time of creation"
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        #default=datetime.datetime(2001, 1, 1),
+        help_text="Last update time"
+    )
+
+    class Meta:
+        abstract = True
+
+
+class CustomUser(AbstractUser, BaseDatesModel):
     ranks = models.ManyToManyField(
         "Rank",
         through="RankRecord",
@@ -15,7 +33,7 @@ class CustomUser(AbstractUser):
         return self.email + " " + self.last_name
 
 
-class BaseModel(models.Model):
+class BaseModel(BaseDatesModel):
     name = models.CharField(
         max_length=100,
         help_text="Instance name"
@@ -111,7 +129,7 @@ class Campaign(BaseModel, CampaignInterface):
         return str("Campaign: " + self.name)
 
 
-class CampaignManagement(models.Model, CampaignInterface):
+class CampaignManagement(BaseDatesModel, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
@@ -284,14 +302,14 @@ class ConditionalStage(Stage):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
 
 
-class Case(models.Model):
+class Case(BaseDatesModel):
 
     def __str__(self):
         return str("Case #" +
                    str(self.id))
 
 
-class Task(models.Model, CampaignInterface):
+class Task(BaseDatesModel, CampaignInterface):
     assignee = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,  # TODO Change deletion
@@ -384,7 +402,7 @@ class Track(BaseModel, CampaignInterface):
         return self.campaign
 
 
-class RankRecord(models.Model, CampaignInterface):
+class RankRecord(BaseDatesModel, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
@@ -406,7 +424,7 @@ class RankRecord(models.Model, CampaignInterface):
         return str(self.rank.__str__() + " " + self.user.__str__())
 
 
-class RankLimit(models.Model, CampaignInterface):
+class RankLimit(BaseDatesModel, CampaignInterface):
     rank = models.ForeignKey(
         Rank,
         on_delete=models.CASCADE,
@@ -457,11 +475,10 @@ class RankLimit(models.Model, CampaignInterface):
                    self.stage.__str__())
 
 
-class Log(models.Model, CampaignInterface):
+class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     json = models.JSONField(blank=True)
-    time_created = models.DateTimeField(auto_now_add=True)
     campaign = models.ForeignKey(
         Campaign,
         related_name="logs",

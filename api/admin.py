@@ -32,6 +32,21 @@ class TaskResponsesStatusFilter(SimpleListFilter):
                 .exclude(responses__isnull=True)
 
 
+class LogsTaskResponsesStatusFilter(TaskResponsesStatusFilter):
+    def queryset(self, request, queryset):
+        if self.value() == "json_empty":
+            return queryset.distinct().filter(task__responses__iexact="{}")
+        elif self.value() == "null":
+            return queryset.distinct().filter(task__responses__isnull=True)
+        elif self.value() == "empty_string":
+            return queryset.distinct().filter(task__responses__iexact="")
+        elif self.value() == "not_empty":
+            return queryset.distinct()\
+                .exclude(task__responses__iexact="")\
+                .exclude(task__responses__iexact="{}")\
+                .exclude(task__responses__isnull=True)
+
+
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
 
@@ -58,12 +73,16 @@ class TaskAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'case',
                     'stage',
-                    'assignee', )
+                    'assignee',
+                    'created_at',
+                    'updated_at')
     list_filter = ('stage__chain__campaign',
                    'stage__chain',
                    'stage',
                    'complete',
-                   TaskResponsesStatusFilter, )
+                   TaskResponsesStatusFilter,
+                   'created_at',
+                   'updated_at')
     search_fields = ('id',
                      'case__id',
                      'stage__name',
@@ -72,22 +91,30 @@ class TaskAdmin(admin.ModelAdmin):
                      'stage__chain__campaign__name')
     autocomplete_fields = ('in_tasks', )
     raw_id_fields = ('stage', 'assignee', 'case', )
+    readonly_fields = ('created_at', 'updated_at')
+
 
 class LogAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'name',
                     'campaign',
                     'stage',
-                    'user', )
+                    'task',
+                    'user',
+                    'created_at',
+                    'updated_at')
     list_filter = ('campaign',
                    'stage',
-                   'stage',
-                   'time_created')
+                   'created_at',
+                   'task__complete',
+                   LogsTaskResponsesStatusFilter)
     search_fields = ('id',
                      'name',
-                     'stage__name'
+                     'stage__name',
+                     'task__id'
                      )
     raw_id_fields = ('stage', 'user', 'case', 'task')
+    readonly_fields = ('created_at', 'updated_at')
 
 
 admin.site.register(CustomUser, CustomUserAdmin)
