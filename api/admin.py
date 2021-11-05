@@ -99,7 +99,7 @@ class TaskAdmin(admin.ModelAdmin):
 
     @admin.action(description='Mark selected tasks as completed')
     def make_completed(self, request, queryset):
-        updated = len(queryset)
+        updated = queryset.update(complete=True)
         for task in queryset:
             process_completed_task(task)
 
