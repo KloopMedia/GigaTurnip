@@ -20,17 +20,17 @@ def log_empty_task_response(sender, instance, **kwargs):
         previous = Task.objects.get(id=instance.id)
         data = {"previous": TaskDebugSerializer(previous).data,
                 "current": TaskDebugSerializer(instance).data}
-        log = Log(
-            name="Task edited",
-            description="Overwritten responses are inside JSON field",
-            json=data,
-            task=instance,
-            campaign=instance.get_campaign(),
-            stage=instance.stage,
-            chain=instance.stage.chain,
-            user=instance.assignee,
-        )
-        log.save()
+        # log = Log(
+        #     name="Task edited",
+        #     description="Overwritten responses are inside JSON field",
+        #     json=data,
+        #     task=instance,
+        #     campaign=instance.get_campaign(),
+        #     stage=instance.stage,
+        #     chain=instance.stage.chain,
+        #     user=instance.assignee,
+        # )
+        # log.save()
         if previous.responses and not instance.responses:
             reason = "wrong"
             if instance.responses is None:

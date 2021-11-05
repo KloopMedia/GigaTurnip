@@ -71,6 +71,21 @@ class SchemaProvider(models.Model):
         abstract = True
 
 
+class BaseDates(models.Model):
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Date of creation"
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="Last update date"
+    )
+
+    class Meta:
+        abstract = True
+
+
 class CampaignInterface:
     __metaclass__ = ABCMeta
 
@@ -545,3 +560,75 @@ class Log(BaseDatesModel, CampaignInterface):
 
     def get_campaign(self) -> Campaign:
         return self.campaign
+
+
+class Notification(BaseDates, CampaignInterface):
+
+    title = models.CharField(
+        max_length=150,
+        help_text="Instance title"
+    )
+
+    text = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Text notification"
+    )
+
+    campaign = models.ForeignKey(
+        Campaign,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        help_text="Campaign id"
+    )
+
+    importance = models.IntegerField(
+        default=3,
+        help_text="The lower the more important")
+
+    rank = models.ForeignKey(
+        Rank,
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        help_text="Rank id"
+    )
+
+    def open(self, request):
+        if request.user is not None:
+            notification_status, created = NotificationStatus.objects.get_or_create(
+                user=request.user,
+                notification=self
+            )
+
+            return notification_status, created
+        else:
+            return None, None
+
+    def get_campaign(self) -> Campaign:
+        return self.campaign
+
+    def __str__(self):
+        return str("#" + str(self.id) + ": " + self.title.__str__() + " - " + self.text.__str__()[:100])
+
+
+class NotificationStatus(BaseDates, CampaignInterface):
+
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        help_text="User id"
+    )
+
+    notification = models.ForeignKey(
+        Notification,
+        on_delete=models.CASCADE,
+        help_text="Notification id",
+        related_name="notification_statuses",
+    )
+
+    def get_campaign(self) -> Campaign:
+        return self.notification.campaign
+
+    def __str__(self):
+        return str("Notification id #" + self.notification.id.__str__() + ": " + self.notification.title.__str__() + " - " + self.notification.text.__str__()[:100])
