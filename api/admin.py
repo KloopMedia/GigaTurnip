@@ -4,7 +4,9 @@ from django.contrib.auth.admin import UserAdmin
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, Notification, NotificationStatus
-
+from api.asyncstuff import process_completed_task
+from django.contrib import messages
+from django.utils.translation import ngettext
 
 class TaskResponsesStatusFilter(SimpleListFilter):
     title = "Responses JSON Status"
@@ -93,6 +95,28 @@ class TaskAdmin(admin.ModelAdmin):
     raw_id_fields = ('stage', 'assignee', 'case', )
     readonly_fields = ('created_at', 'updated_at')
 
+    actions = ['make_completed', 'make_completed_force']
+
+    @admin.action(description='Mark selected tasks as completed')
+    def make_completed(self, request, queryset):
+        updated = len(queryset)
+        for task in queryset:
+            process_completed_task(task)
+
+        self.message_user(request, ngettext(
+            '%d task was successfully marked as completed.',
+            '%d tasks were successfully marked as completed.',
+            updated,
+        ) % updated, messages.SUCCESS)
+
+    @admin.action(description='Mark selected tasks as completed force')
+    def make_completed_force(self, request, queryset):
+        updated = queryset.update(complete=True)
+        self.message_user(request, ngettext(
+            '%d task was successfully marked as force completed.',
+            '%d tasks were successfully marked as force completed.',
+            updated,
+        ) % updated, messages.SUCCESS)
 
 class LogAdmin(admin.ModelAdmin):
     list_display = ('id',
