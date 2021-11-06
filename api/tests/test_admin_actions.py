@@ -96,5 +96,5 @@ class TaskAdminTest(TestCase):
                 '_selected_action': [t.id for t in tasks_complete]}
         self.client.login(username=self.user.username, password=self.u_password)
         response = self.client.post(self.url, data, follow=True)
-        self.assertEqual(list(Task.objects.filter(complete=True)),
+        self.assertEqual(list(Task.objects.filter(complete=True).filter(force_complete=True)),
                          list(Task.objects.filter(pk__in=data['_selected_action'])))
