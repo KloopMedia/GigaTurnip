@@ -1,3 +1,5 @@
+from abc import ABC
+
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
@@ -10,6 +12,24 @@ from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
 from .utils import set_rank_to_user_action
+
+
+class InputFilter(admin.SimpleListFilter, ABC):
+    template = 'admin/input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
 
 
 class TaskResponsesStatusFilter(SimpleListFilter):
@@ -53,8 +73,54 @@ class LogsTaskResponsesStatusFilter(TaskResponsesStatusFilter):
                 .exclude(task__responses__isnull=True)
 
 
+class TaskResponsesStatusFilter(SimpleListFilter):
+    title = "Responses JSON Status"
+    parameter_name = "Responses"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("not_empty", "Filled Responses"),
+            ("json_empty", "Empty JSON Responses ({})"),
+            ("empty_string", "Empty String Responses()"),
+            ("null", "Null Responses (__isnull==True)")
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "json_empty":
+            return queryset.distinct().filter(responses__iexact="{}")
+        elif self.value() == "null":
+            return queryset.distinct().filter(responses__isnull=True)
+        elif self.value() == "empty_string":
+            return queryset.distinct().filter(responses__iexact="")
+        elif self.value() == "not_empty":
+            return queryset.distinct()\
+                .exclude(responses__iexact="")\
+                .exclude(responses__iexact="{}")\
+                .exclude(responses__isnull=True)
+
+
+class UserTaskCompleteFilter(InputFilter):
+    parameter_name = 'completed_stages'
+    title = 'Completed Tasks (enter list of task stages separated by whitespace). Force completed will not be included.'
+
+    def queryset(self, request, queryset):
+        terms = self.value()
+
+        if terms is None or terms == '':
+            return queryset
+
+        for term in terms.split():
+            tasks = Task.objects.filter(stage__id=term,
+                                        complete=True,
+                                        force_complete=False)
+            queryset = queryset.filter(tasks__in=tasks)
+
+        return queryset
+
+
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
+    list_filter = (UserTaskCompleteFilter, )
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
@@ -118,7 +184,7 @@ class TaskAdmin(admin.ModelAdmin):
     def make_completed(self, request, queryset):
         updated = queryset.update(complete=True)
         for task in queryset:
-            process_completed_task(task)
+            process_completed_task(task) # ToDo: put complete=True inside cycle, account for possible interruptions
 
         self.message_user(request, ngettext(
             '%d task was successfully marked as completed.',
@@ -134,6 +200,7 @@ class TaskAdmin(admin.ModelAdmin):
             '%d tasks were successfully marked as force completed.',
             updated,
         ) % updated, messages.SUCCESS)
+
 
 class LogAdmin(admin.ModelAdmin):
     list_display = ('id',
