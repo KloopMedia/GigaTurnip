@@ -3,10 +3,13 @@ from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 
 from .models import Campaign, Chain, \
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, Notification, NotificationStatus
+    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
+    Notification, NotificationStatus
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
+from .utils import set_rank_to_user_action
+
 
 class TaskResponsesStatusFilter(SimpleListFilter):
     title = "Responses JSON Status"
@@ -51,6 +54,15 @@ class LogsTaskResponsesStatusFilter(TaskResponsesStatusFilter):
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
+
+    def get_actions(self, request):
+        actions = super(CustomUserAdmin, self).get_actions(request)
+        for rank in Rank.objects.filter(track__campaign_id=request.user.id):  # .filter(admin_preferences=)
+            action = set_rank_to_user_action(rank)
+            actions[action.__name__] = (action,
+                                        action.__name__,
+                                        action.short_description)
+        return actions
 
 
 class ChainAdmin(admin.ModelAdmin):

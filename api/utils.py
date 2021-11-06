@@ -3,8 +3,9 @@ from functools import wraps
 from django.db.models import QuerySet
 from rest_framework.response import Response
 
-from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification
-
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord
+from django.contrib import messages
+from django.utils.translation import ngettext
 
 def is_user_campaign_manager(user, campaign_id):
     campaigns = Campaign.objects \
@@ -104,3 +105,18 @@ def filter_for_user_notifications(queryset, request):
         notifications = notifications.filter(importance=importance)
 
     return notifications.order_by('-created_at')
+
+
+def set_rank_to_user_action(rank):  # todo: rename it
+    def set_rank_to_user(modeladmin, request, queryset):
+        for user in queryset:
+            if not RankRecord.objects.filter(rank=rank).filter(user=user).exists():
+                RankRecord.objects.create(rank=rank, user=user)
+                messages.info(request, "Set {0} rank {1}".format(user.id, rank.name))
+            else:
+                messages.info(request, "Exist {0} rank {1}".format(user.id, rank.name))
+
+    set_rank_to_user.short_description = "Assign {0}".format(rank.name)
+    set_rank_to_user.__name__ = 'set_rank_{0}'.format(rank.id)
+
+    return set_rank_to_user
