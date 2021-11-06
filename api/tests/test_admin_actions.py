@@ -2,6 +2,26 @@ from django.test import TestCase
 from django.urls import reverse
 from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Task, Case
 
+class CustomUserAdminTest(TestCase):
+    def setUp(self):
+        self.url = reverse("admin:api_customuser_changelist")
+        self.u_password = '123'
+        self.user = CustomUser.objects.create_superuser(username="test", email='test@email.com',
+                                                        password=self.u_password)
+        self.user.is_staff = True
+        self.user.save()
+        self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
+                                                       password='new_user')
+        self.employee = CustomUser.objects.create(username="empl", email='empl@email.com', password='empl')
+
+        self.campaign = Campaign.objects.create(name="Campaign")
+        self.another_campaign = Campaign.objects.create(name="Campaign")
+
+        self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
+
+        self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,chain=self.chain)
+        self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,chain=self.another_chain)
 
 class TaskAdminTest(TestCase):
     def setUp(self):
