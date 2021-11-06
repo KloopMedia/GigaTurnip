@@ -9,13 +9,13 @@ from polymorphic.models import PolymorphicModel
 class BaseDatesModel(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
-        #default=datetime.datetime(2001, 1, 1),
+        # default=datetime.datetime(2001, 1, 1),
         help_text="Time of creation"
     )
 
     updated_at = models.DateTimeField(
         auto_now=True,
-        #default=datetime.datetime(2001, 1, 1),
+        # default=datetime.datetime(2001, 1, 1),
         help_text="Last update time"
     )
 
@@ -346,6 +346,7 @@ class Task(BaseDatesModel, CampaignInterface):
         help_text="Preceded tasks"
     )
     complete = models.BooleanField(default=False)
+    force_complete = models.BooleanField(default=False)
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
@@ -563,7 +564,6 @@ class Log(BaseDatesModel, CampaignInterface):
 
 
 class Notification(BaseDates, CampaignInterface):
-
     title = models.CharField(
         max_length=150,
         help_text="Instance title"
@@ -596,7 +596,8 @@ class Notification(BaseDates, CampaignInterface):
 
     def open(self, request):
         if request.user is not None:
-            notification_status, created = NotificationStatus.objects.get_or_create(
+            notification_status, created = NotificationStatus \
+                .objects.get_or_create(
                 user=request.user,
                 notification=self
             )
@@ -609,11 +610,13 @@ class Notification(BaseDates, CampaignInterface):
         return self.campaign
 
     def __str__(self):
-        return str("#" + str(self.id) + ": " + self.title.__str__() + " - " + self.text.__str__()[:100])
+        return str(
+            "#" + str(self.id) + ": " + self.title.__str__() + " - "
+            + self.text.__str__()[:100]
+        )
 
 
 class NotificationStatus(BaseDates, CampaignInterface):
-
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
@@ -631,4 +634,26 @@ class NotificationStatus(BaseDates, CampaignInterface):
         return self.notification.campaign
 
     def __str__(self):
-        return str("Notification id #" + self.notification.id.__str__() + ": " + self.notification.title.__str__() + " - " + self.notification.text.__str__()[:100])
+        return str(
+            "Notification id #" + self.notification.id.__str__() + ": " +
+            self.notification.title.__str__() + " - "
+            + self.notification.text.__str__()[:100]
+        )
+
+
+class AdminPreference(BaseDates):
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True
+    )
+    campaign = models.ForeignKey(
+        Campaign,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
+
+    def __str__(self):
+        return self.id.__str__()

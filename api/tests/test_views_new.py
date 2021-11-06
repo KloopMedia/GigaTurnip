@@ -481,6 +481,7 @@ class TaskTest(APITestCase):
         self.url_conditional_stage = reverse('conditionalstage-list')
         self.url_task_stage = reverse('taskstage-list')
         self.url_tasks = reverse('task-list')
+        self.url_webhook_quiz = "https://us-central1-journal-bb5e3.cloudfunctions.net/check_quiz_responses"
 
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
         self.new_user = CustomUser.objects.create_user(username="new_user", email='new_user@email.com',
@@ -727,6 +728,34 @@ class TaskTest(APITestCase):
             self.assertEqual(i.case, task.case)
         self.assertEqual(Task.objects.filter(case=case).count(), 2)
 
+    # test. after task stage is 5 conditional stages which tests their condition. after cond stages is new task stage.
+    def test_complete_next_cond_stage_success_network(self):
+        responses = {"verified": "Да"}
+        conditions = [{"field": "verified", "value": "Да", "condition": "=="}]
+        self.new_user.managed_campaigns.add(self.campaign)
+
+        task_stages=[]
+        for i in range(5):
+            task_stage = TaskStage.objects.create(name=f"Task stage created test complete #{i}", x_pos=1, y_pos=1,
+                                                  chain=self.chain)
+            cond_stage = ConditionalStage.objects.create(name=f"Conditional Stage test complete #{i}", x_pos=1, y_pos=1,
+                                            chain=self.chain, conditions=conditions)
+            cond_stage.in_stages.add(self.task_stage)
+            task_stage.in_stages.add(cond_stage)
+            task_stages.append(task_stage)
+
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        task.responses = responses
+        task.save()
+        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        created_tasks = Task.objects.filter(case=case).exclude(id=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(created_tasks.count(), len(task_stages))
+        stages = [j.stage for j in created_tasks]
+        for i in task_stages:
+            self.assertIn(i, stages)
+
     # there is conditional_stage after task. new tasks are creating depending on assigning, not ping_pong.
     # Task wouldn't create because condition is false
     def test_complete_next_cond_stage_fail(self):
@@ -754,6 +783,30 @@ class TaskTest(APITestCase):
             .filter(stage__in_stages=new_cond_stage)
         self.assertEqual(created_tasks.count(), 0)
         self.assertEqual(Task.objects.filter(case=case).count(), 1)
+
+    # there are five cond stages after task stage. So tasks wouldn't create because condition is false.
+    def test_complete_next_cond_stage_network_fail(self):
+        responses = {"verified": "Да(@!#)"}
+        conditions = [{"field": "verified", "value": "Да", "condition": "=="}]
+
+        self.new_user.managed_campaigns.add(self.campaign)
+
+        for i in range(5):
+            task_stage = TaskStage.objects.create(name="Task stage created test complete", x_pos=1, y_pos=1,
+                                                  chain=self.chain)
+            cond_stage = ConditionalStage.objects.create(name="Conditional Stage test complete", x_pos=1, y_pos=1,
+                                                         chain=self.chain, conditions=conditions)
+            cond_stage.in_stages.add(self.task_stage)
+            task_stage.in_stages.add(cond_stage)
+
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        task.responses = responses
+        task.save()
+        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        created_tasks = Task.objects.filter(case=case).exclude(id=task.id)
+        self.assertEqual(created_tasks.count(), 0)
 
     # Pingpong returned completed task to employee because condition is true(verificator didn't accepted task).
     def test_complete_next_ping_pong_condition_true(self):
@@ -783,7 +836,7 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Task.objects.get(id=verified_task.id).complete)
 
-    # Pingpong returned completed task to employee because condition is true(verificator didn't accepted task).
+    # Pingpong returned completed task to employee because condition is false(verificator accepted task).
     def test_complete_next_ping_pong_condition_false(self):
         responses = {"verified": "Нет"}
 
@@ -812,6 +865,29 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(Task.objects.get(id=verified_task.id).complete)
         self.assertEqual(created_tasks.count(), 1)
+
+    def test_webhook_on_correctness(self):
+        my_json = {"note": {}, "questionone": "а", "questiontwo": "в", "questionthree": "в"}
+        answers = {"note": {}, "questionone": "-", "questiontwo": "в", "questionthree": "в"}
+        new_task_stage = TaskStage.objects.create(name="NEW Task stage", x_pos=1, y_pos=1,
+                                                       chain=self.chain)
+
+        self.task_stage.json_schema = my_json
+        self.task_stage.webhook_address = self.url_webhook_quiz
+        self.task_stage.webhook_payload_field = 'responses'
+        self.task_stage.webhook_params = my_json
+        self.task_stage.save()
+        self.task_stage.in_stages.add(new_task_stage)
+
+        case = Case.objects.create()
+        task1 = Task.objects.create(assignee=self.user, stage=new_task_stage, case=case, responses=answers)
+        Task.objects.create(assignee=self.user, stage=self.task_stage, case=case, responses=answers)
+        response = self.client.patch(self.url_tasks + f"{task1.id}/", {"complete": True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tasks = Task.objects.filter(case=case)
+        created_task = tasks.filter(in_tasks=task1)[0]
+        self.assertEqual(tasks.count(), 3)
+        self.assertEqual(created_task.responses['percent_of_correct_responses'], 66)
 
 
 class RankTest(APITestCase):

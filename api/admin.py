@@ -1,9 +1,15 @@
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
+from django import forms
 
 from .models import Campaign, Chain, \
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, Notification, NotificationStatus
+    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
+    Notification, NotificationStatus, AdminPreference
+from api.asyncstuff import process_completed_task
+from django.contrib import messages
+from django.utils.translation import ngettext
+from .utils import set_rank_to_user_action
 
 
 class TaskResponsesStatusFilter(SimpleListFilter):
@@ -50,6 +56,18 @@ class LogsTaskResponsesStatusFilter(TaskResponsesStatusFilter):
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
 
+    def get_actions(self, request):
+        actions = super(CustomUserAdmin, self).get_actions(request)
+        campaign = AdminPreference.objects.filter(campaign__managers=request.user)
+        if list(campaign):
+            queryset = Rank.objects.filter(track__campaign=campaign[0].campaign)
+            for rank in queryset:
+                action = set_rank_to_user_action(rank)
+                actions[action.__name__] = (action,
+                                            action.__name__,
+                                            action.short_description)
+        return actions
+
 
 class ChainAdmin(admin.ModelAdmin):
     list_display = ('name', 'campaign', )
@@ -80,6 +98,7 @@ class TaskAdmin(admin.ModelAdmin):
                    'stage__chain',
                    'stage',
                    'complete',
+                   'force_complete',
                    TaskResponsesStatusFilter,
                    'created_at',
                    'updated_at')
@@ -93,6 +112,28 @@ class TaskAdmin(admin.ModelAdmin):
     raw_id_fields = ('stage', 'assignee', 'case', )
     readonly_fields = ('created_at', 'updated_at')
 
+    actions = ['make_completed', 'make_completed_force']
+
+    @admin.action(description='Mark selected tasks as completed')
+    def make_completed(self, request, queryset):
+        updated = queryset.update(complete=True)
+        for task in queryset:
+            process_completed_task(task)
+
+        self.message_user(request, ngettext(
+            '%d task was successfully marked as completed.',
+            '%d tasks were successfully marked as completed.',
+            updated,
+        ) % updated, messages.SUCCESS)
+
+    @admin.action(description='Mark selected tasks as completed force')
+    def make_completed_force(self, request, queryset):
+        updated = queryset.update(complete=True, force_complete=True) # todo: test on force_complete
+        self.message_user(request, ngettext(
+            '%d task was successfully marked as force completed.',
+            '%d tasks were successfully marked as force completed.',
+            updated,
+        ) % updated, messages.SUCCESS)
 
 class LogAdmin(admin.ModelAdmin):
     list_display = ('id',
@@ -117,6 +158,57 @@ class LogAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 
+# class AdminPreferenceForm(forms.ModelForm):
+#     def clean(self):
+#         if AdminPreference.objects.filter(user=self.request.user):
+#             raise forms.ValidationError(
+#                 'You have already created Admin Preferences Profile. '
+#                 'You cannot create more than one.'
+#             )
+
+
+class AdminPreferenceAdmin(admin.ModelAdmin):
+    model = AdminPreference
+    # form = AdminPreferenceForm
+    list_display = ('user',
+                    'campaign')
+
+    exclude = ('user', )
+
+    def has_add_permission(self, request, obj=None):
+        return not bool(AdminPreference.objects.filter(user=request.user))
+
+    def has_view_or_change_permission(self, request, obj=None):
+        if obj is not None and obj.user != request.user:
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.user != request.user:
+            return False
+        return True
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            # Only set user during the first save.
+            obj.user = request.user
+        super().save_model(request, obj, form, change)
+
+    def get_form(self, request, *args, **kwargs):
+        form = super(AdminPreferenceAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(AdminPreferenceAdmin, self).get_queryset(request)
+        return queryset.filter(user=request.user)
+
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        if db_field.name == "campaign":
+            kwargs["queryset"] = db_field.related_model.objects.filter(managers=request.user)
+        return super(AdminPreferenceAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
@@ -132,3 +224,4 @@ admin.site.register(Track)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)
 admin.site.register(NotificationStatus)
+admin.site.register(AdminPreference, AdminPreferenceAdmin)
