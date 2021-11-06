@@ -98,6 +98,18 @@ class TaskResponsesStatusFilter(SimpleListFilter):
                 .exclude(responses__iexact="{}")\
                 .exclude(responses__isnull=True)
 
+class UserNoRankFilter(SimpleListFilter):
+    title = "Users who do not have rank below"
+    parameter_name = "Responses"
+
+    def lookups(self, request, model_admin):
+        rank_lookups = []
+        for rank in list(Rank.objects.all()):
+            rank_lookups.append((rank.id, rank.name))
+        return rank_lookups
+
+    def queryset(self, request, queryset):
+        return queryset.exclude(ranks__id=self.value())
 
 class UserTaskCompleteFilter(InputFilter):
     parameter_name = 'completed_stages'
@@ -120,7 +132,7 @@ class UserTaskCompleteFilter(InputFilter):
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_filter = (UserTaskCompleteFilter, 'ranks')
+    list_filter = (UserTaskCompleteFilter, 'ranks', UserNoRankFilter)
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
