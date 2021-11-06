@@ -128,6 +128,7 @@ class TaskAdmin(admin.ModelAdmin):
     @admin.action(description='Mark selected tasks as completed force')
     def make_completed_force(self, request, queryset):
         updated = queryset.update(complete=True)
+        queryset.update(force_complete=True) # todo: test on force_complete
         self.message_user(request, ngettext(
             '%d task was successfully marked as force completed.',
             '%d tasks were successfully marked as force completed.',
