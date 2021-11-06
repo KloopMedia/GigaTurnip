@@ -120,7 +120,7 @@ class UserTaskCompleteFilter(InputFilter):
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_filter = (UserTaskCompleteFilter, )
+    list_filter = (UserTaskCompleteFilter, 'ranks')
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
