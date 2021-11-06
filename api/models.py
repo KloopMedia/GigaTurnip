@@ -346,6 +346,7 @@ class Task(BaseDatesModel, CampaignInterface):
         help_text="Preceded tasks"
     )
     complete = models.BooleanField(default=False)
+    force_complete = models.BooleanField(default=False)
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
