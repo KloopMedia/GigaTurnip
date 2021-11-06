@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
+from django import forms
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
@@ -9,6 +10,8 @@ from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
 from .utils import set_rank_to_user_action
+    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
+    Notification, NotificationStatus, AdminPreference
 
 
 class TaskResponsesStatusFilter(SimpleListFilter):
@@ -153,6 +156,57 @@ class LogAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 
+# class AdminPreferenceForm(forms.ModelForm):
+#     def clean(self):
+#         if AdminPreference.objects.filter(user=self.request.user):
+#             raise forms.ValidationError(
+#                 'You have already created Admin Preferences Profile. '
+#                 'You cannot create more than one.'
+#             )
+
+
+class AdminPreferenceAdmin(admin.ModelAdmin):
+    model = AdminPreference
+    # form = AdminPreferenceForm
+    list_display = ('user',
+                    'campaign')
+
+    exclude = ('user', )
+
+    def has_add_permission(self, request, obj=None):
+        return not bool(AdminPreference.objects.filter(user=request.user))
+
+    def has_view_or_change_permission(self, request, obj=None):
+        if obj is not None and obj.user != request.user:
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.user != request.user:
+            return False
+        return True
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            # Only set user during the first save.
+            obj.user = request.user
+        super().save_model(request, obj, form, change)
+
+    def get_form(self, request, *args, **kwargs):
+        form = super(AdminPreferenceAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(AdminPreferenceAdmin, self).get_queryset(request)
+        return queryset.filter(user=request.user)
+
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        if db_field.name == "campaign":
+            kwargs["queryset"] = db_field.related_model.objects.filter(managers=request.user)
+        return super(AdminPreferenceAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
@@ -168,3 +222,4 @@ admin.site.register(Track)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)
 admin.site.register(NotificationStatus)
+admin.site.register(AdminPreference, AdminPreferenceAdmin)
