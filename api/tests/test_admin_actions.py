@@ -1,6 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
-from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Task, Case
+from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Task, Case, Rank, Track, \
+    AdminPreference, RankRecord
+
 
 class CustomUserAdminTest(TestCase):
     def setUp(self):
@@ -22,6 +24,31 @@ class CustomUserAdminTest(TestCase):
 
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,chain=self.chain)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,chain=self.another_chain)
+
+        self.rank = Rank.objects.create(name="rank")
+        self.another_rank = Rank.objects.create(name="another rank")
+
+        self.track = Track.objects.create(name="my track", campaign=self.campaign, default_rank=self.rank)
+        self.antoher_track = Track.objects.create(name="another track", campaign=self.another_campaign, default_rank=self.another_rank)
+
+    def test_set_rank(self):
+        self.user.managed_campaigns.add(self.campaign)
+        self.user.managed_campaigns.add(self.another_campaign)
+        AdminPreference.objects.create(user=self.user, campaign=self.campaign)
+        self.rank.track = self.track
+        self.rank.save()
+
+        self.client.login(username=self.user.username, password=self.u_password)
+
+        data = {'action': 'set_rank_{0}'.format(self.rank.id),
+                '_selected_action': [self.employee.id]}
+        self.assertEqual(RankRecord.objects.count(), 0)
+        response = self.client.post(self.url, data, follow=True)
+        self.assertEqual(RankRecord.objects.count(), 1)
+        self.assertTrue(RankRecord.objects.filter(user=self.employee.id).filter(rank=self.rank))
+
+
+
 
 class TaskAdminTest(TestCase):
     def setUp(self):
