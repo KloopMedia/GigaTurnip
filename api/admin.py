@@ -5,13 +5,11 @@ from django import forms
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus
+    Notification, NotificationStatus, AdminPreference
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
 from .utils import set_rank_to_user_action
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference
 
 
 class TaskResponsesStatusFilter(SimpleListFilter):
@@ -60,11 +58,14 @@ class CustomUserAdmin(UserAdmin):
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
-        for rank in Rank.objects.filter(track__campaign_id=request.user.id):  # .filter(admin_preferences=)
-            action = set_rank_to_user_action(rank)
-            actions[action.__name__] = (action,
-                                        action.__name__,
-                                        action.short_description)
+        campaign = AdminPreference.objects.filter(campaign__managers=request.user)
+        if list(campaign):
+            queryset = Rank.objects.filter(track__campaign=campaign[0].campaign)
+            for rank in queryset:
+                action = set_rank_to_user_action(rank)
+                actions[action.__name__] = (action,
+                                            action.__name__,
+                                            action.short_description)
         return actions
 
 
