@@ -130,6 +130,21 @@ class UserTaskCompleteFilter(InputFilter):
         return queryset
 
 
+class StageFilter(InputFilter):
+    parameter_name = 'json'
+    title = 'Search by json (<key>, <value>). Example: title, Hello!'
+
+    def queryset(self, request, queryset):
+        terms = self.value()
+
+
+        if terms is None or terms == '':
+            return queryset
+
+        terms = [i.strip() for i in terms.split(',')]
+
+        return queryset.all().filter(stage__json_schema__contains=f'"{terms[0]}": "{terms[1]}')
+
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_filter = (UserTaskCompleteFilter, 'ranks', UserNoRankFilter)
@@ -172,7 +187,8 @@ class TaskAdmin(admin.ModelAdmin):
                     'assignee',
                     'created_at',
                     'updated_at')
-    list_filter = ('stage__chain__campaign',
+    list_filter = (StageFilter,
+                   'stage__chain__campaign',
                    'stage__chain',
                    'stage',
                    'complete',
