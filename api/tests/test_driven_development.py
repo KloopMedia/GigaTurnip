@@ -257,7 +257,7 @@ class NotificationTest(APITestCase):
 
     def test_list_with_target_success(self):
         RankRecord.objects.create(user=self.user, rank=self.rank)
-        Notification.objects.create(title=f"HI! targeted", text=f'Hello world!#{i}',
+        Notification.objects.create(title=f"HI! targeted", text=f'Hello world!#',
                                                                rank=None,
                                                                campaign=self.campaign, target_user=self.user)
 
@@ -267,13 +267,13 @@ class NotificationTest(APITestCase):
 
     def test_list_with_target_fail(self):
         RankRecord.objects.create(user=self.user, rank=self.rank)
-        Notification.objects.create(title=f"HI! targeted", text=f'Hello world!#{i}',
+        Notification.objects.create(title=f"HI! targeted", text=f'Hello world!',
                                                                rank=None,
                                                                campaign=self.campaign, target_user=self.new_user)
 
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(json.loads(response.content)['results']), self.notification)
+        self.assertEqual(len(json.loads(response.content)['results']), len(self.notification))
 
     def test_retrieve_with_target_success(self):
         RankRecord.objects.create(user=self.user, rank=self.rank)
@@ -283,3 +283,11 @@ class NotificationTest(APITestCase):
         response = self.client.get(self.url + f"{notification_with_target.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.content)['title'], notification_with_target.title)
+
+    def test_retrieve_with_target_fail(self):
+        RankRecord.objects.create(user=self.user, rank=self.rank)
+        notification_with_target = Notification.objects.create(title=f"HI! targeted", text=f'Hello world!', rank=None,
+                                                         campaign=self.campaign, target_user=self.employee)
+
+        response = self.client.get(self.url + f"{notification_with_target.id}/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
