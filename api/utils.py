@@ -81,10 +81,17 @@ def paginate(func):
 
 def filter_for_user_notifications(queryset, request):
     '''
-    пока простой оооон берееееет и отдает все сообщения у которых ранг совпадает с рангом пользователя
+    все сообщения у которых ранг совпадает с рангом пользователя и целевой пользователь
+
     '''
 
-    notifications = queryset.filter(rank__rankrecord__user__id=request.user.id)
+    # notifications_ranks = queryset.filter(rank__rankrecord__user__id=request.user.id)
+    #
+    # notifications_target_user = queryset.filter(target_user__id=request.user.id)
+    #
+    # notifications = notifications_ranks | notifications_target_user
+
+    notifications = queryset
 
     #campaign
     campaign = request.query_params.get('campaign')
