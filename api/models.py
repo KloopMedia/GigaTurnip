@@ -291,6 +291,14 @@ class TaskStage(Stage, SchemaProvider):
     )
 
 
+class Integration(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="integration",
+        help_text="Parent TaskStage")
+
+
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
                                   help_text="JSON logic conditions")
