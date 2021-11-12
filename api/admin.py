@@ -218,6 +218,10 @@ class CaseAdmin(admin.ModelAdmin):
     search_fields = ('pk', )
 
 
+class RankLimitAdmin(admin.ModelAdmin):
+    autocomplete_fields = ('stage', )
+
+
 class TaskAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'case',
@@ -359,7 +363,7 @@ admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank)
-admin.site.register(RankLimit)
+admin.site.register(RankLimit, RankLimitAdmin)
 admin.site.register(RankRecord)
 admin.site.register(CampaignManagement)
 admin.site.register(Track)
