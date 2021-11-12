@@ -13,7 +13,7 @@ from api import utils
 import requests
 
 
-class MyTestCase(APITestCase):
+class FiltersTestCase(APITestCase):
     def setUp(self):
         self.url = ""
         self.factory = APIRequestFactory()
