@@ -297,12 +297,18 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(rank__rankrecord__user=
-                               request.user)
+
+        notifications_ranks = queryset.filter(rank__rankrecord__user=request.user)
+
+        notifications_target_user = queryset.filter(target_user=request.user)
+
+        notifications = notifications_ranks | notifications_target_user
+
+        return notifications
 
 
 class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(rank__rankrecord__user=
+        return queryset.filter(notification__rank__rankrecord__user=
                                request.user)

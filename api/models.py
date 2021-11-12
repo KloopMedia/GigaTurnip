@@ -594,6 +594,14 @@ class Notification(BaseDates, CampaignInterface):
         help_text="Rank id"
     )
 
+    target_user = models.ForeignKey(
+        CustomUser,
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        help_text="User id"
+    )
+
     def open(self, request):
         if request.user is not None:
             notification_status, created = NotificationStatus \
