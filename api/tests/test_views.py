@@ -808,7 +808,7 @@ class TaskTest(APITestCase):
         created_tasks = Task.objects.filter(case=case).exclude(id=task.id)
         self.assertEqual(created_tasks.count(), 0)
 
-    # Pingpong returned completed task to employee because condition is true(verificator didn't accepted task).
+    # Pingpong returned tdd task to employee because condition is true(verificator didn't accepted task).
     def test_complete_next_ping_pong_condition_true(self):
         responses = {"verified": "Да"}
 
@@ -836,7 +836,7 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Task.objects.get(id=verified_task.id).complete)
 
-    # Pingpong returned completed task to employee because condition is false(verificator accepted task).
+    # Pingpong returned tdd task to employee because condition is false(verificator accepted task).
     def test_complete_next_ping_pong_condition_false(self):
         responses = {"verified": "Нет"}
 
