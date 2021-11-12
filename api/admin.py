@@ -7,11 +7,11 @@ from django import forms
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference
+    Notification, NotificationStatus, AdminPreference, Stage
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
-from .utils import set_rank_to_user_action
+from .utils import set_rank_to_user_action, filter_by_admin_preference
 
 
 class InputFilter(admin.SimpleListFilter, ABC):
@@ -98,6 +98,7 @@ class TaskResponsesStatusFilter(SimpleListFilter):
                 .exclude(responses__iexact="{}")\
                 .exclude(responses__isnull=True)
 
+
 class UserNoRankFilter(SimpleListFilter):
     title = "Users who do not have rank below"
     parameter_name = "Responses"
@@ -110,6 +111,7 @@ class UserNoRankFilter(SimpleListFilter):
 
     def queryset(self, request, queryset):
         return queryset.exclude(ranks__id=self.value())
+
 
 class UserTaskCompleteFilter(InputFilter):
     parameter_name = 'completed_stages'
@@ -167,6 +169,42 @@ class ChainAdmin(admin.ModelAdmin):
     list_filter = ('campaign',)
     search_fields = ('name',)
 
+    def get_form(self, request, *args, **kwargs):
+        form = super(ChainAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(ChainAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "")
+
+
+class GeneralStageAdmin(admin.ModelAdmin):
+    search_fields = ('name',
+                     'chain__name',
+                     'chain__campaign__name', )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_view_or_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_module_permission(self, request):
+        return False
+
+    def get_form(self, request, *args, **kwargs):
+        form = super(GeneralStageAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(GeneralStageAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "chain__")
+
 
 class StageAdmin(admin.ModelAdmin):
     list_display = ('name', 'chain',)
@@ -174,10 +212,29 @@ class StageAdmin(admin.ModelAdmin):
     search_fields = ('name',
                      'chain__name',
                      'chain__campaign__name', )
+    autocomplete_fields = ('chain', 'in_stages')
+
+    def get_form(self, request, *args, **kwargs):
+        form = super(StageAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(StageAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "chain__")
+
+
+class TaskStageAdmin(StageAdmin):
+    autocomplete_fields = StageAdmin.autocomplete_fields + \
+                          ("displayed_prev_stages", "assign_user_from_stage")
 
 
 class CaseAdmin(admin.ModelAdmin):
     search_fields = ('pk', )
+
+
+class RankLimitAdmin(admin.ModelAdmin):
+    autocomplete_fields = ('stage', )
 
 
 class TaskAdmin(admin.ModelAdmin):
@@ -207,6 +264,15 @@ class TaskAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
     actions = ['make_completed', 'make_completed_force']
+
+    def get_form(self, request, *args, **kwargs):
+        form = super(TaskAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(TaskAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "stage__chain__")
 
     @admin.action(description='Mark selected tasks as completed')
     def make_completed(self, request, queryset):
@@ -307,12 +373,13 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
-admin.site.register(TaskStage, StageAdmin)
+admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
+admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank)
-admin.site.register(RankLimit)
+admin.site.register(RankLimit, RankLimitAdmin)
 admin.site.register(RankRecord)
 admin.site.register(CampaignManagement)
 admin.site.register(Track)
