@@ -74,6 +74,13 @@ def create_new_task(stage, in_task):
         new_task = Task.objects.create(**data)
         new_task.in_tasks.set([in_task])
         process_completed_task(new_task)
+    elif stage.get_integration():
+        integrator_task = Task.get_integrator_task(stage, in_task)
+        if integrator_task:
+            integrator_task.add_integrated_task(in_task)
+        else:
+            Task.create
+
     else:
         if stage.assign_user_by == "ST":
             if stage.assign_user_from_stage is not None:

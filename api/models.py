@@ -290,13 +290,38 @@ class TaskStage(Stage, SchemaProvider):
         )
     )
 
+    def get_integration(self):
+        if hasattr(self, 'integration'):
+            return self.b
+        return None
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
+        TaskStage,
         primary_key=True,
         on_delete=models.CASCADE,
         related_name="integration",
         help_text="Parent TaskStage")
+    group_by = models.TextField(
+        blank=True,
+        help_text="Conditions for task grouping in Django double underscore "
+                  "format separated by whitespaces."
+    )
+    # exclusion_stage = models.ForeignKey(
+    #     TaskStage,
+    #     on_delete=models.SET_NULL,
+    #     related_name="integration_exclusions",
+    #     blank=True,
+    #     null=True,
+    #     help_text="Stage containing JSON form "
+    #               "explaining reasons for exclusion."
+    # )
+    is_exclusion_reason_required = models.BooleanField(
+        default=False,
+        help_text="Flag indicating that explanation "
+                  "for exclusion is mandatory."
+    )
 
 
 class ConditionalStage(Stage):
@@ -366,6 +391,30 @@ class Task(BaseDatesModel, CampaignInterface):
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
+
+
+class IntegrationStatus(BaseDatesModel):
+    integrated_task = models.OneToOneField(
+        Task,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="integration_status",
+        help_text="Task being integrated")
+    integrator = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="integrated_task_statuses",
+        help_text="Integrator task"
+    )
+    is_excluded = models.BooleanField(
+        default=False,
+        help_text="Indicates that integrated task "
+                  "was excluded from integration."
+    )
+    exclusion_reason = models.TextField(
+        blank=True,
+        help_text="Explanation, why integrated task was excluded."
+    )
 
 
 class Rank(BaseModel, CampaignInterface):
