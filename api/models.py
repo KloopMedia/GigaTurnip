@@ -2,7 +2,7 @@ import datetime
 from abc import ABCMeta, abstractmethod
 
 from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.db import models, transaction
 from polymorphic.models import PolymorphicModel
 
 
@@ -347,6 +347,15 @@ class Task(BaseDatesModel, CampaignInterface):
     )
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
+
+    def set_complete(self, force=False):
+        task = Task.objects.select_for_update().filter(id=self.id)[0]
+        with transaction.atomic():
+            task.complete = True
+            if force:
+                task.force_complete = True
+            task.save()
+
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
