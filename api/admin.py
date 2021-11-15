@@ -110,6 +110,11 @@ class UserNoRankFilter(SimpleListFilter):
         return rank_lookups
 
     def queryset(self, request, queryset):
+        terms = self.value()
+
+        if terms is None or terms == '':
+            return queryset
+
         return queryset.exclude(ranks__id=self.value())
 
 
