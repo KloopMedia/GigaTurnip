@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import UniqueConstraint
 from polymorphic.models import PolymorphicModel
 
 
@@ -292,7 +293,7 @@ class TaskStage(Stage, SchemaProvider):
 
     def get_integration(self):
         if hasattr(self, 'integration'):
-            return self.b
+            return self.integration
         return None
 
 
@@ -305,8 +306,8 @@ class Integration(BaseDatesModel):
         help_text="Parent TaskStage")
     group_by = models.TextField(
         blank=True,
-        help_text="Conditions for task grouping in Django double underscore "
-                  "format separated by whitespaces."
+        help_text="Top level Task responses keys for task grouping "
+                  "separated by whitespaces."
     )
     # exclusion_stage = models.ForeignKey(
     #     TaskStage,
@@ -317,11 +318,27 @@ class Integration(BaseDatesModel):
     #     help_text="Stage containing JSON form "
     #               "explaining reasons for exclusion."
     # )
-    is_exclusion_reason_required = models.BooleanField(
-        default=False,
-        help_text="Flag indicating that explanation "
-                  "for exclusion is mandatory."
-    )
+    # is_exclusion_reason_required = models.BooleanField(
+    #     default=False,
+    #     help_text="Flag indicating that explanation "
+    #               "for exclusion is mandatory."
+    # )
+
+    def get_or_create_integrator_task(self, task): # TODO Check for race condition
+        integrator_group = self._get_task_fields(task.responses)
+        integrator_task = Task.objects.get_or_create(
+            stage=self.task_stage,
+            integrator_group=integrator_group
+        )
+        return integrator_task
+
+    def _get_task_fields(self, responses):
+        group = {}
+        groupings = self.group_by.split()
+        for grouping in groupings:
+            if grouping in responses:
+                group[grouping] = responses[grouping]
+        return group
 
 
 class ConditionalStage(Stage):
@@ -378,8 +395,20 @@ class Task(BaseDatesModel, CampaignInterface):
         symmetrical=False,
         help_text="Preceded tasks"
     )
+    integrator_group = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Response fields that must be shared "
+                  "by all tasks being integrated."
+    )
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
+
+    class Meta:
+        UniqueConstraint(
+            fields=['integrator_group', 'stage'],
+            name='unique_integrator_group')
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
@@ -392,29 +421,52 @@ class Task(BaseDatesModel, CampaignInterface):
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
 
+    # class Integrator(BaseDatesModel):
+    #     integrator_task = models.OneToOneField(
+    #         Task,
+    #         primary_key=True,
+    #         on_delete=models.CASCADE,
+    #         related_name="integrator",
+    #         help_text="Settings for integrator task, when created "
+    #                   "will always create corresponding task as well.")
+    #     stage = models.ForeignKey(
+    #         TaskStage,
+    #         on_delete=models.CASCADE,
+    #         related_name="integrator_tasks",
+    #         help_text="Stage id"
+    #     )
+    #     response_group = models.JSONField(
+    #         null=True,
+    #         blank=True,
+    #         help_text="Response fields that must be shared "
+    #                   "by all tasks being integrated."
+    #     )
+    #
+    # class Meta:
+    #     unique_together = ['integrator_task', 'response_group']
 
-class IntegrationStatus(BaseDatesModel):
-    integrated_task = models.OneToOneField(
-        Task,
-        primary_key=True,
-        on_delete=models.CASCADE,
-        related_name="integration_status",
-        help_text="Task being integrated")
-    integrator = models.ForeignKey(
-        Task,
-        on_delete=models.CASCADE,
-        related_name="integrated_task_statuses",
-        help_text="Integrator task"
-    )
-    is_excluded = models.BooleanField(
-        default=False,
-        help_text="Indicates that integrated task "
-                  "was excluded from integration."
-    )
-    exclusion_reason = models.TextField(
-        blank=True,
-        help_text="Explanation, why integrated task was excluded."
-    )
+
+# class IntegrationStatus(BaseDatesModel):
+#     integrated_task = models.ForeignKey(
+#         Task,
+#         on_delete=models.CASCADE,
+#         related_name="integration_statuses",
+#         help_text="Task being integrated")
+#     integrator = models.ForeignKey(
+#         Task,
+#         on_delete=models.CASCADE,
+#         related_name="integrated_task_statuses",
+#         help_text="Integrator task"
+#     )
+#     is_excluded = models.BooleanField(
+#         default=False,
+#         help_text="Indicates that integrated task "
+#                   "was excluded from integration."
+#     )
+#     exclusion_reason = models.TextField(
+#         blank=True,
+#         help_text="Explanation, why integrated task was excluded."
+#     )
 
 
 class Rank(BaseModel, CampaignInterface):
