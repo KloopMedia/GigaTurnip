@@ -3,9 +3,10 @@ from functools import wraps
 from django.db.models import QuerySet
 from rest_framework.response import Response
 
-from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference
 from django.contrib import messages
 from django.utils.translation import ngettext
+
 
 def is_user_campaign_manager(user, campaign_id):
     campaigns = Campaign.objects \
@@ -93,7 +94,7 @@ def filter_for_user_notifications(queryset, request):
 
     notifications = queryset
 
-    #campaign
+    # campaign
     campaign = request.query_params.get('campaign')
     if campaign:
         notifications = notifications.filter(campaign=campaign)
@@ -106,7 +107,7 @@ def filter_for_user_notifications(queryset, request):
         else:
             notifications = notifications.exclude(notification_statuses__user=request.user)
 
-    #importance
+    # importance
     importance = request.query_params.get('importance')
     if importance:
         notifications = notifications.filter(importance=importance)
@@ -127,3 +128,18 @@ def set_rank_to_user_action(rank):  # todo: rename it
     set_rank_to_user.__name__ = 'set_rank_{0}'.format(rank.id)
 
     return set_rank_to_user
+
+
+def filter_by_admin_preference(queryset, request, path):
+    admin_preference = AdminPreference.objects.filter(user=request.user)
+    if path is None:
+        dynamic_filter = {"managers": request.user}
+    else:
+        dynamic_filter = {path + "campaign__managers": request.user}
+    if admin_preference:
+        if admin_preference[0].campaign is not None:
+            if path is None:
+                dynamic_filter = {"id": admin_preference[0].campaign}
+            else:
+                dynamic_filter[path + "campaign"] = admin_preference[0].campaign
+    return queryset.filter(**dynamic_filter)
