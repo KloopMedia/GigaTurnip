@@ -232,9 +232,11 @@ class TaskStage(Stage, SchemaProvider):
 
     RANK = 'RA'
     STAGE = 'ST'
+    INTEGRATOR = 'IN'
     ASSIGN_BY_CHOICES = [
         (RANK, 'Rank'),
-        (STAGE, 'Stage')
+        (STAGE, 'Stage'),
+        (INTEGRATOR, 'Integrator')
     ]
     assign_user_by = models.CharField(
         max_length=2,
