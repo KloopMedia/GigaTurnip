@@ -340,6 +340,9 @@ class Integration(BaseDatesModel):
                 group[grouping] = responses[grouping]
         return group
 
+    def __str__(self):
+        return str(self.task_stage.__str__())
+
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
@@ -510,6 +513,9 @@ class Track(BaseModel, CampaignInterface):
 
     def get_campaign(self) -> Campaign:
         return self.campaign
+
+    def __str__(self):
+        return self.name
 
 
 class RankRecord(BaseDatesModel, CampaignInterface):

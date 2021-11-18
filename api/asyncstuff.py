@@ -3,7 +3,7 @@ import json
 import requests
 from django.db.models import Q
 
-from api.models import Stage, TaskStage, ConditionalStage, Task
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
@@ -76,12 +76,16 @@ def create_new_task(stage, in_task):
         process_completed_task(new_task)
     elif stage.get_integration():
         integration = stage.get_integration()
-        integrator_task = integration.get_or_create_integrator_task(in_task)
+        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
         # integration_status = IntegrationStatus(
         #     integrated_task=in_task,
         #     integrator=integrator_task)
         # integration_status.save()
+        if created:
+            case = Case.objects.create()
+            integrator_task.case = case
         integrator_task.in_tasks.add(in_task)
+        integrator_task.save()
     else:
         if stage.assign_user_by == "ST":
             if stage.assign_user_from_stage is not None:
