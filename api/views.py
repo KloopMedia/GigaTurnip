@@ -337,6 +337,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = self.filter_queryset(self.get_queryset())
         return utils.filter_for_user_selectable_tasks(tasks, request)
 
+    @action(detail=True)
+    def get_integrated_tasks(self, request, pk=None):
+        tasks = self.filter_queryset(self.get_queryset())
+        tasks = tasks.filter(out_tasks=self.get_object())
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
         task = self.get_object()

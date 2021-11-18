@@ -183,7 +183,7 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "allow"
         },
         {
-            "action": ["retrieve"],
+            "action": ["retrieve", "get_integrated_tasks"],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee or "
