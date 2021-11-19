@@ -101,6 +101,7 @@ def create_new_task(stage, in_task):
         new_task.in_tasks.set([in_task])
         if stage.copy_input:
             new_task.responses = in_task.responses
+            new_task.save()
         if stage.assign_user_by == "IN":
             process_completed_task(new_task)
 
