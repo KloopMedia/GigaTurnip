@@ -355,8 +355,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 in_tasks = Task.objects.filter(out_tasks=task)\
                     .filter(stage__assign_user_by="IN")
                 if in_tasks:
-                    in_tasks.assignee = request.user
-                    in_tasks.save()
+                    in_tasks.update(assignee=request.user)
             return Response({'status': 'assignment granted', 'id': task.id})
         else:
             return Response(serializer.errors,
@@ -371,8 +370,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             in_tasks = Task.objects.filter(out_tasks=task) \
                 .filter(stage__assign_user_by="IN")
             if in_tasks:
-                in_tasks.assignee = None
-                in_tasks.save()
+                in_tasks.update(assignee=None)
         return Response({'status': 'assignment released'})
 
     @action(detail=True, methods=['get'])
