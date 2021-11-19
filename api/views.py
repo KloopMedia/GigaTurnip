@@ -379,26 +379,25 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post', 'get'])
+    @action(detail=True, methods=['get'])
     def trigger_webhook(self, request, pk=None):
         task = self.get_object()
         webhook = task.stage.get_webhook()
         if webhook:
-            response = webhook.trigger(task)
-        # params = {}
-        # if stage.webhook_payload_field:
-        #     params[stage.webhook_payload_field] = json.dumps(in_task.responses)
-        # else:
-        #     params = in_task.responses
-        # if stage.webhook_params:
-        #     params.update(stage.webhook_params)
-        # params["in_task_id"] = in_task.id
-        # response = requests.get(stage.webhook_address, params=params)
-        # if stage.webhook_response_field:
-        #     response = response.json()[stage.webhook_response_field]
-        # else:
-        #     response = response.json()
-        return response
+            is_altered, altered_task, response, error_description = webhook.trigger(task)
+            if is_altered:
+                return Response({"status": "Responses overwritten",
+                                 "responses": altered_task.responses})
+            else:
+                return Response({"error_message": error_description,
+                             "status": response.status_code},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # django_response = HttpResponse(
+        #     content=response.content,
+        #     status=response.status_code,
+        #     content_type=response.headers['Content-Type']
+        # )
+        return
 
 
 class RankViewSet(viewsets.ModelViewSet):

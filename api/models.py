@@ -1,11 +1,13 @@
 import datetime
 import json
 from abc import ABCMeta, abstractmethod
+from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import UniqueConstraint
+from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 
 
@@ -362,8 +364,8 @@ class Webhook(BaseDatesModel):
         help_text="Parent TaskStage")
 
     url = models.URLField(
-        null=True,
         blank=True,
+        null=True,
         max_length=1000,
         help_text=(
             "Webhook URL address. If not empty, field indicates that "
@@ -375,6 +377,7 @@ class Webhook(BaseDatesModel):
     )
 
     headers = models.JSONField(
+        default=dict,
         blank=True,
         help_text=(
             "Headers sent to webhook."
@@ -392,17 +395,22 @@ class Webhook(BaseDatesModel):
 
     def trigger(self, task):
         data = []
-        for in_task in task.in_tasks:
-            data += in_task.responses
+        for in_task in task.in_tasks.all():
+            data.append(in_task.responses)
         response = requests.post(self.url, json=data, headers=self.headers)
-        if self.response_field:
-            response = response.json()[self.response_field]
-        else:
-            response = response.json()
         if response:
-            task.responses = response
-        task.save()
-        return response
+            try:
+                if self.response_field:
+                    data = response.json()[self.response_field]
+                else:
+                    data = response.json()
+                task.responses = data
+                task.save()
+                return True, task, response, ""
+            except JSONDecodeError:
+                return False, task, response, "JSONDecodeError"
+
+        return False, task, response, "See response status code"
 
 
 
