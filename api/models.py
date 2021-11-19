@@ -1,6 +1,8 @@
 import datetime
+import json
 from abc import ABCMeta, abstractmethod
 
+import requests
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import UniqueConstraint
@@ -298,6 +300,11 @@ class TaskStage(Stage, SchemaProvider):
             return self.integration
         return None
 
+    def get_webhook(self):
+        if hasattr(self, 'webhook'):
+            return self.webhook
+        return None
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -344,6 +351,59 @@ class Integration(BaseDatesModel):
 
     def __str__(self):
         return str(self.task_stage.__str__())
+
+
+class Webhook(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="webhook",
+        help_text="Parent TaskStage")
+
+    url = models.URLField(
+        null=True,
+        blank=True,
+        max_length=1000,
+        help_text=(
+            "Webhook URL address. If not empty, field indicates that "
+            "task should be given not to a user in the system, but to a "
+            "webhook. Only data from task directly preceding webhook is "
+            "sent. All fields related to user assignment are ignored,"
+            "if this field is not empty."
+        )
+    )
+
+    headers = models.JSONField(
+        blank=True,
+        help_text=(
+            "Headers sent to webhook."
+        )
+    )
+
+    response_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON response field name to extract data from. Ignored if "
+            "webhook_address field is empty."
+        )
+    )
+
+    def trigger(self, task):
+        data = []
+        for in_task in task.in_tasks:
+            data += in_task.responses
+        response = requests.post(self.url, json=data, headers=self.headers)
+        if self.response_field:
+            response = response.json()[self.response_field]
+        else:
+            response = response.json()
+        if response:
+            task.responses = response
+        task.save()
+        return response
+
 
 
 class ConditionalStage(Stage):

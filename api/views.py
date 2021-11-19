@@ -379,6 +379,27 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post', 'get'])
+    def trigger_webhook(self, request, pk=None):
+        task = self.get_object()
+        webhook = task.stage.get_webhook()
+        if webhook:
+            response = webhook.trigger(task)
+        # params = {}
+        # if stage.webhook_payload_field:
+        #     params[stage.webhook_payload_field] = json.dumps(in_task.responses)
+        # else:
+        #     params = in_task.responses
+        # if stage.webhook_params:
+        #     params.update(stage.webhook_params)
+        # params["in_task_id"] = in_task.id
+        # response = requests.get(stage.webhook_address, params=params)
+        # if stage.webhook_response_field:
+        #     response = response.json()[stage.webhook_response_field]
+        # else:
+        #     response = response.json()
+        return response
+
 
 class RankViewSet(viewsets.ModelViewSet):
     """
