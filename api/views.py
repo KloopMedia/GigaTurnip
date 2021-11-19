@@ -327,7 +327,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        tasks = queryset.filter(assignee=request.user)
+        tasks = queryset.filter(assignee=request.user)\
+            .exclude(stage__assign_user_by="IN")
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
@@ -350,6 +351,12 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(task, request.data)
         if serializer.is_valid():
             serializer.save()
+            if task.integrator_group is not None:
+                in_tasks = Task.objects.filter(out_tasks=task)\
+                    .filter(stage__assign_user_by="IN")
+                if in_tasks:
+                    in_tasks.assignee = request.user
+                    in_tasks.save()
             return Response({'status': 'assignment granted', 'id': task.id})
         else:
             return Response(serializer.errors,
@@ -360,6 +367,12 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         task.assignee = None
         task.save()
+        if task.integrator_group is not None:
+            in_tasks = Task.objects.filter(out_tasks=task) \
+                .filter(stage__assign_user_by="IN")
+            if in_tasks:
+                in_tasks.assignee = None
+                in_tasks.save()
         return Response({'status': 'assignment released'})
 
     @action(detail=True, methods=['get'])

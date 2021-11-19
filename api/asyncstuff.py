@@ -84,6 +84,10 @@ def create_new_task(stage, in_task):
         if created:
             case = Case.objects.create()
             integrator_task.case = case
+        if integrator_task.assignee is not None and \
+                in_task.stage.assign_user_by == "IN":
+            in_task.assignee = integrator_task.assignee
+            in_task.save()
         integrator_task.in_tasks.add(in_task)
         integrator_task.save()
     else:
@@ -95,6 +99,10 @@ def create_new_task(stage, in_task):
                 data["assignee"] = assignee_task[0].assignee
         new_task = Task.objects.create(**data)
         new_task.in_tasks.set([in_task])
+        if stage.copy_input:
+            new_task.responses = in_task.responses
+        if stage.assign_user_by == "IN":
+            process_completed_task(new_task)
 
 
 def process_conditional(stage, in_task):
