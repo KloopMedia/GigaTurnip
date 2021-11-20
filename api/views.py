@@ -329,7 +329,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        tasks = queryset.filter(assignee=request.user)
+        tasks = queryset.filter(assignee=request.user)\
+            .exclude(stage__assign_user_by="IN")
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
@@ -339,12 +340,24 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = self.filter_queryset(self.get_queryset())
         return utils.filter_for_user_selectable_tasks(tasks, request)
 
+    @action(detail=True)
+    def get_integrated_tasks(self, request, pk=None):
+        tasks = self.filter_queryset(self.get_queryset())
+        tasks = tasks.filter(out_tasks=self.get_object())
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
         task = self.get_object()
         serializer = self.get_serializer(task, request.data)
         if serializer.is_valid():
             serializer.save()
+            if task.integrator_group is not None:
+                in_tasks = Task.objects.filter(out_tasks=task)\
+                    .filter(stage__assign_user_by="IN")
+                if in_tasks:
+                    in_tasks.update(assignee=request.user)
             return Response({'status': 'assignment granted', 'id': task.id})
         else:
             return Response(serializer.errors,
@@ -355,6 +368,11 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         task.assignee = None
         task.save()
+        if task.integrator_group is not None:
+            in_tasks = Task.objects.filter(out_tasks=task) \
+                .filter(stage__assign_user_by="IN")
+            if in_tasks:
+                in_tasks.update(assignee=None)
         return Response({'status': 'assignment released'})
 
     @action(detail=True, methods=['get'])
@@ -362,6 +380,26 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = self.get_object().get_displayed_prev_tasks()
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def trigger_webhook(self, request, pk=None):
+        task = self.get_object()
+        webhook = task.stage.get_webhook()
+        if webhook:
+            is_altered, altered_task, response, error_description = webhook.trigger(task)
+            if is_altered:
+                return Response({"status": "Responses overwritten",
+                                 "responses": altered_task.responses})
+            else:
+                return Response({"error_message": error_description,
+                             "status": response.status_code},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # django_response = HttpResponse(
+        #     content=response.content,
+        #     status=response.status_code,
+        #     content_type=response.headers['Content-Type']
+        # )
+        return
 
 
 class RankViewSet(viewsets.ModelViewSet):

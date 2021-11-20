@@ -1,8 +1,13 @@
 import datetime
+import json
 from abc import ABCMeta, abstractmethod
+from json import JSONDecodeError
 
+import requests
 from django.contrib.auth.models import AbstractUser
 from django.db import models, transaction
+from django.db.models import UniqueConstraint
+from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 
 
@@ -231,9 +236,11 @@ class TaskStage(Stage, SchemaProvider):
 
     RANK = 'RA'
     STAGE = 'ST'
+    INTEGRATOR = 'IN'
     ASSIGN_BY_CHOICES = [
         (RANK, 'Rank'),
-        (STAGE, 'Stage')
+        (STAGE, 'Stage'),
+        (INTEGRATOR, 'Integrator')
     ]
     assign_user_by = models.CharField(
         max_length=2,
@@ -290,6 +297,122 @@ class TaskStage(Stage, SchemaProvider):
         )
     )
 
+    def get_integration(self):
+        if hasattr(self, 'integration'):
+            return self.integration
+        return None
+
+    def get_webhook(self):
+        if hasattr(self, 'webhook'):
+            return self.webhook
+        return None
+
+
+class Integration(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="integration",
+        help_text="Parent TaskStage")
+    group_by = models.TextField(
+        blank=True,
+        help_text="Top level Task responses keys for task grouping "
+                  "separated by whitespaces."
+    )
+    # exclusion_stage = models.ForeignKey(
+    #     TaskStage,
+    #     on_delete=models.SET_NULL,
+    #     related_name="integration_exclusions",
+    #     blank=True,
+    #     null=True,
+    #     help_text="Stage containing JSON form "
+    #               "explaining reasons for exclusion."
+    # )
+    # is_exclusion_reason_required = models.BooleanField(
+    #     default=False,
+    #     help_text="Flag indicating that explanation "
+    #               "for exclusion is mandatory."
+    # )
+
+    def get_or_create_integrator_task(self, task): # TODO Check for race condition
+        integrator_group = self._get_task_fields(task.responses)
+        integrator_task = Task.objects.get_or_create(
+            stage=self.task_stage,
+            integrator_group=integrator_group
+        )
+        return integrator_task
+
+    def _get_task_fields(self, responses):
+        group = {}
+        groupings = self.group_by.split()
+        for grouping in groupings:
+            if grouping in responses:
+                group[grouping] = responses[grouping]
+        return group
+
+    def __str__(self):
+        return str(self.task_stage.__str__())
+
+
+class Webhook(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="webhook",
+        help_text="Parent TaskStage")
+
+    url = models.URLField(
+        blank=True,
+        null=True,
+        max_length=1000,
+        help_text=(
+            "Webhook URL address. If not empty, field indicates that "
+            "task should be given not to a user in the system, but to a "
+            "webhook. Only data from task directly preceding webhook is "
+            "sent. All fields related to user assignment are ignored,"
+            "if this field is not empty."
+        )
+    )
+
+    headers = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Headers sent to webhook."
+        )
+    )
+
+    response_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON response field name to extract data from. Ignored if "
+            "webhook_address field is empty."
+        )
+    )
+
+    def trigger(self, task):
+        data = []
+        for in_task in task.in_tasks.all():
+            data.append(in_task.responses)
+        response = requests.post(self.url, json=data, headers=self.headers)
+        if response:
+            try:
+                if self.response_field:
+                    data = response.json()[self.response_field]
+                else:
+                    data = response.json()
+                task.responses = data
+                task.save()
+                return True, task, response, ""
+            except JSONDecodeError:
+                return False, task, response, "JSONDecodeError"
+
+        return False, task, response, "See response status code"
+
+
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
@@ -345,6 +468,13 @@ class Task(BaseDatesModel, CampaignInterface):
         symmetrical=False,
         help_text="Preceded tasks"
     )
+    integrator_group = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Response fields that must be shared "
+                  "by all tasks being integrated."
+    )
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
 
@@ -357,6 +487,11 @@ class Task(BaseDatesModel, CampaignInterface):
             task.save()
 
 
+    class Meta:
+        UniqueConstraint(
+            fields=['integrator_group', 'stage'],
+            name='unique_integrator_group')
+
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
@@ -367,6 +502,53 @@ class Task(BaseDatesModel, CampaignInterface):
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
+
+    # class Integrator(BaseDatesModel):
+    #     integrator_task = models.OneToOneField(
+    #         Task,
+    #         primary_key=True,
+    #         on_delete=models.CASCADE,
+    #         related_name="integrator",
+    #         help_text="Settings for integrator task, when created "
+    #                   "will always create corresponding task as well.")
+    #     stage = models.ForeignKey(
+    #         TaskStage,
+    #         on_delete=models.CASCADE,
+    #         related_name="integrator_tasks",
+    #         help_text="Stage id"
+    #     )
+    #     response_group = models.JSONField(
+    #         null=True,
+    #         blank=True,
+    #         help_text="Response fields that must be shared "
+    #                   "by all tasks being integrated."
+    #     )
+    #
+    # class Meta:
+    #     unique_together = ['integrator_task', 'response_group']
+
+
+# class IntegrationStatus(BaseDatesModel):
+#     integrated_task = models.ForeignKey(
+#         Task,
+#         on_delete=models.CASCADE,
+#         related_name="integration_statuses",
+#         help_text="Task being integrated")
+#     integrator = models.ForeignKey(
+#         Task,
+#         on_delete=models.CASCADE,
+#         related_name="integrated_task_statuses",
+#         help_text="Integrator task"
+#     )
+#     is_excluded = models.BooleanField(
+#         default=False,
+#         help_text="Indicates that integrated task "
+#                   "was excluded from integration."
+#     )
+#     exclusion_reason = models.TextField(
+#         blank=True,
+#         help_text="Explanation, why integrated task was excluded."
+#     )
 
 
 class Rank(BaseModel, CampaignInterface):
@@ -410,6 +592,9 @@ class Track(BaseModel, CampaignInterface):
 
     def get_campaign(self) -> Campaign:
         return self.campaign
+
+    def __str__(self):
+        return self.name
 
 
 class RankRecord(BaseDatesModel, CampaignInterface):
