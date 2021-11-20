@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import Group
 from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Rank, RankLimit, Task, RankRecord, \
-    Track, CampaignManagement, Stage, Case
+    Track, CampaignManagement, Stage, Case, Integration
 from rest_framework import status
 
 
@@ -496,11 +496,13 @@ class TaskTest(APITestCase):
                                                                  chain=self.chain)
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                    chain=self.chain)
+        self.case = Case.objects.create()
+
         self.another_campaign = Campaign.objects.create(name="Campaign")
         self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                            chain=self.another_chain)
-
+        self.another_case = Case.objects.create()
         self.campaign_json = {"name": "campaign", "description": "description"}
         self.chain_json = {"name": "chain", "description": "description", "campaign": None}
         self.task_stage_json = {
@@ -889,6 +891,38 @@ class TaskTest(APITestCase):
         self.assertEqual(tasks.count(), 3)
         self.assertEqual(created_task.responses['percent_of_correct_responses'], 66)
 
+
+    def test_get_integrator_success(self):
+        json_schema = {"type":"object","properties":{"newInput1":{"title":"New Input 1","type":"string"},"newInput2":{"title":"New Input 2","type":"string"}},"dependencies":{},"required":[]}
+        json_schema_1 = {"type":"object","properties":{"newInput3":{"title":"New Input 1","type":"string"},"newInput4":{"title":"New Input 2","type":"string"}},"dependencies":{},"required":[]}
+        random_ints = [random.randint(0,20) for x in range(5)]
+
+        assigned_tasks = [Task.objects.create(assignee=self.user, stage=self.task_stage,complete=False, case=self.case) for x in range(5)]
+        not_assigned_tasks = [Task.objects.create(stage=self.task_stage,
+                             complete=False, case=self.case) for x in range(5)]
+
+        new_task_stage = TaskStage.objects.create(name="Task stage second", x_pos=1, y_pos=1,
+                                                   chain=self.chain)
+        new_task_stage.in_stages.add(self.task_stage)
+        new_task_stage.json_schema = str(json_schema)
+        self.task_stage.json_schema = str(json_schema)
+
+        user_relevant_tasks = self.client.get(self.url_tasks + "user_relevant/")
+        new_integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                        chain=self.chain, assign_user_by="IN")
+        new_integrator_stage.in_stages.add(new_task_stage)
+
+        for i, task in enumerate(assigned_tasks):
+            task.responses = {"newInput1": random_ints[i]}
+            task.save()
+
+        for i in assigned_tasks[1:]:
+            i.out_tasks.add(assigned_tasks[0])
+
+        Integration.objects.create(task_stage=new_integrator_stage, group_by="newInput1")
+        response = self.client.get(self.url_tasks + f"{assigned_tasks[0].id}/get_integrated_tasks/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.content)), 4)
 
 class RankTest(APITestCase):
     def setUp(self):
