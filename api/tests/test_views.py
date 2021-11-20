@@ -915,23 +915,6 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)), 4)
 
-    def test_complete_task_next_integrator_fail(self):
-        # self.responses[self.main_field] = "hello world!"
-        # my_task = Task.objects.create(assignee=self.user, stage=self.task_stage, complete=False,
-        #                               case=self.case, responses=self.responses)
-        # self.task_stage.copy_input = True
-        # self.task_stage.save()
-        # integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
-        #                                             chain=self.chain, assign_user_by="IN")
-        # integrator_stage.in_stages.add(self.task_stage)
-        #
-        # response = self.client.patch(self.url_tasks + f"{my_task.id}/", {"complete": True})
-        # self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # created_tasks = Task.objects.filter(case=self.case, in_tasks=my_task)
-        # self.assertTrue(created_tasks)
-        # self.assertEqual(created_tasks[0].stage, integrator_stage)
-        pass
-
     def test_complete_task_next_integrator_success(self):
         self.responses[self.main_field] = "hello world!"
         my_task = Task.objects.create(assignee=self.user, stage=self.task_stage, complete=False,
@@ -969,6 +952,24 @@ class TaskTest(APITestCase):
         self.assertTrue(created_tasks)
         for i in Task.objects.filter(case=self.case):
             self.assertEqual(i.responses, self.responses)
+
+    def tests_get_request_assignment_success(self):
+        new_rank = Rank.objects.create(name="rank")
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+                                 open_limit=2, total_limit=3,
+                                 is_selection_open=True, is_listing_allowed=True)
+
+        task = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
+        response = self.client.get(self.url_tasks + f"{task.id}/request_assignment/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Task.objects.get(id=task.id).assignee, self.user)
+
+    def tests_get_request_assignment_fail(self):
+        task = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
+        response = self.client.get(self.url_tasks + f"{task.id}/request_assignment/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class RankTest(APITestCase):
     def setUp(self):
