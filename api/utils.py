@@ -47,6 +47,7 @@ def filter_for_user_selectable_tasks(queryset, request):
         .filter(stage__ranks__users=request.user.id) \
         .filter(stage__ranklimits__is_selection_open=True) \
         .filter(stage__ranklimits__is_listing_allowed=True) \
+        .exclude(stage__assign_user_by="IN") \
         .distinct()
     return tasks
 

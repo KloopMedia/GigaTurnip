@@ -13,7 +13,7 @@ from api import utils
 import requests
 
 
-class MyTestCase(APITestCase):
+class FiltersTestCase(APITestCase):
     def setUp(self):
         self.url = ""
         self.factory = APIRequestFactory()
@@ -35,7 +35,7 @@ class MyTestCase(APITestCase):
         self.assertIn(self.user, self.campaign.managers.all())
         self.assertTrue(utils.is_user_campaign_manager(self.user, self.campaign.id))
 
-    # todo: we have to check completed tasks
+    # todo: we have to check tdd tasks
     def test_filter_for_user_selectable_tasks(self):
         self.user.managed_campaigns.add(self.campaign)
         self.rank_limit = RankLimit.objects.create(rank=self.rank, stage=self.task_stage, open_limit=3, total_limit=5,

@@ -7,7 +7,7 @@ from django import forms
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -132,6 +132,21 @@ class UserTaskCompleteFilter(InputFilter):
         return queryset
 
 
+class StageFilter(InputFilter):
+    parameter_name = 'json'
+    title = 'Search by json (<key>, <value>). Example: title, Hello!'
+
+    def queryset(self, request, queryset):
+        terms = self.value()
+
+
+        if terms is None or terms == '':
+            return queryset
+
+        terms = [i.strip() for i in terms.split(',')]
+
+        return queryset.all().filter(stage__json_schema__contains=f'"{terms[0]}": "{terms[1]}')
+
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_filter = (UserTaskCompleteFilter, 'ranks', UserNoRankFilter)
@@ -214,6 +229,20 @@ class TaskStageAdmin(StageAdmin):
                           ("displayed_prev_stages", "assign_user_from_stage")
 
 
+class IntegrationAdmin(admin.ModelAdmin):
+    search_fields = ('task_stage', )
+    autocomplete_fields = ('task_stage', )
+
+    def get_form(self, request, *args, **kwargs):
+        form = super(IntegrationAdmin, self).get_form(request, *args, **kwargs)
+        form.request = request
+        return form
+
+    def get_queryset(self, request):
+        queryset = super(IntegrationAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "task_stage__chain__")
+
+
 class CaseAdmin(admin.ModelAdmin):
     search_fields = ('pk', )
 
@@ -229,7 +258,8 @@ class TaskAdmin(admin.ModelAdmin):
                     'assignee',
                     'created_at',
                     'updated_at')
-    list_filter = ('stage__chain__campaign',
+    list_filter = (StageFilter,
+                   'stage__chain__campaign',
                    'stage__chain',
                    'stage',
                    'complete',
@@ -360,6 +390,8 @@ admin.site.register(Chain, ChainAdmin)
 admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
+admin.site.register(Integration, IntegrationAdmin)
+admin.site.register(Webhook, IntegrationAdmin)
 admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank)

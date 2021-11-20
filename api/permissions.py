@@ -183,7 +183,7 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "allow"
         },
         {
-            "action": ["retrieve"],
+            "action": ["retrieve", "get_integrated_tasks"],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee or "
@@ -224,6 +224,12 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "allow",
             "condition_expression": "is_assignee or is_manager"
         },
+        {
+            "action": ["trigger_webhook", ],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee and is_not_complete and is_webhook"
+        },
     ]
 
     @classmethod
@@ -249,6 +255,9 @@ class TaskAccessPolicy(AccessPolicy):
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()
         return request.user in managers
+
+    def is_webhook(self, request, view, action):
+        return bool(view.get_object().stage.get_webhook())
 
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
