@@ -948,6 +948,28 @@ class TaskTest(APITestCase):
         self.assertTrue(created_tasks)
         self.assertEqual(created_tasks[0].stage, integrator_stage)
 
+    def test_copy_input(self):
+        self.responses[self.main_field] = "hello world!"
+        my_task = Task.objects.create(assignee=self.user, stage=self.task_stage, complete=False,
+                                      case=self.case, responses=self.responses)
+        self.task_stage.copy_input = True
+        self.task_stage.is_creatable = True
+        self.task_stage.save()
+        new_taks_stage = TaskStage.objects.create(name="Task stage second", x_pos=1, y_pos=1,
+                                                  chain=self.chain, is_creatable=True, copy_input=True)
+        new_taks_stage.in_stages.add(self.task_stage)
+
+        integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                    chain=self.chain, assign_user_by="IN")
+        integrator_stage.in_stages.add(new_taks_stage)
+
+        response = self.client.patch(self.url_tasks + f"{my_task.id}/", {"complete": True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        created_tasks = Task.objects.filter(case=self.case, in_tasks=my_task)
+        self.assertTrue(created_tasks)
+        for i in Task.objects.filter(case=self.case):
+            self.assertEqual(i.responses, self.responses)
+
 class RankTest(APITestCase):
     def setUp(self):
         self.url_rank = reverse('rank-list')
