@@ -3,7 +3,7 @@ import json
 import requests
 from django.db.models import Q
 
-from api.models import Case, Stage, TaskStage, ConditionalStage, Task
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
@@ -74,6 +74,22 @@ def create_new_task(stage, in_task):
         new_task = Task.objects.create(**data)
         new_task.in_tasks.set([in_task])
         process_completed_task(new_task)
+    elif stage.get_integration():
+        integration = stage.get_integration()
+        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+        # integration_status = IntegrationStatus(
+        #     integrated_task=in_task,
+        #     integrator=integrator_task)
+        # integration_status.save()
+        if created:
+            case = Case.objects.create()
+            integrator_task.case = case
+        if integrator_task.assignee is not None and \
+                in_task.stage.assign_user_by == "IN":
+            in_task.assignee = integrator_task.assignee
+            in_task.save()
+        integrator_task.in_tasks.add(in_task)
+        integrator_task.save()
     else:
         if stage.assign_user_by == "ST":
             if stage.assign_user_from_stage is not None:
@@ -83,6 +99,11 @@ def create_new_task(stage, in_task):
                 data["assignee"] = assignee_task[0].assignee
         new_task = Task.objects.create(**data)
         new_task.in_tasks.set([in_task])
+        if stage.copy_input:
+            new_task.responses = in_task.responses
+            new_task.save()
+        if stage.assign_user_by == "IN":
+            process_completed_task(new_task)
 
 
 def process_conditional(stage, in_task):
