@@ -102,6 +102,9 @@ def create_new_task(stage, in_task):
         if stage.copy_input:
             new_task.responses = in_task.responses
             new_task.save()
+        webhook = stage.get_webhook()
+        if webhook:
+            webhook.trigger(new_task)
         if stage.assign_user_by == "IN":
             process_completed_task(new_task)
 
