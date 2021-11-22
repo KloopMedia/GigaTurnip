@@ -478,10 +478,12 @@ class Task(BaseDatesModel, CampaignInterface):
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
 
-    def set_complete(self, force=False):
+    def set_complete(self, responses=None, force=False):
         task = Task.objects.select_for_update().filter(id=self.id)[0]
         with transaction.atomic():
             task.complete = True
+            if responses:
+                task.responses = responses
             if force:
                 task.force_complete = True
             task.save()
