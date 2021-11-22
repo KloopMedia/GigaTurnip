@@ -165,9 +165,7 @@ class Chain(BaseModel, CampaignInterface):
         return self.campaign
 
     def __str__(self):
-        return str("Chain: " +
-                   self.name + " " +
-                   self.campaign.__str__())
+        return self.name
 
 
 class Stage(PolymorphicModel, BaseModel, CampaignInterface):
@@ -202,9 +200,7 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         return self.chain.campaign
 
     def __str__(self):
-        return str("Stage: " +
-                   self.name + " " +
-                   self.chain.__str__())
+        return self.name
 
 
 class TaskStage(Stage, SchemaProvider):
@@ -665,11 +661,11 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
-    def __str__(self):
-        return str("Rank limit: " +
-                   self.rank.__str__() +
-                   " " +
-                   self.stage.__str__())
+    # def __str__(self):
+    #     return str("Rank limit: " +
+    #                self.rank.__str__() +
+    #                " " +
+    #                self.stage.__str__())
 
 
 class Log(BaseDatesModel, CampaignInterface):

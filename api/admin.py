@@ -142,6 +142,7 @@ class StageFilter(InputFilter):
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_filter = (UserTaskCompleteFilter, 'ranks', UserNoRankFilter)
+    search_fields = ("id", "email", "first_name", "last_name", "username")
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
@@ -241,7 +242,16 @@ class CaseAdmin(admin.ModelAdmin):
 
 
 class RankLimitAdmin(admin.ModelAdmin):
+    list_display = ('id',
+                    'rank',
+                    'stage',
+                    'created_at',
+                    'updated_at')
     autocomplete_fields = ('stage', )
+
+    def get_queryset(self, request):
+        queryset = super(RankLimitAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "stage__chain__")
 
 
 class TaskAdmin(admin.ModelAdmin):
@@ -377,6 +387,11 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
         return super(AdminPreferenceAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+class CampaignManagementAdmin(admin.ModelAdmin):
+    search_fields = ("user", "campaign", "id", )
+    autocomplete_fields = ("user", )
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
@@ -390,7 +405,7 @@ admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank)
 admin.site.register(RankLimit, RankLimitAdmin)
 admin.site.register(RankRecord)
-admin.site.register(CampaignManagement)
+admin.site.register(CampaignManagement, CampaignManagementAdmin)
 admin.site.register(Track)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)
