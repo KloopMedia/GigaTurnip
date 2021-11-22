@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 from django import forms
+from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
@@ -73,30 +74,20 @@ class LogsTaskResponsesStatusFilter(TaskResponsesStatusFilter):
                 .exclude(task__responses__isnull=True)
 
 
-class TaskResponsesStatusFilter(SimpleListFilter):
-    title = "Responses JSON Status"
-    parameter_name = "Responses"
+class DuplicateTasksCaseFilter(SimpleListFilter):
+    title = "Duplicate Tasks Filter"
+    parameter_name = "Tasks"
 
     def lookups(self, request, model_admin):
         return [
-            ("not_empty", "Filled Responses"),
-            ("json_empty", "Empty JSON Responses ({})"),
-            ("empty_string", "Empty String Responses()"),
-            ("null", "Null Responses (__isnull==True)")
+            ("duplicate", "Duplicate"),
         ]
 
     def queryset(self, request, queryset):
-        if self.value() == "json_empty":
-            return queryset.distinct().filter(responses__iexact="{}")
-        elif self.value() == "null":
-            return queryset.distinct().filter(responses__isnull=True)
-        elif self.value() == "empty_string":
-            return queryset.distinct().filter(responses__iexact="")
-        elif self.value() == "not_empty":
-            return queryset.distinct()\
-                .exclude(responses__iexact="")\
-                .exclude(responses__iexact="{}")\
-                .exclude(responses__isnull=True)
+        if self.value() == "duplicate":
+            qs = Task.objects.values('stage__id', 'case__id')\
+                .annotate(Count('pk')).filter(pk__count__gte=2).values_list('case_id', flat=True)
+            return queryset.filter(id__in=qs)
 
 
 class UserNoRankFilter(SimpleListFilter):
@@ -146,6 +137,7 @@ class StageFilter(InputFilter):
         terms = [i.strip() for i in terms.split(',')]
 
         return queryset.all().filter(stage__json_schema__contains=f'"{terms[0]}": "{terms[1]}')
+
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -244,6 +236,7 @@ class IntegrationAdmin(admin.ModelAdmin):
 
 
 class CaseAdmin(admin.ModelAdmin):
+    list_filter = (DuplicateTasksCaseFilter,)
     search_fields = ('pk', )
 
 
