@@ -475,8 +475,8 @@ class Task(BaseDatesModel, CampaignInterface):
     force_complete = models.BooleanField(default=False)
 
     def set_complete(self, responses=None, force=False):
-        task = Task.objects.select_for_update().filter(id=self.id)[0]
         with transaction.atomic():
+            task = Task.objects.select_for_update().filter(id=self.id)[0]
             task.complete = True
             if responses:
                 task.responses = responses
