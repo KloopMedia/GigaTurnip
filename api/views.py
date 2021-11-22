@@ -300,6 +300,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                                          data=request.data,
                                          partial=partial)
         if serializer.is_valid():
+            complete = serializer.validated_data.pop("complete", None)
             serializer.save()
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset,
@@ -308,7 +309,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                 instance._prefetched_objects_cache = {}
             data = serializer.data
             data['id'] = instance.id
-            if data['complete']:
+            if complete:
+                instance.set_complete()
                 process_completed_task(instance)
             # if data['complete']:
             #     result(async_task(process_completed_task,
