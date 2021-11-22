@@ -339,7 +339,7 @@ class ConditionalStageTest(APITestCase):
         change_name = {"name": self.conditional_stage_json_modified['name']}
         response = self.client.patch(self.url_conditional_stage + f"{self.conditional_stage.id}/", change_name)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(json.loads(response.content)['name'], ConditionalStage.objects.get(id=self.campaign.id).name)
+        self.assertEqual(json.loads(response.content)['name'], ConditionalStage.objects.get(id=self.conditional_stage.id).name)
 
 
 class TaskStageTest(APITestCase):
@@ -953,7 +953,7 @@ class TaskTest(APITestCase):
         for i in Task.objects.filter(case=self.case):
             self.assertEqual(i.responses, self.responses)
 
-    def tests_get_request_assignment_success(self):
+    def test_get_request_assignment_success(self):
         new_rank = Rank.objects.create(name="rank")
         RankRecord.objects.create(user=self.user, rank=new_rank)
         RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
@@ -965,11 +965,13 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Task.objects.get(id=task.id).assignee, self.user)
 
-    def tests_get_request_assignment_fail(self):
+    def test_get_request_assignment_fail(self):
         task = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
         response = self.client.get(self.url_tasks + f"{task.id}/request_assignment/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_request_assignment_integrator_group_success(self):
+        pass
 
 class RankTest(APITestCase):
     def setUp(self):
@@ -1081,8 +1083,10 @@ class RankTest(APITestCase):
         self.rank_json['track'] = self.track.id
 
         to_update = {"name": "UPDATED"}
-        response = self.client.patch(self.url_rank + f"{self.track.id}/", to_update)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for i in self.ranks:
+            response = self.client.patch(self.url_rank + f"{i.id}/", to_update)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(json.loads(response.content)['name'], Rank.objects.get(id=i.id).name)
 
 
 class RankRecordTest(APITestCase):
