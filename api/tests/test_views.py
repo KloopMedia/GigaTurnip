@@ -894,9 +894,8 @@ class TaskTest(APITestCase):
                                                   complete=False, case=self.case) for x in range(5)]
 
         new_task_stage = TaskStage.objects.create(name="Task stage second", x_pos=1, y_pos=1,
-                                                  chain=self.chain)
+                                                  chain=self.chain, json_schema=self.json_schema)
         new_task_stage.in_stages.add(self.task_stage)
-        new_task_stage.json_schema = str(self.json_schema)
 
         new_integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
                                                         chain=self.chain, assign_user_by="IN")
@@ -970,8 +969,38 @@ class TaskTest(APITestCase):
         response = self.client.get(self.url_tasks + f"{task.id}/request_assignment/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def create_rank_limit(self, rank, stage, open,total, is_sel_open, is_list_allowed):
+        return RankLimit.objects.create(rank=rank, stage=stage,
+                                        open_limit=2, total_limit=3,
+                                        is_selection_open=is_sel_open, is_listing_allowed=is_list_allowed)
+
     def test_request_assignment_integrator_group_success(self):
-        pass
+        self.task_stage.assign_user_by = "IN"
+        self.task_stage.save()
+        task_first = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
+        new_rank = Rank.objects.create(name="rank")
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        self.create_rank_limit(rank=new_rank, stage=self.task_stage, open=2, total=3,is_sel_open=True, is_list_allowed=True)
+
+        new_task_stage = TaskStage.objects.create(name=f"Task stage say hi", x_pos=1, y_pos=1,
+                                          chain=self.chain, json_schema=self.json_schema)
+        self.create_rank_limit(rank=new_rank, stage=new_task_stage, open=2, total=3,is_sel_open=True, is_list_allowed=True)
+        new_task_stage.in_stages.add(self.task_stage)
+        task = Task.objects.create(stage=new_task_stage, case=self.case, responses=self.responses)
+        task.in_tasks.add(task_first)
+
+        new_integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                        chain=self.chain, assign_user_by="IN")
+        new_integrator_stage.in_stages.add(new_task_stage)
+        Integration.objects.create(task_stage=new_integrator_stage, group_by=self.main_field)
+        response = self.client.post(self.url_tasks + f"{task.id}/request_assignment/",
+                                    {"integrator_group": self.responses}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        assigned_task = Task.objects.filter(out_tasks=task, stage__assign_user_by="IN")
+        self.assertTrue(bool(assigned_task))
+        self.assertGreater(len(assigned_task),0)
+        for i in list(assigned_task)+list(Task.objects.filter(id=task.id)):
+            self.assertEqual(i.assignee, self.user)
 
 class RankTest(APITestCase):
     def setUp(self):
