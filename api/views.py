@@ -305,7 +305,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             data = serializer.validated_data
             data['id'] = instance.id
             if complete:
-                instance.set_complete(responses=serializer.validated_data.get("responses"))
+                instance.set_complete(
+                    responses=serializer.validated_data.get("responses")
+                )
                 process_completed_task(instance)
             else:
                 serializer.save()
