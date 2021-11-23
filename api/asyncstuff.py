@@ -1,7 +1,9 @@
+import json
+
+import requests
 from django.db.models import Q
 
-from api.models import Case, Stage, TaskStage, ConditionalStage, Task
-
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
@@ -33,16 +35,78 @@ def process_out_stages(current_stage, task):
         create_new_task(stage, task)
 
 
+def process_webhook(stage, in_task):
+    params = {}
+    if stage.webhook_payload_field:
+        params[stage.webhook_payload_field] = json.dumps(in_task.responses)
+    else:
+        params = in_task.responses
+    if stage.webhook_params:
+        params.update(stage.webhook_params)
+    params["in_task_id"] = in_task.id
+    response = requests.get(stage.webhook_address, params=params)
+    if stage.webhook_response_field:
+        response = response.json()[stage.webhook_response_field]
+    else:
+        response = response.json()
+    return response
+
+
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
-    if stage.assign_user_by == "ST":
-        if stage.assign_user_from_stage is not None:
-            assignee_task = Task.objects \
-                .filter(stage=stage.assign_user_from_stage) \
-                .filter(case=in_task.case)
-            data["assignee"] = assignee_task[0].assignee
-    new_task = Task.objects.create(**data)
-    new_task.in_tasks.set([in_task])
+    if stage.webhook_address:
+        # params = {}
+        # if stage.webhook_payload_field:
+        #     params[stage.webhook_payload_field] = json.dumps(in_task.responses)
+        # else:
+        #     params = in_task.responses
+        # if stage.webhook_params:
+        #     params.update(stage.webhook_params)
+        # params["in_task_id"] = in_task.id
+        # response = requests.get(stage.webhook_address, params=params)
+        # if stage.webhook_response_field:
+        #     response = response.json()[stage.webhook_response_field]
+        # else:
+        #     response = response.json()
+        response = process_webhook(stage, in_task)
+        data["responses"] = response
+        data["complete"] = True
+        new_task = Task.objects.create(**data)
+        new_task.in_tasks.set([in_task])
+        process_completed_task(new_task)
+    elif stage.get_integration():
+        integration = stage.get_integration()
+        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+        # integration_status = IntegrationStatus(
+        #     integrated_task=in_task,
+        #     integrator=integrator_task)
+        # integration_status.save()
+        if created:
+            case = Case.objects.create()
+            integrator_task.case = case
+        if integrator_task.assignee is not None and \
+                in_task.stage.assign_user_by == "IN":
+            in_task.assignee = integrator_task.assignee
+            in_task.save()
+        integrator_task.in_tasks.add(in_task)
+        integrator_task.save()
+    else:
+        if stage.assign_user_by == "ST":
+            if stage.assign_user_from_stage is not None:
+                assignee_task = Task.objects \
+                    .filter(stage=stage.assign_user_from_stage) \
+                    .filter(case=in_task.case)
+                data["assignee"] = assignee_task[0].assignee
+        new_task = Task.objects.create(**data)
+        new_task.in_tasks.set([in_task])
+        if stage.copy_input:
+            new_task.responses = in_task.responses
+            new_task.save()
+        webhook = stage.get_webhook()
+        if webhook:
+            webhook.trigger(new_task)
+        if stage.assign_user_by == "IN":
+            process_completed_task(new_task)
 
 
 def process_conditional(stage, in_task):
@@ -55,8 +119,15 @@ def process_conditional(stage, in_task):
             out_tasks = Task.objects.filter(in_tasks=in_task).filter(stage=stage)
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
-                    out_task.complete = False
-                    out_task.save()
+                    if out_task.stage.webhook_address:
+                        response = process_webhook(out_task.stage, in_task)
+                        out_task.responses = response
+                        out_task.complete = True
+                        out_task.save()
+                        process_completed_task(out_task)
+                    else:
+                        out_task.complete = False
+                        out_task.save()
             else:
                 create_new_task(stage, in_task)
 

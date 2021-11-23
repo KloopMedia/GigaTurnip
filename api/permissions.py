@@ -1,403 +1,323 @@
-from django.http import Http404, HttpResponseForbidden
+from abc import ABCMeta, abstractmethod
+
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, Track, TaskStage, Task, RankLimit
-from api import utils
+from api.models import Campaign, TaskStage, Track, Task
+from . import utils
 
 
 class CampaignAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["create"],
-			"principal": ["group:campaign_creator"],
-			"effect": "allow"
-		},
-		{
-			"action": ["destroy"],
-			"principal": ["*"],
-			"effect": "deny"
-		},
-		{
-			"action": ["partial_update"],
-			"principal": ["*"],
-			"effect": "allow",
-			"condition": "is_manager"
-		},
-		{
-			"action": ["retrieve"],
-			"principal": ["*"],
-			"effect": "allow",
-			"condition": "is_manager"
-		}
-	]
+    statements = [
+        {
+            "action": ["list",
+                       "list_user_campaigns",
+                       "list_user_selectable",
+                       "join_campaign"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["create"],
+            "principal": ["group:campaign_creator"],
+            "effect": "allow"
+        },
+        {
+            "action": ["destroy"],
+            "principal": ["*"],
+            "effect": "deny"
+        },
+        {
+            "action": ["partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+        },
+        {
+            "action": ["retrieve"],
+            "principal": "authenticated",
+            "effect": "allow",
+        }
+    ]
 
-	def is_manager(self, request, view, action) -> bool:
-		campaign = view.get_object()
-		managers = campaign.managers.all()
+    def is_manager(self, request, view, action) -> bool:
+        campaign = view.get_object()
+        managers = campaign.managers.all()
 
-		return request.user in managers
-
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+        return request.user in managers
 
 
-class ChainAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_create"
+class ManagersOnlyAccessPolicy(AccessPolicy):
+    __metaclass__ = ABCMeta
 
-		},
-		{
-			"action": ["retrieve"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager"
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
 
-		},
-		{
-			"action": ["partial_update"],
-			"principal": ["authenticated"],
-			"effect": "allow",
-			"condition": "is_manager"
+        },
+        {
+            "action": ["partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
 
-		},
-		{
-			"action": ["destroy"],
-			"principal": ["authenticated"],
-			"effect": "deny"
-		}
-	]
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        }
+    ]
 
-	def is_manager(self, request, view, action) -> bool:
-		chain = view.get_object()
-		managers = chain.campaign.managers.all()
+    @classmethod
+    @abstractmethod
+    def scope_queryset(cls, request, queryset):
+        pass
 
-		return request.user in managers
+    @classmethod
+    def is_user_campaign_manager(cls, user, value):
+        return utils.is_user_campaign_manager(user, value.id)
 
-	def is_manager_create(self, request, view, action) -> bool:
-		# при вызове action list вызывается эта функция и request.POST.get('campaign') = none,
-		# из-за этого всё крашится
-		if not request.POST.get('campaign'):
-			return False
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
 
-		campaign_id = int(request.POST.get('campaign'))
-		campaign = Campaign.objects.get(id=campaign_id)
-		managers = campaign.managers.all()
+    def can_create(self, request, view, action) -> bool:
+        return bool(request.user.managed_campaigns.all())
 
-		return request.user in managers
 
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
+class ChainAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(
+            campaign__campaign_managements__user=request.user
+        )
+
+
+class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(
+            chain__campaign__campaign_managements__user=request.user
+        )
+
+
+class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(user=
+                               request.user)
+
+
+class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["retrieve"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_manager or is_stage_user_creatable",
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
+
+        },
+        {
+            "action": ["partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        },
+        {
+            "action": ["user_relevant"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["create_task"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_stage_user_creatable"
+        },
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(chain__campaign__campaign_managements__user=
+                               request.user)
+
+    def is_stage_user_creatable(self, request, view, action) -> bool:
+        queryset = TaskStage.objects.filter(id=view.get_object().id)
+        return bool(utils.filter_for_user_creatable_stages(queryset, request))
 
 
 class TaskAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["destroy"],
-			"principal": "*",
-			"effect": "deny",
-		},
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_or_have_assignee_task"
-		},
-		{
-			"action": ["retrieve"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition_expression": 'is_assignee or is_manager_of_campaign'
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_can_create"
-		},
-		{
-			"action": ["user_selectable"],
-			"principal": "*",
-			"effect": "allow",
-			"condition": "is_user_can_request_assignment"
-		},
-		{
-			"action": ["user_relevant"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_can_create"
-		},
-		{
-			"action": ["release_assignment"],
-			"principal": "*",
-			"effect": "deny",
-		},
-		{
-			"action": ["request_assignment"],
-			"principal": "*",
-			"effect": "allow",
-			"condition": "is_user_can_request_assignment"
-		},
-		{
-			"action": ["update", "partial_update"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition_expression": "is_assignee and is_not_complete"
-		}
-	]
+    statements = [
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny",
+        },
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        },
+        {
+            "action": ["retrieve", "get_integrated_tasks"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee or "
+                                    "is_manager or "
+                                    "can_user_request_assignment"
+        },
+        {
+            "action": ["create"],
+            "principal": "*",
+            "effect": "deny",
+        },
+        {
+            "action": ["user_selectable", "user_relevant"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["release_assignment"],
+            "principal": "authenticated",
+            "effect": "deny",
+            #"condition_expression": "is_assignee and is_not_complete"
+        },
+        {
+            "action": ["request_assignment"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_user_request_assignment"
+        },
+        {
+            "action": ["update", "partial_update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee and is_not_complete"
+        },
+        {
+            "action": ["list_displayed_previous"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee or is_manager"
+        },
+        {
+            "action": ["trigger_webhook", ],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee and is_not_complete and is_webhook"
+        },
+    ]
 
-	def is_assignee(self, request, view, action):
-		task = view.get_object()
-		return request.user == task.assignee
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset. \
+            filter(stage__chain__campaign__campaign_managements__user=
+                   request.user).distinct()
 
-	def is_not_complete(self, request, view, action):
-		task = view.get_object()
-		return task.complete is False
+    def is_assignee(self, request, view, action):
+        task = view.get_object()
+        return request.user == task.assignee
 
-	def is_user_can_request_assignment(self, request, view, action):
-		is_have_access = utils.filter_for_user_selectable_tasks(view.queryset, request)
-		return bool(is_have_access)
+    def is_not_complete(self, request, view, action):
+        task = view.get_object()
+        return task.complete is False
 
-	# if user have relevant task stages
-	def is_can_create(self, request, view, action):
-		queryset = TaskStage.objects.all()
-		relevant_stages = utils.filter_for_user_creatable_stages(queryset, request)
-		new_task_based_on_relevant_stages = relevant_stages.filter(id=request.data.get('stage'))
-		return bool(new_task_based_on_relevant_stages)
+    def can_user_request_assignment(self, request, view, action):
+        queryset = Task.objects.filter(id=view.get_object().id)
+        return bool(utils.filter_for_user_selectable_tasks(
+            queryset,
+            request))
 
-	def is_manager_or_have_assignee_task(self, request, view, action):
-		is_manager = bool(utils.filter_tasks_for_manager(view.queryset, request))
-		is_have_assignee = bool(utils.filter_assignee_tasks(view.queryset, request))
-		return is_have_assignee or is_manager
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
 
-	def is_manager_of_campaign(self, request, view, action):
-		managed_campaigns = utils.filter_managed_campaigns(request)
-		task = view.get_object()
-		task_campaign = task.stage.chain.campaign
-		return task_campaign in managed_campaigns
-
-
-class TaskStageAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["user_relevant"],
-			"principal": "authenticated",
-			"effect": "allow",
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager"
-		}
-	]
-
-	def is_manager(self, request, view, action) -> bool:
-		task_stage = view.get_object()
-		managers = task_stage.managers.all()
-
-		return request.user in managers
+    def is_webhook(self, request, view, action):
+        return bool(view.get_object().stage.get_webhook())
 
 
-class RankAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["retrieve", "partial_update"],
-			"principal": ["authenticated"],
-			"effect": "allow",
-			"condition": "is_manager"
-
-		},
-		{
-			"action": ["destroy"],
-			"principal": ["authenticated"],
-			"effect": "deny"
-		}
-	]
-
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
-
-	def is_manager(self, request, view, action) -> bool:
-
-		rank = view.get_object()
-
-		tracks = Track.objects.filter(ranks__in=[rank.id]).all()
-		for track in tracks:
-			campaign = Campaign.objects.get(id=track.campaign_id)
-			managers = campaign.managers.all()
-			if request.user in managers:
-				return True
-		return False
+class RankAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(
+            track__campaign__campaign_managements__user=request.user
+        )
 
 
-class RankLimitAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["retrieve", "partial_update"],
-			"principal": ["authenticated"],
-			"effect": "allow",
-			"condition": "is_manager"
+class RankLimitAccessPolicy(ManagersOnlyAccessPolicy):
 
-		},
-		{
-			"action": ["destroy"],
-			"principal": ["authenticated"],
-			"effect": "deny"
-		}
-	]
-
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
-
-	def is_manager(self, request, view, action) -> bool:
-
-		rank_limit = view.get_object()
-
-		tracks = Track.objects.filter(ranks__in=[rank_limit.rank_id]).all()
-		for track in tracks:
-			campaign = Campaign.objects.get(id=track.campaign_id)
-			managers = campaign.managers.all()
-			if request.user in managers:
-				return True
-		return False
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(
+            stage__chain__campaign__campaign_managements__user=request.user
+        )
 
 
-class RankRecordAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["retrieve", "partial_update"],
-			"principal": ["authenticated"],
-			"effect": "allow",
-			"condition": "is_manager"
-
-		},
-		{
-			"action": ["destroy"],
-			"principal": ["authenticated"],
-			"effect": "deny"
-		}
-	]
-
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
-
-	def is_manager(self, request, view, action) -> bool:
-
-		rank_limit = view.get_object()
-
-		tracks = Track.objects.filter(ranks__in=[rank_limit.rank_id]).all()
-		for track in tracks:
-			campaign = Campaign.objects.get(id=track.campaign_id)
-			managers = campaign.managers.all()
-			if request.user in managers:
-				return True
-		return False
+class RankRecordAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(
+            rank__track__campaign__campaign_managements__user=request.user
+        )
 
 
-class TrackAccessPolicy(AccessPolicy):
-	statements = [
-		{
-			"action": ["list"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["create"],
-			"principal": "authenticated",
-			"effect": "allow",
-			"condition": "is_manager_exist"
-		},
-		{
-			"action": ["retrieve", "partial_update"],
-			"principal": ["authenticated"],
-			"effect": "allow",
-			"condition": "is_manager"
+class TrackAccessPolicy(ManagersOnlyAccessPolicy):
 
-		},
-		{
-			"action": ["destroy"],
-			"principal": ["*"],
-			"effect": "deny"
-		}
-	]
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(
+            campaign__campaign_managements__user=request.user
+        )
 
-	def is_manager_exist(self, request, view, action) -> bool:
-		try:
-			return bool(Campaign.objects.get(managers=request.user))
-		except Campaign.DoesNotExist:
-			raise Http404("Product Couldn't be found")
 
-	def is_manager(self, request, view, action) -> bool:
-		track = view.get_object()
+class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = ManagersOnlyAccessPolicy.statements + [
+        {
+            "action": ["list_user_notifications",
+                       "open_notification"],
+            "principal": "authenticated",
+            "effect": "allow",
+        }
+    ]
 
-		campaign = Campaign.objects.get(id=track.campaign_id)
-		managers = campaign.managers.all()
+    @classmethod
+    def scope_queryset(cls, request, queryset):
 
-		return request.user in managers
+        notifications_ranks = queryset.filter(rank__rankrecord__user=request.user)
+
+        notifications_target_user = queryset.filter(target_user=request.user)
+
+        notifications = notifications_ranks | notifications_target_user
+
+        return notifications
+
+
+class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.filter(notification__rank__rankrecord__user=
+                               request.user)

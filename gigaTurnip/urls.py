@@ -32,9 +32,9 @@ router.register(api_v1 + r'chains',
 router.register(api_v1 + r'taskstages',
                 turnip_app.TaskStageViewSet,
                 basename='taskstage')
-router.register(api_v1 + r'webhookstages',
-                turnip_app.WebHookStageViewSet,
-                basename='webhookstage')
+# router.register(api_v1 + r'webhookstages',
+#                 turnip_app.WebHookStageViewSet,
+#                 basename='webhookstage')
 router.register(api_v1 + r'conditionalstages',
                 turnip_app.ConditionalStageViewSet,
                 basename='conditionalstage')
@@ -56,6 +56,15 @@ router.register(api_v1 + r'tracks',
 router.register(api_v1 + r'rankrecords',
                 turnip_app.RankRecordViewSet,
                 basename='rankrecord')
+# router.register(api_v1 + r'campaignmanagements',
+#                 turnip_app.CampaignManagementViewSet,
+#                 basename='campaignmanagement')
+router.register(api_v1 + r'notifications',
+                turnip_app.NotificationViewSet,
+                basename='notification')
+# router.register(api_v1 + r'notificationstatuses',
+#                 turnip_app.NotificationStatusViewSet,
+#                 basename='notificationstatus')
 
 
 urlpatterns = [path('admin/', admin.site.urls),

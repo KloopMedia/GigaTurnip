@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-import ast
+import json
 import os
 from pathlib import Path
 
@@ -139,8 +139,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',
-    'http://localhost:3001',
-    'https://kloopmedia.github.io'
+    'http://localhost:3001'
 ]
 
 REST_FRAMEWORK = {
@@ -152,15 +151,17 @@ REST_FRAMEWORK = {
         'drf_firebase_auth.authentication.FirebaseAuthentication',
     ],
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema'
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+    'PAGE_SIZE': 10
 }
 
 DRF_FIREBASE_AUTH = {
     # allow anonymous requests without Authorization header set
     'ALLOW_ANONYMOUS_REQUESTS': os.getenv('ALLOW_ANONYMOUS_REQUESTS', False),
     # path to JSON file with firebase secrets
-    'FIREBASE_SERVICE_ACCOUNT_KEY':
-        ast.literal_eval(os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY', '')),
+    'FIREBASE_SERVICE_ACCOUNT_KEY': json.loads(os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY', '')),
     # allow creation of new local user in db
     'FIREBASE_CREATE_LOCAL_USER':
         os.getenv('FIREBASE_CREATE_LOCAL_USER', True),
