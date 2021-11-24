@@ -199,6 +199,18 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.chain.campaign
 
+    def add_stage(self, stage):
+        stage.chain = self.chain
+        if not hasattr(stage, "name"):
+            stage.name = "NoName"
+        if not hasattr(stage, "x_pos") or stage.x_pos is None:
+            stage.x_pos = 1
+        if not hasattr(stage, "y_pos") or stage.y_pos is None:
+            stage.y_pos = 1
+        stage.save()
+        stage.in_stages.add(self)
+        return stage
+
     def __str__(self):
         return self.name
 
@@ -473,6 +485,10 @@ class Task(BaseDatesModel, CampaignInterface):
     )
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
+    reopened = models.BooleanField(
+        default=False,
+        help_text="Indicates that task was returned to user, "
+                  "usually because of pingpong stages.")
 
     def set_complete(self, responses=None, force=False):
         with transaction.atomic():
