@@ -354,9 +354,12 @@ class Integration(BaseDatesModel):
     def _get_task_fields(self, responses):
         group = {}
         groupings = self.group_by.split()
+        print("RESPONSES")
+        print(responses)
         for grouping in groupings:
-            if grouping in responses:
-                group[grouping] = responses[grouping]
+            if responses:
+                if grouping in responses:
+                    group[grouping] = responses[grouping]
         return group
 
     def __str__(self):
@@ -499,6 +502,7 @@ class Task(BaseDatesModel, CampaignInterface):
             if force:
                 task.force_complete = True
             task.save()
+            return task
 
 
     class Meta:

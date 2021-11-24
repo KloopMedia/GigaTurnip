@@ -305,10 +305,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             data = serializer.validated_data
             data['id'] = instance.id
             if complete:
-                instance.set_complete(
+                task = instance.set_complete(
                     responses=serializer.validated_data.get("responses")
                 )
-                process_completed_task(instance)
+                process_completed_task(task)
             else:
                 serializer.save()
             if getattr(instance, '_prefetched_objects_cache', None):

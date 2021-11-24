@@ -331,14 +331,20 @@ class GigaTurnipTest(APITestCase):
         self.request_assignment(verification_task, verification_client)
 
         verification_task_responses = {"verified": "yes"}
-        verification_task = self.update_task_responses(
-            verification_task,
-            verification_task_responses,
-            verification_client)
+        # verification_task = self.update_task_responses(
+        #     verification_task,
+        #     verification_task_responses,
+        #     verification_client)
+        #
+        # verification_task = self.complete_task(
+        #     verification_task,
+        #     client=verification_client)
+
 
         verification_task = self.complete_task(
             verification_task,
-            client=verification_client)
+            verification_task_responses,
+            verification_client)
 
         self.assertTrue(verification_task.complete)
         self.assertEqual(len(Task.objects.filter(case=initial_task.case)), 3)
