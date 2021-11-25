@@ -170,7 +170,10 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post', 'get'])
     def create_task(self, request, pk=None):
         case = Case.objects.create()
-        task = Task(stage=self.get_object(), assignee=request.user, case=case)
+        stage = self.get_object()
+        task = Task(stage=stage, assignee=request.user, case=case)
+        for copy_field in stage.copy_fields.all():
+            task = copy_field.copy_response(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
@@ -232,17 +235,12 @@ class ResponsesFilter(filters.SearchFilter):
         Search term is set by a ?search=... query parameter.
         """
         params = request.query_params.get(self.search_param, '')
-        print("PARAMS: ")
-        print(params)
         if not params:
             return None
         params = utils.str_to_responses_dict(params)
-        print("PARAMS TRANSFORMED: ")
-        print(params)
         return params
 
     def filter_queryset(self, request, queryset, view):
-        print("Getting search results!!!")
 
         search_fields = self.get_search_fields(view, request)
         search_term = self.get_search_terms(request)

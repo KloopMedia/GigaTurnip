@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase, APIClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task
+    Task, CopyField
 
 
 class GigaTurnipTest(APITestCase):
@@ -364,3 +364,78 @@ class GigaTurnipTest(APITestCase):
             final_task_stage,
             verification_task)
         self.assertFalse(final_task.assignee)
+
+    def test_copy_field(self):
+        id_chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        id_stage = TaskStage.objects.create(
+            name="ID",
+            x_pos=1,
+            y_pos=1,
+            chain=id_chain,
+            is_creatable=True)
+        self.client = self.prepare_client(
+            id_stage,
+            self.user,
+            RankLimit(is_creation_open=True))
+        task1 = self.create_task(id_stage)
+        task2 = self.create_task(id_stage)
+        task3 = self.create_task(id_stage)
+
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+
+        task1 = self.complete_task(
+            task1,
+            {"name": "rinat", "phone": 2, "addr": "ssss"})
+        task3 = self.complete_task(
+            task3,
+            {"name": "ri", "phone": 5, "addr": "oooo"})
+        task2 = self.complete_task(task2, correct_responses)
+
+        CopyField.objects.create(
+            copy_by="US",
+            task_stage=self.initial_stage,
+            copy_from_stage=id_stage,
+            fields_to_copy="name->name phone->phone1 absent->absent")
+
+        task = self.create_initial_task()
+
+        self.assertEqual(len(task.responses), 2)
+        self.assertEqual(task.responses["name"], task2.responses["name"])
+        self.assertEqual(task.responses["phone1"], task2.responses["phone"])
+
+    def test_copy_field_fail_for_different_campaigns(self):
+        campaign = Campaign.objects.create(name="Campaign")
+        id_chain = Chain.objects.create(name="Chain", campaign=campaign)
+        id_stage = TaskStage.objects.create(
+            name="ID",
+            x_pos=1,
+            y_pos=1,
+            chain=id_chain,
+            is_creatable=True)
+        self.client = self.prepare_client(
+            id_stage,
+            self.user,
+            RankLimit(is_creation_open=True))
+        task1 = self.create_task(id_stage)
+        task2 = self.create_task(id_stage)
+        task3 = self.create_task(id_stage)
+
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+
+        task1 = self.complete_task(
+            task1,
+            {"name": "rinat", "phone": 2, "addr": "ssss"})
+        task3 = self.complete_task(
+            task3,
+            {"name": "ri", "phone": 5, "addr": "oooo"})
+        task2 = self.complete_task(task2, correct_responses)
+
+        CopyField.objects.create(
+            copy_by="US",
+            task_stage=self.initial_stage,
+            copy_from_stage=id_stage,
+            fields_to_copy="name->name phone->phone1 absent->absent")
+
+        task = self.create_initial_task()
+
+        self.assertIsNone(task.responses)
