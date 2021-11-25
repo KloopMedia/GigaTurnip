@@ -124,6 +124,8 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'assignee',
                             'stage',
                             'responses',
+                            'reopened',
+                            'force_complete',
                             'complete']
 
 
@@ -137,7 +139,9 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['case',
                             'in_tasks',
-                            'assignee']
+                            'assignee',
+                            'reopened',
+                            'force_complete']
 
 
 class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
@@ -153,7 +157,9 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
                             'assignee',
                             'stage',
                             'responses',
-                            'complete']
+                            'complete',
+                            'reopened',
+                            'force_complete']
 
 
 class TaskSelectSerializer(serializers.ModelSerializer):

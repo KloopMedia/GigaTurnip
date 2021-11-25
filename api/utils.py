@@ -1,4 +1,6 @@
+import json
 from functools import wraps
+from json import JSONDecodeError
 
 from django.db.models import QuerySet
 from rest_framework.response import Response
@@ -144,3 +146,29 @@ def filter_by_admin_preference(queryset, request, path):
             else:
                 dynamic_filter[path + "campaign"] = admin_preference[0].campaign
     return queryset.filter(**dynamic_filter)
+
+
+# Copied from https://stackoverflow.com/questions/6027558/flatten-nested-dictionaries-compressing-keys
+def flatten(d, parent_key='', sep='__'):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def str_to_responses_dict(params):
+    result = {"stage": "", "responses": {}}
+    try:
+        data = json.loads(params)
+    except JSONDecodeError:
+        return None
+    if not data.get("stage", None) or \
+            not isinstance(data.get("responses", None), dict):
+        return None
+    result["stage"] = data["stage"]
+    result["responses"] = flatten(data["responses"], "responses", "__")
+    return result

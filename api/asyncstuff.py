@@ -17,6 +17,7 @@ def process_completed_task(task):
                 in_tasks = Task.objects.filter(out_tasks=task)
                 for in_task in in_tasks:
                     in_task.complete = False
+                    in_task.reopened = True
                     in_task.save()
             else:
                 process_out_stages(current_stage, task)
@@ -127,6 +128,7 @@ def process_conditional(stage, in_task):
                         process_completed_task(out_task)
                     else:
                         out_task.complete = False
+                        out_task.reopened = True
                         out_task.save()
             else:
                 create_new_task(stage, in_task)

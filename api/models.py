@@ -199,6 +199,18 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.chain.campaign
 
+    def add_stage(self, stage):
+        stage.chain = self.chain
+        if not hasattr(stage, "name"):
+            stage.name = "NoName"
+        if not hasattr(stage, "x_pos") or stage.x_pos is None:
+            stage.x_pos = 1
+        if not hasattr(stage, "y_pos") or stage.y_pos is None:
+            stage.y_pos = 1
+        stage.save()
+        stage.in_stages.add(self)
+        return stage
+
     def __str__(self):
         return self.name
 
@@ -342,9 +354,12 @@ class Integration(BaseDatesModel):
     def _get_task_fields(self, responses):
         group = {}
         groupings = self.group_by.split()
+        print("RESPONSES")
+        print(responses)
         for grouping in groupings:
-            if grouping in responses:
-                group[grouping] = responses[grouping]
+            if responses:
+                if grouping in responses:
+                    group[grouping] = responses[grouping]
         return group
 
     def __str__(self):
@@ -407,6 +422,62 @@ class Webhook(BaseDatesModel):
                 return False, task, response, "JSONDecodeError"
 
         return False, task, response, "See response status code"
+
+
+class CopyField(BaseDatesModel):
+    USER = 'US'
+    #CHAIN = 'CH'
+    COPY_BY_CHOICES = [
+        (USER, 'User')
+    ]
+    copy_by = models.CharField(
+        max_length=2,
+        choices=COPY_BY_CHOICES,
+        default=USER,
+        help_text="Where to copy fields from"
+    )
+    task_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="copy_fields",
+        help_text="Stage of the task that accepts data being copied")
+    copy_from_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="copycat_fields",
+        help_text="Stage of the task that provides data being copied")
+    fields_to_copy = models.TextField(
+        help_text="List of responses field pairs to copy. \n"
+                  "Format: original_field1->copy_field1  \n"
+                  "Pairs are joined by arrow and separated"
+                  "by whitespaces. \n"
+                  "Example: phone->observer_phone uik->uik ")
+
+    def copy_response(self, task):
+        if task.assignee is None or \
+                task.reopened or \
+                self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
+            return task
+        original_task = Task.objects.filter(
+            assignee=task.assignee,
+            stage=self.copy_from_stage,
+            complete=True).latest("updated_at")
+        if not original_task:
+            return task
+        responses = task.responses
+        if not isinstance(responses, dict):
+            responses = {}
+        for pair in self.fields_to_copy.split():
+            pair = pair.split("->")
+            if len(pair) == 2:
+                response = original_task.responses.get(pair[0], None)
+                if response is not None:
+                    responses[pair[1]] = response
+        if responses:
+            task.responses = responses
+        return task
+            
+
 
 
 
@@ -473,6 +544,10 @@ class Task(BaseDatesModel, CampaignInterface):
     )
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
+    reopened = models.BooleanField(
+        default=False,
+        help_text="Indicates that task was returned to user, "
+                  "usually because of pingpong stages.")
 
     def set_complete(self, responses=None, force=False):
         with transaction.atomic():
@@ -483,6 +558,7 @@ class Task(BaseDatesModel, CampaignInterface):
             if force:
                 task.force_complete = True
             task.save()
+            return task
 
 
     class Meta:
