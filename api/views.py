@@ -224,6 +224,9 @@ class ResponsesFilter(filters.SearchFilter):
     search_param = "task_responses"
     search_title = _('Task Responses Filter')
 
+    def to_html(self, request, queryset, view):
+        return ""
+
     def get_search_terms(self, request):
         """
         Search term is set by a ?search=... query parameter.
