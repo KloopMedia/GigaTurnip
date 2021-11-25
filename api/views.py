@@ -1,6 +1,8 @@
-from rest_framework import viewsets, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils.translation import gettext_lazy as _
 
 from django.shortcuts import get_object_or_404
 
@@ -217,6 +219,41 @@ class CaseViewSet(viewsets.ModelViewSet):
     serializer_class = CaseSerializer
 
 
+class ResponsesFilter(filters.SearchFilter):
+
+    search_param = "task_responses"
+    search_title = _('Task Responses Filter')
+
+    def get_search_terms(self, request):
+        """
+        Search term is set by a ?search=... query parameter.
+        """
+        params = request.query_params.get(self.search_param, '')
+        print("PARAMS: ")
+        print(params)
+        if not params:
+            return None
+        params = utils.str_to_responses_dict(params)
+        print("PARAMS TRANSFORMED: ")
+        print(params)
+        return params
+
+    def filter_queryset(self, request, queryset, view):
+        print("Getting search results!!!")
+
+        search_fields = self.get_search_fields(view, request)
+        search_term = self.get_search_terms(request)
+
+        if not search_fields or not search_term:
+            return queryset
+
+        tasks = Task.objects.filter(stage__id=search_term["stage"])
+        tasks = tasks.filter(**search_term["responses"])
+        cases = Case.objects.filter(tasks__in=tasks).distinct()
+        response = queryset.filter(case__in=cases)
+        return response
+
+
 class TaskViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -249,6 +286,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'stage__chain__campaign',
                         'assignee',
                         'complete']
+    search_fields = ['responses']
+    filter_backends = [DjangoFilterBackend, ResponsesFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
