@@ -1,6 +1,7 @@
+import json
 from uuid import uuid4
 
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
@@ -60,6 +61,16 @@ class GigaTurnipTest(APITestCase):
         # self.rank_record = RankRecord.objects.create(
         #     user=self.user,
         #     rank=self.rank)
+
+    def get_objects(self, endpoint, params=None, client=None):
+        c = client
+        if c is None:
+            c = self.client
+        url = reverse(endpoint)
+        if params:
+            return c.get(url, data=params)
+        else:
+            return c.get(url)
 
     def create_task(self, stage, client=None):
         c = client
@@ -439,3 +450,38 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
 
         self.assertIsNone(task.responses)
+
+    def test_get_tasks_selectable(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        self.client = self.prepare_client(second_stage, self.user)
+        task_1 = self.create_initial_task()
+        task_1 = self.complete_task(task_1)
+        task_2 = task_1.out_tasks.all()[0]
+        response = self.get_objects("task-user-selectable")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["id"], task_2.id)
+
+    def test_get_tasks_selectable_responses_filter(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        self.client = self.prepare_client(second_stage, self.user)
+
+        task_11 = self.create_initial_task()
+        task_11 = self.complete_task(task_11, {"check": "ga"})
+        task_12 = task_11.out_tasks.all()[0]
+
+        task_21 = self.create_initial_task()
+        task_21 = self.complete_task(task_21, {"check": "go"})
+        task_22 = task_21.out_tasks.all()[0]
+
+        resp = {"stage": self.initial_stage.id, "responses": {"check": "ga"}}
+        resp = json.dumps(resp)
+        responses_filter = {"task_responses": resp}
+        # responses_filter = "task_responses=check"
+
+        response = self.get_objects("task-user-selectable", params=responses_filter)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["id"], task_12.id)
+        
+
