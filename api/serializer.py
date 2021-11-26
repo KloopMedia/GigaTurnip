@@ -76,7 +76,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
-                  'webhook_response_field']
+                  'webhook_response_field', 'allow_go_back']
 
 
 class TaskStageSerializer(serializers.ModelSerializer,
@@ -88,7 +88,7 @@ class TaskStageSerializer(serializers.ModelSerializer,
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
-                  'webhook_response_field']
+                  'webhook_response_field', 'allow_go_back']
 
     def validate_chain(self, value):
         """
