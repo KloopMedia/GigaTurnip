@@ -431,6 +431,30 @@ class TaskViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+    @action(detail=True, methods=['post', 'get'])
+    def open_previous(self, request, pk=None):
+        task = self.get_object()
+        try:
+            (prev_task, task) = task.open_previous()
+            return Response({'status': 'Previous task opened.', 'id': prev_task.id})
+        except Task.ImpossibleToOpenPrevious:
+            return Response(
+                {'message': 'It is impossible to open previous task.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # @action(detail=True, methods=['post', 'get'])
+    # def open_next(self, request, pk=None):
+    #     task = self.get_object()
+    #     try:
+    #         next_task = task.open_next()
+    #         return Response({'status': 'Next task opened.', 'id': next_task.id})
+    #     except Task.ImpossibleToOpenNext:
+    #         return Response(
+    #             {'message': 'It is impossible to open next task.'},
+    #             status=status.HTTP_403_FORBIDDEN
+    #         )
+
     @action(detail=True, methods=['get'])
     def list_displayed_previous(self, request, pk=None):
         tasks = self.get_object().get_displayed_prev_tasks()

@@ -561,23 +561,40 @@ class Task(BaseDatesModel, CampaignInterface):
             return task
 
     def set_not_complete(self):
-        if self.stage.assign_user_by == "IN":
-            if len(self.out_tasks.all()) == 1:
-                if not self.out_tasks.all()[0].complete:
-                    self.complete = False
-                    self.reopened = True
-                    self.save()
-                    return self
+        if self.complete:
+            if self.stage.assign_user_by == "IN":
+                if len(self.out_tasks.all()) == 1:
+                    if not self.out_tasks.all()[0].complete:
+                        self.complete = False
+                        self.reopened = True
+                        self.save()
+                        return self
         raise Task.ImpossibleToUncomplete
 
+    def open_previous(self):
+        if not self.complete:
+            in_tasks = self.in_tasks.all()
+            if in_tasks and len(in_tasks) == 1:
+                prev_task = in_tasks[0]
+                if prev_task.out_tasks.all().count() == 1:
+                    if prev_task.assignee == self.assignee:
+                        self.complete = True
+                        prev_task.complete = False
+                        prev_task.reopened = True
+                        self.save()
+                        prev_task.save()
+                        return prev_task, self
+        raise Task.ImpossibleToOpenPrevious
 
     class Meta:
         UniqueConstraint(
             fields=['integrator_group', 'stage'],
             name='unique_integrator_group')
 
-
     class ImpossibleToUncomplete(Exception):
+        pass
+
+    class ImpossibleToOpenPrevious(Exception):
         pass
 
     def get_campaign(self) -> Campaign:

@@ -62,11 +62,14 @@ class GigaTurnipTest(APITestCase):
         #     user=self.user,
         #     rank=self.rank)
 
-    def get_objects(self, endpoint, params=None, client=None):
+    def get_objects(self, endpoint, params=None, client=None, pk=None):
         c = client
         if c is None:
             c = self.client
-        url = reverse(endpoint)
+        if pk:
+            url = reverse(endpoint, kwargs={"pk": pk})
+        else:
+            url = reverse(endpoint)
         if params:
             return c.get(url, data=params)
         else:
@@ -483,5 +486,28 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_12.id)
+        
+    def test_open_previous(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST", 
+                assign_user_from_stage=self.initial_stage))
+        initial_task = self.create_initial_task()
+        self.complete_task(initial_task)
+        second_task = Task.objects.get(
+            stage=second_stage,
+            case=initial_task.case)
+        self.assertEqual(initial_task.assignee, second_task.assignee)
+        self.check_task_auto_creation(second_task, second_stage, initial_task)
+        response = self.get_objects("task-open-previous", pk=second_task.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], initial_task.id)
+
+        initial_task = Task.objects.get(id=initial_task.id)
+        second_task = Task.objects.get(id=second_task.id)
+
+        self.assertTrue(second_task.complete)
+        self.assertTrue(initial_task.reopened)
+        self.assertFalse(initial_task.complete)
         
 

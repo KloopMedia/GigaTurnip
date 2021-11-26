@@ -213,7 +213,7 @@ class TaskAccessPolicy(AccessPolicy):
             "condition": "can_user_request_assignment"
         },
         {
-            "action": ["update", "partial_update"],
+            "action": ["update", "partial_update", "open_previous"],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee and is_not_complete"
