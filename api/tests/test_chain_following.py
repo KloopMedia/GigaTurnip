@@ -509,5 +509,16 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(second_task.complete)
         self.assertTrue(initial_task.reopened)
         self.assertFalse(initial_task.complete)
+        self.assertEqual(Task.objects.all().count(), 2)
+
+        initial_task = self.complete_task(initial_task)
+
+        second_task = Task.objects.get(id=second_task.id)
+
+        self.assertTrue(initial_task.complete)
+        self.assertEqual(Task.objects.all().count(), 2)
+        self.assertFalse(second_task.complete)
+        self.assertTrue(second_task.reopened)
+
         
 

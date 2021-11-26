@@ -7,6 +7,17 @@ from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
+    next_direct_task = task.get_direct_next()
+    print("NEXT DIRECT TASK")
+    print(next_direct_task)
+    if next_direct_task is not None:
+        next_direct_task.complete = False
+        next_direct_task.reopened = True
+        next_direct_task.save()
+        if next_direct_task.assignee == task.assignee:
+            return next_direct_task
+        else:
+            return None
     current_stage = Stage.objects.get(id=task.stage.id)
     in_conditional_pingpong_stages = ConditionalStage.objects \
         .filter(out_stages=current_stage) \
@@ -23,6 +34,13 @@ def process_completed_task(task):
                 process_out_stages(current_stage, task)
     else:
         process_out_stages(current_stage, task)
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        if next_direct_task.assignee == task.assignee:
+            return next_direct_task
+        else:
+            return None
+    return None
 
 
 def process_out_stages(current_stage, task):

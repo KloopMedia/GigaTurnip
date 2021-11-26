@@ -339,6 +339,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance,
                                          data=request.data,
                                          partial=partial)
+        next_direct_task = None
         if serializer.is_valid():
             complete = serializer.validated_data.get("complete")
             # serializer.save()
@@ -348,7 +349,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 task = instance.set_complete(
                     responses=serializer.validated_data.get("responses")
                 )
-                process_completed_task(task)
+                next_direct_task = process_completed_task(task)
             else:
                 serializer.save()
             if getattr(instance, '_prefetched_objects_cache', None):
@@ -356,12 +357,16 @@ class TaskViewSet(viewsets.ModelViewSet):
                 # we need to forcibly invalidate the prefetch
                 # cache on the instance.
                 instance._prefetched_objects_cache = {}
-            # if data['complete']:
-            #     result(async_task(process_completed_task,
-            #                data['id'],
-            #                task_name='process_completed_task',
-            #                group='follow_chain'))
-            return Response(data, status=status.HTTP_200_OK)
+            if next_direct_task:
+                return Response(
+                    {"message": "Next direct task is available.",
+                     "id": instance.id,
+                     "next_direct_id": next_direct_task.id},
+                    status=status.HTTP_200_OK)
+            return Response(
+                {"message": "No single direct task is available. Go back to task list.",
+                 "id": instance.id},
+                status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)

@@ -571,19 +571,31 @@ class Task(BaseDatesModel, CampaignInterface):
                         return self
         raise Task.ImpossibleToUncomplete
 
+    def get_direct_previous(self):
+        in_tasks = self.in_tasks.all()
+        if len(in_tasks) == 1:
+            if self._are_directly_connected(in_tasks[0], self):
+                return in_tasks[0]
+        return None
+
+    def get_direct_next(self):
+        out_tasks = self.out_tasks.all()
+        if len(out_tasks) == 1:
+            if self._are_directly_connected(self, out_tasks[0]):
+                return out_tasks[0]
+        return None
+
     def open_previous(self):
         if not self.complete:
-            in_tasks = self.in_tasks.all()
-            if in_tasks and len(in_tasks) == 1:
-                prev_task = in_tasks[0]
-                if prev_task.out_tasks.all().count() == 1:
-                    if prev_task.assignee == self.assignee:
-                        self.complete = True
-                        prev_task.complete = False
-                        prev_task.reopened = True
-                        self.save()
-                        prev_task.save()
-                        return prev_task, self
+            prev_task = self.get_direct_previous()
+            if prev_task:
+                if prev_task.assignee == self.assignee:
+                    self.complete = True
+                    prev_task.complete = False
+                    prev_task.reopened = True
+                    self.save()
+                    prev_task.save()
+                    return prev_task, self
         raise Task.ImpossibleToOpenPrevious
 
     class Meta:
@@ -604,6 +616,16 @@ class Task(BaseDatesModel, CampaignInterface):
         return Task.objects.filter(case=self.case) \
             .filter(stage__in=self.stage.displayed_prev_stages.all()) \
             .exclude(id=self.id)
+
+    def _are_directly_connected(self, task1, task2):
+        in_tasks = task2.in_tasks.all()
+        if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
+            if len(task2.stage.in_stages.all()) == 1 and \
+                    task2.stage.in_stages.all()[0] == task1.stage:
+                if len(task1.stage.out_stages.all()) == 1:
+                    if task1.out_tasks.all().count() == 1:
+                        return True
+        return False
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
