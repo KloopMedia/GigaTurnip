@@ -364,7 +364,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                      "next_direct_id": next_direct_task.id},
                     status=status.HTTP_200_OK)
             return Response(
-                {"message": "No single direct task is available. Go back to task list.",
+                {"message": "Task saved.",
                  "id": instance.id},
                 status=status.HTTP_200_OK)
         else:
