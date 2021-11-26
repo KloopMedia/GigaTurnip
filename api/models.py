@@ -359,8 +359,6 @@ class Integration(BaseDatesModel):
     def _get_task_fields(self, responses):
         group = {}
         groupings = self.group_by.split()
-        print("RESPONSES")
-        print(responses)
         for grouping in groupings:
             if responses:
                 if grouping in responses:

@@ -5,7 +5,7 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField
+    Task, CopyField, Integration
 
 
 class GigaTurnipTest(APITestCase):
@@ -522,5 +522,39 @@ class GigaTurnipTest(APITestCase):
         self.assertFalse(second_task.complete)
         self.assertTrue(second_task.reopened)
 
-        
+    def test_integration(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        Integration.objects.create(
+            task_stage=second_stage,
+            group_by="oik")
+        initial_task1 = self.create_initial_task()
+        self.complete_task(initial_task1, responses={"oik": 4, "data": "elkfj"})
+        initial_task2 = self.create_initial_task()
+        self.complete_task(initial_task2, responses={"oik": 4, "data": "wlfij"})
+        initial_task3 = self.create_initial_task()
+        self.complete_task(initial_task3, responses={"oik": 4, "data": "sqj"})
+        initial_task4 = self.create_initial_task()
+        self.complete_task(initial_task4, responses={"oik": 5, "data": "saxha"})
+        initial_task5 = self.create_initial_task()
+        self.complete_task(initial_task5, responses={"oik": 5, "data": "sodhj"})
+
+        self.assertEqual(Task.objects.filter(stage=second_stage).count(), 2)
+
+        oik_4_integrator = Task.objects.get(integrator_group={"oik": 4})
+        oik_5_integrator = Task.objects.get(integrator_group={"oik": 5})
+
+        self.assertEqual(oik_4_integrator.in_tasks.all().count(), 3)
+        self.assertEqual(oik_5_integrator.in_tasks.all().count(), 2)
+
+        self.assertIn(initial_task1.id,
+                      oik_4_integrator.in_tasks.all().values_list("id", flat=True))
+        self.assertIn(initial_task2.id,
+                      oik_4_integrator.in_tasks.all().values_list("id", flat=True))
+        self.assertIn(initial_task3.id,
+                      oik_4_integrator.in_tasks.all().values_list("id", flat=True))
+
+        self.assertIn(initial_task4.id,
+                      oik_5_integrator.in_tasks.all().values_list("id", flat=True))
+        self.assertIn(initial_task5.id,
+                      oik_5_integrator.in_tasks.all().values_list("id", flat=True))
 
