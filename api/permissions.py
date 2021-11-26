@@ -219,6 +219,12 @@ class TaskAccessPolicy(AccessPolicy):
             "condition_expression": "is_assignee and is_not_complete"
         },
         {
+            "action": ["uncomplete"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_assignee and is_complete"
+        },
+        {
             "action": ["list_displayed_previous"],
             "principal": "authenticated",
             "effect": "allow",
@@ -245,6 +251,10 @@ class TaskAccessPolicy(AccessPolicy):
     def is_not_complete(self, request, view, action):
         task = view.get_object()
         return task.complete is False
+
+    def is_complete(self, request, view, action):
+        task = view.get_object()
+        return task.complete
 
     def can_user_request_assignment(self, request, view, action):
         queryset = Task.objects.filter(id=view.get_object().id)

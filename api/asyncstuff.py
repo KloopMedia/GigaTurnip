@@ -76,21 +76,22 @@ def create_new_task(stage, in_task):
         new_task.in_tasks.set([in_task])
         process_completed_task(new_task)
     elif stage.get_integration():
-        integration = stage.get_integration()
-        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
-        # integration_status = IntegrationStatus(
-        #     integrated_task=in_task,
-        #     integrator=integrator_task)
-        # integration_status.save()
-        if created:
-            case = Case.objects.create()
-            integrator_task.case = case
-        if integrator_task.assignee is not None and \
-                in_task.stage.assign_user_by == "IN":
-            in_task.assignee = integrator_task.assignee
-            in_task.save()
-        integrator_task.in_tasks.add(in_task)
-        integrator_task.save()
+        if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+            integration = stage.get_integration()
+            (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+            # integration_status = IntegrationStatus(
+            #     integrated_task=in_task,
+            #     integrator=integrator_task)
+            # integration_status.save()
+            if created:
+                case = Case.objects.create()
+                integrator_task.case = case
+            if integrator_task.assignee is not None and \
+                    in_task.stage.assign_user_by == "IN":
+                in_task.assignee = integrator_task.assignee
+                in_task.save()
+            integrator_task.in_tasks.add(in_task)
+            integrator_task.save()
     else:
         if stage.assign_user_by == "ST":
             if stage.assign_user_from_stage is not None:

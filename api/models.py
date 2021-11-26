@@ -560,11 +560,25 @@ class Task(BaseDatesModel, CampaignInterface):
             task.save()
             return task
 
+    def set_not_complete(self):
+        if self.stage.assign_user_by == "IN":
+            if len(self.out_tasks.all()) == 1:
+                if not self.out_tasks.all()[0].complete:
+                    self.complete = False
+                    self.reopened = True
+                    self.save()
+                    return self
+        raise Task.ImpossibleToUncomplete
+
 
     class Meta:
         UniqueConstraint(
             fields=['integrator_group', 'stage'],
             name='unique_integrator_group')
+
+
+    class ImpossibleToUncomplete(Exception):
+        pass
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
