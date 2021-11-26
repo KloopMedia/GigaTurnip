@@ -7,6 +7,15 @@ from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        next_direct_task.complete = False
+        next_direct_task.reopened = True
+        next_direct_task.save()
+        if next_direct_task.assignee == task.assignee:
+            return next_direct_task
+        else:
+            return None
     current_stage = Stage.objects.get(id=task.stage.id)
     in_conditional_pingpong_stages = ConditionalStage.objects \
         .filter(out_stages=current_stage) \
@@ -23,6 +32,13 @@ def process_completed_task(task):
                 process_out_stages(current_stage, task)
     else:
         process_out_stages(current_stage, task)
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        if next_direct_task.assignee == task.assignee:
+            return next_direct_task
+        else:
+            return None
+    return None
 
 
 def process_out_stages(current_stage, task):
@@ -76,21 +92,22 @@ def create_new_task(stage, in_task):
         new_task.in_tasks.set([in_task])
         process_completed_task(new_task)
     elif stage.get_integration():
-        integration = stage.get_integration()
-        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
-        # integration_status = IntegrationStatus(
-        #     integrated_task=in_task,
-        #     integrator=integrator_task)
-        # integration_status.save()
-        if created:
-            case = Case.objects.create()
-            integrator_task.case = case
-        if integrator_task.assignee is not None and \
-                in_task.stage.assign_user_by == "IN":
-            in_task.assignee = integrator_task.assignee
-            in_task.save()
-        integrator_task.in_tasks.add(in_task)
-        integrator_task.save()
+        if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+            integration = stage.get_integration()
+            (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+            # integration_status = IntegrationStatus(
+            #     integrated_task=in_task,
+            #     integrator=integrator_task)
+            # integration_status.save()
+            if created:
+                case = Case.objects.create()
+                integrator_task.case = case
+            if integrator_task.assignee is not None and \
+                    in_task.stage.assign_user_by == "IN":
+                in_task.assignee = integrator_task.assignee
+                in_task.save()
+            integrator_task.in_tasks.add(in_task)
+            integrator_task.save()
     else:
         if stage.assign_user_by == "ST":
             if stage.assign_user_from_stage is not None:

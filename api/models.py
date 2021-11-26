@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
-from django.db import models, transaction
+from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
@@ -549,22 +549,82 @@ class Task(BaseDatesModel, CampaignInterface):
         help_text="Indicates that task was returned to user, "
                   "usually because of pingpong stages.")
 
-    def set_complete(self, responses=None, force=False):
-        with transaction.atomic():
-            task = Task.objects.select_for_update().filter(id=self.id)[0]
-            task.complete = True
-            if responses:
-                task.responses = responses
-            if force:
-                task.force_complete = True
-            task.save()
-            return task
-
-
     class Meta:
         UniqueConstraint(
             fields=['integrator_group', 'stage'],
             name='unique_integrator_group')
+
+    class ImpossibleToUncomplete(Exception):
+        pass
+
+    class ImpossibleToOpenPrevious(Exception):
+        pass
+
+    class AlreadyCompleted(Exception):
+        pass
+
+    class CompletionInProgress(Exception):
+        pass
+
+    def set_complete(self, responses=None, force=False):
+        if self.complete:
+            raise Task.AlreadyCompleted
+
+        with transaction.atomic():
+            try:
+                task = Task.objects.select_for_update(nowait=True).get(pk=self.id)
+            except OperationalError:
+                raise Task.CompletionInProgress
+            # task = Task.objects.select_for_update().filter(id=self.id)[0]
+            # task.complete = True
+            if task.complete:
+                raise Task.AlreadyCompleted
+
+            if responses:
+                task.responses = responses
+            if force:
+                task.force_complete = True
+            task.complete = True
+            task.save()
+            return task
+
+    def set_not_complete(self):
+        if self.complete:
+            if self.stage.assign_user_by == "IN":
+                if len(self.out_tasks.all()) == 1:
+                    if not self.out_tasks.all()[0].complete:
+                        self.complete = False
+                        self.reopened = True
+                        self.save()
+                        return self
+        raise Task.ImpossibleToUncomplete
+
+    def get_direct_previous(self):
+        in_tasks = self.in_tasks.all()
+        if len(in_tasks) == 1:
+            if self._are_directly_connected(in_tasks[0], self):
+                return in_tasks[0]
+        return None
+
+    def get_direct_next(self):
+        out_tasks = self.out_tasks.all()
+        if len(out_tasks) == 1:
+            if self._are_directly_connected(self, out_tasks[0]):
+                return out_tasks[0]
+        return None
+
+    def open_previous(self):
+        if not self.complete:
+            prev_task = self.get_direct_previous()
+            if prev_task:
+                if prev_task.assignee == self.assignee:
+                    self.complete = True
+                    prev_task.complete = False
+                    prev_task.reopened = True
+                    self.save()
+                    prev_task.save()
+                    return prev_task, self
+        raise Task.ImpossibleToOpenPrevious
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
@@ -573,6 +633,16 @@ class Task(BaseDatesModel, CampaignInterface):
         return Task.objects.filter(case=self.case) \
             .filter(stage__in=self.stage.displayed_prev_stages.all()) \
             .exclude(id=self.id)
+
+    def _are_directly_connected(self, task1, task2):
+        in_tasks = task2.in_tasks.all()
+        if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
+            if len(task2.stage.in_stages.all()) == 1 and \
+                    task2.stage.in_stages.all()[0] == task1.stage:
+                if len(task1.stage.out_stages.all()) == 1:
+                    if task1.out_tasks.all().count() == 1:
+                        return True
+        return False
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())

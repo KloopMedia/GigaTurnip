@@ -17,7 +17,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer
+    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -301,7 +301,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'create':
-            return TaskCreateSerializer
+            return TaskAutoCreateSerializer
         elif self.action == 'update' or self.action == 'partial_update':
             return TaskEditSerializer
         elif self.action == 'request_assignment':
@@ -339,16 +339,29 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance,
                                          data=request.data,
                                          partial=partial)
+        next_direct_task = None
         if serializer.is_valid():
             complete = serializer.validated_data.get("complete")
             # serializer.save()
             data = serializer.validated_data
             data['id'] = instance.id
+            next_direct_task = None
             if complete:
-                task = instance.set_complete(
-                    responses=serializer.validated_data.get("responses")
-                )
-                process_completed_task(task)
+                try:
+                    task = instance.set_complete(
+                        responses=serializer.validated_data.get("responses")
+                    )
+                    next_direct_task = process_completed_task(task)
+                except Task.CompletionInProgress:
+                    return Response(
+                        {"message": "Task is being completed!",
+                         "id": instance.id},
+                        status=status.HTTP_403_FORBIDDEN)
+                except Task.AlreadyCompleted:
+                    return Response(
+                        {"message": "Task is already complete!",
+                         "id": instance.id},
+                        status=status.HTTP_403_FORBIDDEN)
             else:
                 serializer.save()
             if getattr(instance, '_prefetched_objects_cache', None):
@@ -356,12 +369,16 @@ class TaskViewSet(viewsets.ModelViewSet):
                 # we need to forcibly invalidate the prefetch
                 # cache on the instance.
                 instance._prefetched_objects_cache = {}
-            # if data['complete']:
-            #     result(async_task(process_completed_task,
-            #                data['id'],
-            #                task_name='process_completed_task',
-            #                group='follow_chain'))
-            return Response(data, status=status.HTTP_200_OK)
+            if next_direct_task:
+                return Response(
+                    {"message": "Next direct task is available.",
+                     "id": instance.id,
+                     "next_direct_id": next_direct_task.id},
+                    status=status.HTTP_200_OK)
+            return Response(
+                {"message": "Task saved.",
+                 "id": instance.id},
+                status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
@@ -418,6 +435,42 @@ class TaskViewSet(viewsets.ModelViewSet):
             if in_tasks:
                 in_tasks.update(assignee=None)
         return Response({'status': 'assignment released'})
+
+    @action(detail=True, methods=['post', 'get'])
+    def uncomplete(self, request, pk=None):
+        task = self.get_object()
+        try:
+            task.set_not_complete()
+            return Response({'status': 'Assignment uncompleted', 'id': task.id})
+        except Task.ImpossibleToUncomplete:
+            return Response(
+                {'message': 'It is impossible to uncomplete this task.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    @action(detail=True, methods=['post', 'get'])
+    def open_previous(self, request, pk=None):
+        task = self.get_object()
+        try:
+            (prev_task, task) = task.open_previous()
+            return Response({'status': 'Previous task opened.', 'id': prev_task.id})
+        except Task.ImpossibleToOpenPrevious:
+            return Response(
+                {'message': 'It is impossible to open previous task.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # @action(detail=True, methods=['post', 'get'])
+    # def open_next(self, request, pk=None):
+    #     task = self.get_object()
+    #     try:
+    #         next_task = task.open_next()
+    #         return Response({'status': 'Next task opened.', 'id': next_task.id})
+    #     except Task.ImpossibleToOpenNext:
+    #         return Response(
+    #             {'message': 'It is impossible to open next task.'},
+    #             status=status.HTTP_403_FORBIDDEN
+    #         )
 
     @action(detail=True, methods=['get'])
     def list_displayed_previous(self, request, pk=None):
