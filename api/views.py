@@ -17,7 +17,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer
+    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -301,7 +301,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'create':
-            return TaskCreateSerializer
+            return TaskAutoCreateSerializer
         elif self.action == 'update' or self.action == 'partial_update':
             return TaskEditSerializer
         elif self.action == 'request_assignment':

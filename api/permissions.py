@@ -192,8 +192,8 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["create"],
-            "principal": "*",
-            "effect": "deny",
+            "principal": "group:auto_creator",
+            "effect": "allow",
         },
         {
             "action": ["user_selectable", "user_relevant"],

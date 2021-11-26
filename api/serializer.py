@@ -129,6 +129,12 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'complete']
 
 
+class TaskAutoCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = '__all__'
+
+
 class TaskCreateSerializer(serializers.ModelSerializer):
     assignee = serializers.HiddenField(
         default=serializers.CurrentUserDefault()
