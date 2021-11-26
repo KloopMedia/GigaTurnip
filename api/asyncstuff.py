@@ -8,8 +8,6 @@ from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 def process_completed_task(task):
     next_direct_task = task.get_direct_next()
-    print("NEXT DIRECT TASK")
-    print(next_direct_task)
     if next_direct_task is not None:
         next_direct_task.complete = False
         next_direct_task.reopened = True

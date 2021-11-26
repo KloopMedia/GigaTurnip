@@ -345,11 +345,23 @@ class TaskViewSet(viewsets.ModelViewSet):
             # serializer.save()
             data = serializer.validated_data
             data['id'] = instance.id
+            next_direct_task = None
             if complete:
-                task = instance.set_complete(
-                    responses=serializer.validated_data.get("responses")
-                )
-                next_direct_task = process_completed_task(task)
+                try:
+                    task = instance.set_complete(
+                        responses=serializer.validated_data.get("responses")
+                    )
+                    next_direct_task = process_completed_task(task)
+                except Task.CompletionInProgress:
+                    return Response(
+                        {"message": "Task is being completed!",
+                         "id": instance.id},
+                        status=status.HTTP_403_FORBIDDEN)
+                except Task.AlreadyCompleted:
+                    return Response(
+                        {"message": "Task is already complete!",
+                         "id": instance.id},
+                        status=status.HTTP_403_FORBIDDEN)
             else:
                 serializer.save()
             if getattr(instance, '_prefetched_objects_cache', None):

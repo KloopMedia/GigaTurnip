@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
-from django.db import models, transaction
+from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
@@ -549,14 +549,42 @@ class Task(BaseDatesModel, CampaignInterface):
         help_text="Indicates that task was returned to user, "
                   "usually because of pingpong stages.")
 
+    class Meta:
+        UniqueConstraint(
+            fields=['integrator_group', 'stage'],
+            name='unique_integrator_group')
+
+    class ImpossibleToUncomplete(Exception):
+        pass
+
+    class ImpossibleToOpenPrevious(Exception):
+        pass
+
+    class AlreadyCompleted(Exception):
+        pass
+
+    class CompletionInProgress(Exception):
+        pass
+
     def set_complete(self, responses=None, force=False):
+        if self.complete:
+            raise Task.AlreadyCompleted
+
         with transaction.atomic():
-            task = Task.objects.select_for_update().filter(id=self.id)[0]
-            task.complete = True
+            try:
+                task = Task.objects.select_for_update(nowait=True).get(pk=self.id)
+            except OperationalError:
+                raise Task.CompletionInProgress
+            # task = Task.objects.select_for_update().filter(id=self.id)[0]
+            # task.complete = True
+            if task.complete:
+                raise Task.AlreadyCompleted
+
             if responses:
                 task.responses = responses
             if force:
                 task.force_complete = True
+            task.complete = True
             task.save()
             return task
 
@@ -597,17 +625,6 @@ class Task(BaseDatesModel, CampaignInterface):
                     prev_task.save()
                     return prev_task, self
         raise Task.ImpossibleToOpenPrevious
-
-    class Meta:
-        UniqueConstraint(
-            fields=['integrator_group', 'stage'],
-            name='unique_integrator_group')
-
-    class ImpossibleToUncomplete(Exception):
-        pass
-
-    class ImpossibleToOpenPrevious(Exception):
-        pass
 
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
