@@ -491,7 +491,9 @@ class GigaTurnipTest(APITestCase):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 assign_user_by="ST", 
-                assign_user_from_stage=self.initial_stage))
+                assign_user_from_stage=self.initial_stage,
+                allow_go_back=True
+            ))
         initial_task = self.create_initial_task()
         self.complete_task(initial_task)
         second_task = Task.objects.get(

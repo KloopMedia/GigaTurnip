@@ -266,6 +266,11 @@ class TaskStage(Stage, SchemaProvider):
         help_text="Stage id. User from assign_user_from_stage "
                   "will be assigned to a task")
 
+    allow_go_back = models.BooleanField(
+        default=False,
+        help_text="Indicates that previous task can be opened."
+    )
+
     webhook_address = models.URLField(
         null=True,
         blank=True,
@@ -478,9 +483,6 @@ class CopyField(BaseDatesModel):
         return task
             
 
-
-
-
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
                                   help_text="JSON logic conditions")
@@ -614,7 +616,7 @@ class Task(BaseDatesModel, CampaignInterface):
         return None
 
     def open_previous(self):
-        if not self.complete:
+        if not self.complete and self.stage.allow_go_back:
             prev_task = self.get_direct_previous()
             if prev_task:
                 if prev_task.assignee == self.assignee:
