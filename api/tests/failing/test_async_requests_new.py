@@ -5,7 +5,8 @@ from rest_framework.test import APITestCase, APIClient
 from rest_framework.reverse import reverse
 import threading
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField
+    Task, CopyField, Integration
+
 
 def test_concurrently(times):
     """
@@ -24,6 +25,11 @@ def test_concurrently(times):
                 except Exception as e:
                     exceptions.append(e)
                     raise
+                    # try:
+                    #     exceptions.append(e)
+                    #     raise
+                    # except:
+                    #     pass
             threads = []
             for i in range(times):
                 threads.append(threading.Thread(target=call_test_func))
@@ -173,30 +179,71 @@ class GigaTurnipTest(TransactionTestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
-    def test_task_completion_race_condition(self):
-        task = self.create_initial_task()
+    # def test_task_completion_race_condition(self):
+    #     task = self.create_initial_task()
+    #
+    #     new_task_stage = TaskStage.objects.create(name="Task stage cola second", x_pos=1, y_pos=1,
+    #                                               chain=self.chain)
+    #     new_task_stage.in_stages.add(self.initial_stage)
+    #
+    #     responses = {"answer": "check"}
+    #     # task = self.complete_task(task, responses=responses)
+    #     task_update_url = reverse("task-detail", kwargs={"pk": task.pk})
+    #     args = {"complete": True, "responses": responses}
+    #
+    #     # self.check_task_completion(task, self.initial_stage, responses)
+    #     @test_concurrently(20)
+    #     def toggle_registration():
+    #         response = self.client.patch(task_update_url, args, format='json')
+    #         print(response.data)
+    #
+    #     toggle_registration()
+    #     self.assertEqual(Task.objects.filter(stage=new_task_stage).count(),1)
+    #     self.assertTrue(Task.objects.get(id=task.id).complete)
+    #
+    # def test_task_integrator_race_condition(self):
+    #     second_stage = self.initial_stage.add_stage(TaskStage())
+    #     Integration.objects.create(
+    #         task_stage=second_stage,
+    #         group_by="oik")
+    #     initial_task = self.create_initial_task()
+    #     task_update_url = reverse("task-detail", kwargs={"pk": initial_task.pk})
+    #     responses = {"oik": 4, "data": "elkfj"}
+    #     args = {"complete": True, "responses": responses}
+    #
+    #     @test_concurrently(20)
+    #     def toggle_registration():
+    #         response = self.client.patch(task_update_url, args, format='json')
+    #         print(response.data)
+    #     toggle_registration()
+    #     self.assertEqual(Task.objects.filter(stage=second_stage).count(), 1)
+    #
+    #     oik_4_integrator = Task.objects.get(integrator_group={"oik": 4})
+    #     self.assertEqual(oik_4_integrator.in_tasks.all().count(), 1)
+    #     self.assertEqual(Task.objects.count(), 2)
+    #     self.assertIn(initial_task.id,
+    #                   oik_4_integrator.in_tasks.all().values_list("id", flat=True))
 
-        new_task_stage = TaskStage.objects.create(name="Task stage cola second", x_pos=1, y_pos=1,
-                                                  chain=self.chain)
-        new_task_stage.in_stages.add(self.initial_stage)
+    def test_create_task_throw_taskstage(self):
 
-        responses = {"answer": "check"}
-        # task = self.complete_task(task, responses=responses)
-        task_update_url = reverse("task-detail", kwargs={"pk": task.pk})
-        args = {"complete": True, "responses": responses}
+        # def create_task(self, stage, client=None):
+        #     c = client
+        #     task_create_url = reverse(
+        #         "taskstage-create-task",
+        #         kwargs={"pk": stage.pk})
+        #     if c is None:
+        #         c = self.client
+        #     response = c.get(task_create_url)
+        #     return Task.objects.get(id=response.data["id"])
 
-        # self.check_task_completion(task, self.initial_stage, responses)
+        task_create_url = reverse(
+            "taskstage-create-task",
+            kwargs={"pk": self.initial_stage.pk})
+
         @test_concurrently(20)
         def toggle_registration():
-            response = self.client.patch(task_update_url, args, format='json')
-            # response = self.client.get(reverse("campaign-list"))
-            if response.status_code == 200:
-                print(response)
-            # response = self.client.patch(task_update_url, args, format='json')
-        toggle_registration()
-        self.assertEqual(Task.objects.filter(stage=new_task_stage).count(),1)
 
-    def test_task_integrator_race_condition(self):
-        # task = self.create_initial_task()
-        # self.initial_stage =
-        pass
+            response = self.client.get(task_create_url)
+            print(response.data)
+        toggle_registration()
+        self.assertEqual(Task.objects.count(), 20)
