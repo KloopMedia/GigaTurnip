@@ -469,8 +469,10 @@ class CopyField(BaseDatesModel):
         original_task = Task.objects.filter(
             assignee=task.assignee,
             stage=self.copy_from_stage,
-            complete=True).latest("updated_at")
-        if not original_task:
+            complete=True)
+        if original_task:
+            original_task = original_task.latest("updated_at")
+        else:
             return task
         responses = task.responses
         if not isinstance(responses, dict):

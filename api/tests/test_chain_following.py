@@ -417,6 +417,43 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses["name"], task2.responses["name"])
         self.assertEqual(task.responses["phone1"], task2.responses["phone"])
 
+
+    def test_copy_field_with_no_source_task(self):
+        id_chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        id_stage = TaskStage.objects.create(
+            name="ID",
+            x_pos=1,
+            y_pos=1,
+            chain=id_chain,
+            is_creatable=True)
+        # self.client = self.prepare_client(
+        #     id_stage,
+        #     self.user,
+        #     RankLimit(is_creation_open=True))
+        # task1 = self.create_task(id_stage)
+        # task2 = self.create_task(id_stage)
+        # task3 = self.create_task(id_stage)
+        #
+        # correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        #
+        # task1 = self.complete_task(
+        #     task1,
+        #     {"name": "rinat", "phone": 2, "addr": "ssss"})
+        # task3 = self.complete_task(
+        #     task3,
+        #     {"name": "ri", "phone": 5, "addr": "oooo"})
+        # task2 = self.complete_task(task2, correct_responses)
+
+        CopyField.objects.create(
+            copy_by="US",
+            task_stage=self.initial_stage,
+            copy_from_stage=id_stage,
+            fields_to_copy="name->name phone->phone1 absent->absent")
+
+        task = self.create_initial_task()
+
+        self.check_task_manual_creation(task, self.initial_stage)
+
     def test_copy_field_fail_for_different_campaigns(self):
         campaign = Campaign.objects.create(name="Campaign")
         id_chain = Chain.objects.create(name="Chain", campaign=campaign)
