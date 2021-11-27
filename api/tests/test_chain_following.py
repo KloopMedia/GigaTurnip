@@ -638,6 +638,32 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task_3.responses["name"], task.responses["name"])
         self.assertEqual(task_3.responses["phone1"], task.responses["phone"])
 
+    def test_copy_field_by_case_copy_all(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        third_stage = second_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        CopyField.objects.create(
+            copy_by="CA",
+            task_stage=third_stage,
+            copy_from_stage=self.initial_stage,
+            copy_all=True)
+
+        task = self.create_initial_task()
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        task = self.complete_task(task, responses=correct_responses)
+        task_2 = task.out_tasks.all()[0]
+        self.complete_task(task_2)
+        task_3 = task_2.out_tasks.all()[0]
+        self.assertEqual(task_3.responses, task.responses)
+
+
     def test_copy_input(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
