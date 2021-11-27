@@ -1,6 +1,7 @@
 import json
 from uuid import uuid4
 
+from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
@@ -595,3 +596,15 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(initial_task5.id,
                       oik_5_integrator.in_tasks.all().values_list("id", flat=True))
 
+    def test_closed_submission(self):
+        task = self.create_initial_task()
+        responses = {"answer": "check"}
+        updated_task = self.update_task_responses(task, responses)
+        self.assertEqual(updated_task.responses, responses)
+        client = self.prepare_client(
+            task.stage,
+            self.user,
+            RankLimit(is_submission_open=False))
+        task_update_url = reverse("task-detail", kwargs={"pk": task.pk})
+        response = client.patch(task_update_url, {"complete": True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

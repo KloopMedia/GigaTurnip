@@ -174,8 +174,6 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task = Task(stage=stage, assignee=request.user, case=case)
         for copy_field in stage.copy_fields.all():
             task = copy_field.copy_response(task)
-            print("TASK")
-            print(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
@@ -341,7 +339,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance,
                                          data=request.data,
                                          partial=partial)
-        next_direct_task = None
         if serializer.is_valid():
             complete = serializer.validated_data.get("complete")
             # serializer.save()
@@ -349,19 +346,25 @@ class TaskViewSet(viewsets.ModelViewSet):
             data['id'] = instance.id
             next_direct_task = None
             if complete:
-                try:
-                    task = instance.set_complete(
-                        responses=serializer.validated_data.get("responses")
-                    )
-                    next_direct_task = process_completed_task(task)
-                except Task.CompletionInProgress:
+                if utils.can_complete(instance, request.user):
+                    try:
+                        task = instance.set_complete(
+                            responses=serializer.validated_data.get("responses")
+                        )
+                        next_direct_task = process_completed_task(task)
+                    except Task.CompletionInProgress:
+                        return Response(
+                            {"message": "Task is being completed!",
+                             "id": instance.id},
+                            status=status.HTTP_403_FORBIDDEN)
+                    except Task.AlreadyCompleted:
+                        return Response(
+                            {"message": "Task is already complete!",
+                             "id": instance.id},
+                            status=status.HTTP_403_FORBIDDEN)
+                else:
                     return Response(
-                        {"message": "Task is being completed!",
-                         "id": instance.id},
-                        status=status.HTTP_403_FORBIDDEN)
-                except Task.AlreadyCompleted:
-                    return Response(
-                        {"message": "Task is already complete!",
+                        {"message": "You may not submit this task!",
                          "id": instance.id},
                         status=status.HTTP_403_FORBIDDEN)
             else:
