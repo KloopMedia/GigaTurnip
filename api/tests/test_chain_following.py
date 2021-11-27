@@ -202,6 +202,15 @@ class GigaTurnipTest(APITestCase):
             case=initial_task.case)
         self.check_task_auto_creation(second_task, second_stage, initial_task)
 
+    def test_simple_update(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        initial_task = self.create_initial_task()
+        responses = {"check": "cheese"}
+        initial_task = self.update_task_responses(initial_task, responses)
+        initial_task = self.complete_task(initial_task)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertEqual(initial_task.responses, responses)
+
     def test_passing_conditional(self):
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [

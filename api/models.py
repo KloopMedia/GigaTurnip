@@ -594,7 +594,7 @@ class Task(BaseDatesModel, CampaignInterface):
     class CompletionInProgress(Exception):
         pass
 
-    def set_complete(self, responses=None, force=False):
+    def set_complete(self, responses=None, force=False, complete=True):
         if self.complete:
             raise Task.AlreadyCompleted
 
@@ -612,7 +612,8 @@ class Task(BaseDatesModel, CampaignInterface):
                 task.responses = responses
             if force:
                 task.force_complete = True
-            task.complete = True
+            if complete:
+                task.complete = True
             task.save()
             return task
 
