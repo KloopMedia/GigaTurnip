@@ -608,3 +608,46 @@ class GigaTurnipTest(APITestCase):
         task_update_url = reverse("task-detail", kwargs={"pk": task.pk})
         response = client.patch(task_update_url, {"complete": True}, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_copy_field_by_case(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        third_stage = second_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        CopyField.objects.create(
+            copy_by="CA",
+            task_stage=third_stage,
+            copy_from_stage=self.initial_stage,
+            fields_to_copy="name->name phone->phone1 absent->absent")
+
+        task = self.create_initial_task()
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        task = self.complete_task(task, responses=correct_responses)
+        task_2 = task.out_tasks.all()[0]
+        self.complete_task(task_2)
+        task_3 = task_2.out_tasks.all()[0]
+
+        self.assertEqual(Task.objects.count(), 3)
+        self.assertEqual(len(task_3.responses), 2)
+        self.assertEqual(task_3.responses["name"], task.responses["name"])
+        self.assertEqual(task_3.responses["phone1"], task.responses["phone"])
+
+    def test_copy_input(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage,
+                copy_input=True)
+        )
+        task = self.create_initial_task()
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        task = self.complete_task(task, responses=correct_responses)
+        task_2 = task.out_tasks.all()[0]
+
+        self.assertEqual(task_2.responses, task.responses)

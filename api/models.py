@@ -440,9 +440,10 @@ class Webhook(BaseDatesModel):
 
 class CopyField(BaseDatesModel):
     USER = 'US'
-    #CHAIN = 'CH'
+    CASE = 'CA'
     COPY_BY_CHOICES = [
-        (USER, 'User')
+        (USER, 'User'),
+        (CASE, 'Case')
     ]
     copy_by = models.CharField(
         max_length=2,
@@ -466,29 +467,43 @@ class CopyField(BaseDatesModel):
                   "Pairs are joined by arrow and separated"
                   "by whitespaces. \n"
                   "Example: phone->observer_phone uik->uik ")
+    copy_all = models.BooleanField(
+        default=False,
+        help_text="Copy all fields and ignore fields_to_copy."
+    )
 
     def copy_response(self, task):
-        if task.assignee is None or \
-                task.reopened or \
+        if task.reopened or \
                 self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
             return task
-        original_task = Task.objects.filter(
-            assignee=task.assignee,
-            stage=self.copy_from_stage,
-            complete=True)
+        if self.copy_by == self.USER:
+            if task.assignee is None:
+                return task
+            original_task = Task.objects.filter(
+                assignee=task.assignee,
+                stage=self.copy_from_stage,
+                complete=True)
+        else:
+            original_task = Task.objects.filter(
+                case=task.case,
+                stage=self.copy_from_stage,
+                complete=True)
         if original_task:
             original_task = original_task.latest("updated_at")
         else:
             return task
-        responses = task.responses
-        if not isinstance(responses, dict):
-            responses = {}
-        for pair in self.fields_to_copy.split():
-            pair = pair.split("->")
-            if len(pair) == 2:
-                response = original_task.responses.get(pair[0], None)
-                if response is not None:
-                    responses[pair[1]] = response
+        if self.copy_all:
+            responses = original_task.responses
+        else:
+            responses = task.responses
+            if not isinstance(responses, dict):
+                responses = {}
+            for pair in self.fields_to_copy.split():
+                pair = pair.split("->")
+                if len(pair) == 2:
+                    response = original_task.responses.get(pair[0], None)
+                    if response is not None:
+                        responses[pair[1]] = response
         if responses:
             task.responses = responses
         return task
