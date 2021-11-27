@@ -101,6 +101,15 @@ class TaskStageSerializer(serializers.ModelSerializer,
                                           "to this chain")
 
 
+class TaskStagePublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskStage
+        fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
+                  'library', 'rich_text', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
+                            'library', 'rich_text', 'created_at', 'updated_at']
+
+
 class CaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Case
@@ -133,6 +142,16 @@ class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
+
+
+class TaskPublicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer(read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ['id', 'responses', 'created_at', 'updated_at', 'stage']
+        read_only_fields = ['id', 'responses', 'created_at',
+                            'updated_at', 'stage']
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
@@ -290,4 +309,3 @@ class NotificationStatusSerializer(serializers.ModelSerializer,
     class Meta:
         model = NotificationStatus
         fields = '__all__'
-

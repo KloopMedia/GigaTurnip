@@ -236,6 +236,11 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "allow",
             "condition_expression": "is_assignee and is_not_complete and is_webhook"
         },
+        {
+            "action": ["public"],
+            "principal": "*",
+            "effect": "allow",
+        }
     ]
 
     @classmethod

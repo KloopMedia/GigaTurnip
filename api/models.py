@@ -276,6 +276,12 @@ class TaskStage(Stage, SchemaProvider):
         help_text="Indicates task can be released."
     )
 
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Indicates tasks of this stage "
+                  "may be accessed by unauthenticated users."
+    )
+
     webhook_address = models.URLField(
         null=True,
         blank=True,

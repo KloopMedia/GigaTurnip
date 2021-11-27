@@ -17,7 +17,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer
+    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -308,6 +308,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskRequestAssignmentSerializer
         elif self.action == 'user_selectable':
             return TaskSelectSerializer
+        elif self.action == 'public':
+            return TaskPublicSerializer
         else:
             return TaskDefaultSerializer
 
@@ -405,6 +407,13 @@ class TaskViewSet(viewsets.ModelViewSet):
     def user_selectable(self, request):
         tasks = self.filter_queryset(self.get_queryset())
         return utils.filter_for_user_selectable_tasks(tasks, request)
+
+    @paginate
+    @action(detail=False)
+    def public(self, request):
+        tasks = self.filter_queryset(self.get_queryset())
+        tasks = tasks.filter(stage__is_public=True).filter(complete=True)
+        return tasks
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
