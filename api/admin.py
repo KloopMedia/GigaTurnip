@@ -90,6 +90,24 @@ class DuplicateTasksCaseFilter(SimpleListFilter):
             return queryset.filter(id__in=qs)
 
 
+class DuplicateTasksFilter(SimpleListFilter):
+    title = "Duplicate Tasks Filter"
+    parameter_name = "Tasks"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("duplicate", "Duplicate"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "duplicate":
+            qs = Task.objects.values('stage__id', 'case__id') \
+                .annotate(Count('pk')).filter(pk__count__gte=2)
+            cases = qs.values_list('case_id', flat=True)
+            stages = qs.values_list('stage_id', flat=True)
+            return queryset.filter(case_id__in=cases).filter(stage_id__in=stages)
+
+
 class UserNoRankFilter(SimpleListFilter):
     title = "Users who do not have rank below"
     parameter_name = "Responses"
@@ -326,7 +344,8 @@ class TaskAdmin(admin.ModelAdmin):
                    'force_complete',
                    TaskResponsesStatusFilter,
                    'created_at',
-                   'updated_at')
+                   'updated_at',
+                   DuplicateTasksFilter)
     search_fields = ('id',
                      'case__id',
                      'stage__name',
