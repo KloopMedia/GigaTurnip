@@ -271,6 +271,11 @@ class TaskStage(Stage, SchemaProvider):
         help_text="Indicates that previous task can be opened."
     )
 
+    allow_release = models.BooleanField(
+        default=False,
+        help_text="Indicates task can be released."
+    )
+
     webhook_address = models.URLField(
         null=True,
         blank=True,

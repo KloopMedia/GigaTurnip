@@ -203,8 +203,8 @@ class TaskAccessPolicy(AccessPolicy):
         {
             "action": ["release_assignment"],
             "principal": "authenticated",
-            "effect": "deny",
-            #"condition_expression": "is_assignee and is_not_complete"
+            "effect": "allow",
+            "condition_expression": "is_assignee and is_not_complete"
         },
         {
             "action": ["request_assignment"],

@@ -427,14 +427,18 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post', 'get'])
     def release_assignment(self, request, pk=None):
         task = self.get_object()
-        task.assignee = None
-        task.save()
-        if task.integrator_group is not None:
-            in_tasks = Task.objects.filter(out_tasks=task) \
-                .filter(stage__assign_user_by="IN")
-            if in_tasks:
-                in_tasks.update(assignee=None)
-        return Response({'status': 'assignment released'})
+        if task.stage.allow_release and not task.complete:
+            task.assignee = None
+            task.save()
+            if task.integrator_group is not None:
+                in_tasks = Task.objects.filter(out_tasks=task) \
+                    .filter(stage__assign_user_by="IN")
+                if in_tasks:
+                    in_tasks.update(assignee=None)
+            return Response({'status': 'assignment released'})
+        return Response(
+                {'message': 'It is impossible to release this task.'},
+                status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):
