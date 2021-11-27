@@ -17,7 +17,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer
+    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -308,6 +308,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskRequestAssignmentSerializer
         elif self.action == 'user_selectable':
             return TaskSelectSerializer
+        elif self.action == 'public':
+            return TaskPublicSerializer
         else:
             return TaskDefaultSerializer
 
@@ -339,31 +341,33 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance,
                                          data=request.data,
                                          partial=partial)
-        next_direct_task = None
         if serializer.is_valid():
-            complete = serializer.validated_data.get("complete")
-            # serializer.save()
             data = serializer.validated_data
             data['id'] = instance.id
             next_direct_task = None
-            if complete:
-                try:
-                    task = instance.set_complete(
-                        responses=serializer.validated_data.get("responses")
-                    )
+            complete = serializer.validated_data.get("complete", False)
+            if complete and not utils.can_complete(instance, request.user):
+                return Response(
+                    {"message": "You may not submit this task!",
+                     "id": instance.id},
+                    status=status.HTTP_403_FORBIDDEN)
+            try:
+                task = instance.set_complete(
+                    responses=serializer.validated_data.get("responses", {}),
+                    complete=complete
+                )
+                if complete:
                     next_direct_task = process_completed_task(task)
-                except Task.CompletionInProgress:
-                    return Response(
-                        {"message": "Task is being completed!",
-                         "id": instance.id},
-                        status=status.HTTP_403_FORBIDDEN)
-                except Task.AlreadyCompleted:
-                    return Response(
-                        {"message": "Task is already complete!",
-                         "id": instance.id},
-                        status=status.HTTP_403_FORBIDDEN)
-            else:
-                serializer.save()
+            except Task.CompletionInProgress:
+                return Response(
+                    {"message": "Task is being completed!",
+                     "id": instance.id},
+                    status=status.HTTP_403_FORBIDDEN)
+            except Task.AlreadyCompleted:
+                return Response(
+                    {"message": "Task is already complete!",
+                     "id": instance.id},
+                    status=status.HTTP_403_FORBIDDEN)
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset,
                 # we need to forcibly invalidate the prefetch
@@ -401,6 +405,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = self.filter_queryset(self.get_queryset())
         return utils.filter_for_user_selectable_tasks(tasks, request)
 
+    @paginate
+    @action(detail=False)
+    def public(self, request):
+        tasks = self.filter_queryset(self.get_queryset())
+        tasks = tasks.filter(stage__is_public=True).filter(complete=True)
+        return tasks
+
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
         tasks = self.filter_queryset(self.get_queryset())
@@ -427,14 +438,18 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post', 'get'])
     def release_assignment(self, request, pk=None):
         task = self.get_object()
-        task.assignee = None
-        task.save()
-        if task.integrator_group is not None:
-            in_tasks = Task.objects.filter(out_tasks=task) \
-                .filter(stage__assign_user_by="IN")
-            if in_tasks:
-                in_tasks.update(assignee=None)
-        return Response({'status': 'assignment released'})
+        if task.stage.allow_release and not task.complete:
+            task.assignee = None
+            task.save()
+            if task.integrator_group is not None:
+                in_tasks = Task.objects.filter(out_tasks=task) \
+                    .filter(stage__assign_user_by="IN")
+                if in_tasks:
+                    in_tasks.update(assignee=None)
+            return Response({'status': 'assignment released'})
+        return Response(
+                {'message': 'It is impossible to release this task.'},
+                status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):

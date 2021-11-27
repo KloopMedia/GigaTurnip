@@ -76,7 +76,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
-                  'webhook_response_field', 'allow_go_back']
+                  'webhook_response_field', 'allow_go_back', 'allow_release']
 
 
 class TaskStageSerializer(serializers.ModelSerializer,
@@ -88,7 +88,7 @@ class TaskStageSerializer(serializers.ModelSerializer,
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
-                  'webhook_response_field', 'allow_go_back']
+                  'webhook_response_field', 'allow_go_back', 'allow_release']
 
     def validate_chain(self, value):
         """
@@ -99,6 +99,15 @@ class TaskStageSerializer(serializers.ModelSerializer,
             return value
         raise serializers.ValidationError("User may not add stage "
                                           "to this chain")
+
+
+class TaskStagePublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskStage
+        fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
+                  'library', 'rich_text', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
+                            'library', 'rich_text', 'created_at', 'updated_at']
 
 
 class CaseSerializer(serializers.ModelSerializer):
@@ -133,6 +142,16 @@ class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
+
+
+class TaskPublicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer(read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ['id', 'responses', 'created_at', 'updated_at', 'stage']
+        read_only_fields = ['id', 'responses', 'created_at',
+                            'updated_at', 'stage']
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
@@ -290,4 +309,3 @@ class NotificationStatusSerializer(serializers.ModelSerializer,
     class Meta:
         model = NotificationStatus
         fields = '__all__'
-

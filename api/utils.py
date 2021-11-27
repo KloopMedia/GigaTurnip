@@ -172,3 +172,13 @@ def str_to_responses_dict(params):
     result["stage"] = data["stage"]
     result["responses"] = flatten(data["responses"], "responses", "__")
     return result
+
+
+def can_complete(task, user):
+    rank_limits = RankLimit.objects \
+        .filter(stage=task.stage)\
+        .filter(rank__users=user)\
+        .filter(is_submission_open=False)
+    if rank_limits:
+        return False
+    return True

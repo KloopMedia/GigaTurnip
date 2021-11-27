@@ -1,6 +1,7 @@
 import json
 from uuid import uuid4
 
+from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
@@ -200,6 +201,15 @@ class GigaTurnipTest(APITestCase):
             stage=second_stage,
             case=initial_task.case)
         self.check_task_auto_creation(second_task, second_stage, initial_task)
+
+    def test_simple_update(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        initial_task = self.create_initial_task()
+        responses = {"check": "cheese"}
+        initial_task = self.update_task_responses(initial_task, responses)
+        initial_task = self.complete_task(initial_task)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertEqual(initial_task.responses, responses)
 
     def test_passing_conditional(self):
         conditional_stage = ConditionalStage()
@@ -417,6 +427,43 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses["name"], task2.responses["name"])
         self.assertEqual(task.responses["phone1"], task2.responses["phone"])
 
+
+    def test_copy_field_with_no_source_task(self):
+        id_chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        id_stage = TaskStage.objects.create(
+            name="ID",
+            x_pos=1,
+            y_pos=1,
+            chain=id_chain,
+            is_creatable=True)
+        # self.client = self.prepare_client(
+        #     id_stage,
+        #     self.user,
+        #     RankLimit(is_creation_open=True))
+        # task1 = self.create_task(id_stage)
+        # task2 = self.create_task(id_stage)
+        # task3 = self.create_task(id_stage)
+        #
+        # correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        #
+        # task1 = self.complete_task(
+        #     task1,
+        #     {"name": "rinat", "phone": 2, "addr": "ssss"})
+        # task3 = self.complete_task(
+        #     task3,
+        #     {"name": "ri", "phone": 5, "addr": "oooo"})
+        # task2 = self.complete_task(task2, correct_responses)
+
+        CopyField.objects.create(
+            copy_by="US",
+            task_stage=self.initial_stage,
+            copy_from_stage=id_stage,
+            fields_to_copy="name->name phone->phone1 absent->absent")
+
+        task = self.create_initial_task()
+
+        self.check_task_manual_creation(task, self.initial_stage)
+
     def test_copy_field_fail_for_different_campaigns(self):
         campaign = Campaign.objects.create(name="Campaign")
         id_chain = Chain.objects.create(name="Chain", campaign=campaign)
@@ -558,3 +605,84 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(initial_task5.id,
                       oik_5_integrator.in_tasks.all().values_list("id", flat=True))
 
+    def test_closed_submission(self):
+        task = self.create_initial_task()
+        responses = {"answer": "check"}
+        updated_task = self.update_task_responses(task, responses)
+        self.assertEqual(updated_task.responses, responses)
+        client = self.prepare_client(
+            task.stage,
+            self.user,
+            RankLimit(is_submission_open=False))
+        task_update_url = reverse("task-detail", kwargs={"pk": task.pk})
+        response = client.patch(task_update_url, {"complete": True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_copy_field_by_case(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        third_stage = second_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        CopyField.objects.create(
+            copy_by="CA",
+            task_stage=third_stage,
+            copy_from_stage=self.initial_stage,
+            fields_to_copy="name->name phone->phone1 absent->absent")
+
+        task = self.create_initial_task()
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        task = self.complete_task(task, responses=correct_responses)
+        task_2 = task.out_tasks.all()[0]
+        self.complete_task(task_2)
+        task_3 = task_2.out_tasks.all()[0]
+
+        self.assertEqual(Task.objects.count(), 3)
+        self.assertEqual(len(task_3.responses), 2)
+        self.assertEqual(task_3.responses["name"], task.responses["name"])
+        self.assertEqual(task_3.responses["phone1"], task.responses["phone"])
+
+    def test_copy_field_by_case_copy_all(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        third_stage = second_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage)
+        )
+        CopyField.objects.create(
+            copy_by="CA",
+            task_stage=third_stage,
+            copy_from_stage=self.initial_stage,
+            copy_all=True)
+
+        task = self.create_initial_task()
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        task = self.complete_task(task, responses=correct_responses)
+        task_2 = task.out_tasks.all()[0]
+        self.complete_task(task_2)
+        task_3 = task_2.out_tasks.all()[0]
+        self.assertEqual(task_3.responses, task.responses)
+
+
+    def test_copy_input(self):
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage,
+                copy_input=True)
+        )
+        task = self.create_initial_task()
+        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        task = self.complete_task(task, responses=correct_responses)
+        task_2 = task.out_tasks.all()[0]
+
+        self.assertEqual(task_2.responses, task.responses)
