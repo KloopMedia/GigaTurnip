@@ -658,10 +658,13 @@ class Task(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
-    def get_displayed_prev_tasks(self):
-        return Task.objects.filter(case=self.case) \
+    def get_displayed_prev_tasks(self, public=False):
+        tasks = Task.objects.filter(case=self.case) \
             .filter(stage__in=self.stage.displayed_prev_stages.all()) \
             .exclude(id=self.id)
+        if public:
+            tasks = tasks.filter(stage__is_public=True)
+        return tasks
 
     def _are_directly_connected(self, task1, task2):
         in_tasks = task2.in_tasks.all()
