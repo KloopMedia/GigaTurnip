@@ -158,6 +158,11 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "effect": "allow",
             "condition": "is_stage_user_creatable"
         },
+        {
+            "action": ["public"],
+            "principal": "*",
+            "effect": "allow",
+        }
     ]
 
     @classmethod

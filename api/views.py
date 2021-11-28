@@ -21,7 +21,8 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer
+    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
+    TaskStagePublicSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -153,6 +154,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
                 self.action == 'update' or \
                 self.action == 'partial_update':
             return TaskStageSerializer
+        elif self.action == 'public':
+            return TaskStagePublicSerializer
         else:
             return TaskStageReadSerializer
 
@@ -168,6 +171,13 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     def user_relevant(self, request):
         stages = self.filter_queryset(self.get_queryset())
         stages = utils.filter_for_user_creatable_stages(stages, request)
+        serializer = self.get_serializer(stages, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False)
+    def public(self, request):
+        stages = self.filter_queryset(self.get_queryset())
+        stages = stages.filter(is_public=True)
         serializer = self.get_serializer(stages, many=True)
         return Response(serializer.data)
 
@@ -776,55 +786,55 @@ class NotificationStatusViewSet(viewsets.ModelViewSet):
         )
 
 
-class PublicCSVViewSet(viewsets.ViewSet):
-    """
-    A view that returns the count of active users, in JSON or YAML.
-    """
-
-    permission_classes = (PublicCSVAccessPolicy, )
-
-    # renderer_classes = (JSONRenderer, YAMLRenderer)
-
-    def list(self, request, format=None):
-        tasks = Task.objects.filter(stage__is_public=True)
-        response = HttpResponse(
-            content_type='text/csv',
-            headers={'Content-Disposition': 'attachment; filename="results.csv"'},
-        )
-        fieldnames = ["uik",
-                      "text",
-                      "time",
-                      "files",
-                      "violation_type",
-                      "violation_subtype",
-                      "complaint",
-                      "location"]
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for task in tasks:
-            uik = task.responses.get("uik", "")
-            text = task.responses.get("text", "")
-            time = task.responses.get("time", "")
-            location = task.responses.get("uiks_location", "")
-            files = " ".join(task.responses.get("youtube", []))
-            violations = task.responses.get("violations", {})
-            violation_type = ""
-            violation_subtype = ""
-            complaint = ""
-            for key in violations:
-                if "type_violation" in key:
-                    violation_type = violations[key]
-                elif "subtype_violation" in key:
-                    violation_subtype = violations[key]
-                elif "complaint" in key:
-                    complaint = violations[key]
-            writer.writerow({"uik": uik,
-                             "text": text,
-                             "time": time,
-                             "files": files,
-                             "violation_type": violation_type,
-                             "violation_subtype": violation_subtype,
-                             "complaint": complaint,
-                             "location": location})
-        return response
+# class PublicCSVViewSet(viewsets.ViewSet):
+#     """
+#     A view that returns the count of active users, in JSON or YAML.
+#     """
+#
+#     permission_classes = (PublicCSVAccessPolicy, )
+#
+#     # renderer_classes = (JSONRenderer, YAMLRenderer)
+#
+#     def list(self, request, format=None):
+#         tasks = Task.objects.filter(stage__is_public=True)
+#         response = HttpResponse(
+#             content_type='text/csv',
+#             headers={'Content-Disposition': 'attachment; filename="results.csv"'},
+#         )
+#         fieldnames = ["uik",
+#                       "text",
+#                       "time",
+#                       "files",
+#                       "violation_type",
+#                       "violation_subtype",
+#                       "complaint",
+#                       "location"]
+#         writer = csv.DictWriter(response, fieldnames=fieldnames)
+#         writer.writeheader()
+#
+#         for task in tasks:
+#             uik = task.responses.get("uik", "")
+#             text = task.responses.get("text", "")
+#             time = task.responses.get("time", "")
+#             location = task.responses.get("uiks_location", "")
+#             files = " ".join(task.responses.get("youtube", []))
+#             violations = task.responses.get("violations", {})
+#             violation_type = ""
+#             violation_subtype = ""
+#             complaint = ""
+#             for key in violations:
+#                 if "type_violation" in key:
+#                     violation_type = violations[key]
+#                 elif "subtype_violation" in key:
+#                     violation_subtype = violations[key]
+#                 elif "complaint" in key:
+#                     complaint = violations[key]
+#             writer.writerow({"uik": uik,
+#                              "text": text,
+#                              "time": time,
+#                              "files": files,
+#                              "violation_type": violation_type,
+#                              "violation_subtype": violation_subtype,
+#                              "complaint": complaint,
+#                              "location": location})
+#         return response
