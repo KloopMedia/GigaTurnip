@@ -144,6 +144,16 @@ class TaskAutoCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class TaskPublicBasicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer(read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ['id', 'responses', 'created_at', 'updated_at', 'stage']
+        read_only_fields = ['id', 'responses', 'created_at',
+                            'updated_at', 'stage']
+
+
 class TaskPublicSerializer(serializers.ModelSerializer):
     stage = TaskStagePublicSerializer(read_only=True)
     displayed_prev_tasks = serializers.SerializerMethodField()
@@ -156,8 +166,9 @@ class TaskPublicSerializer(serializers.ModelSerializer):
 
     def get_displayed_prev_tasks(self, obj):
         tasks = obj.get_displayed_prev_tasks(public=True)
-        serializer = TaskPublicSerializer(tasks, many=True)
+        serializer = TaskPublicBasicSerializer(tasks, many=True)
         return serializer.data
+
 
 class TaskCreateSerializer(serializers.ModelSerializer):
     assignee = serializers.HiddenField(
