@@ -1,6 +1,7 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from django.utils.translation import gettext_lazy as _
 
@@ -288,7 +289,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'assignee',
                         'complete']
     search_fields = ['responses']
-    filter_backends = [DjangoFilterBackend, ResponsesFilter]
+    filter_backends = [DjangoFilterBackend, ResponsesFilter, SearchFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
