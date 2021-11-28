@@ -256,6 +256,55 @@ class ResponsesFilter(filters.SearchFilter):
         return response
 
 
+# class ResponsesContainFilter(filters.SearchFilter):
+#
+#     search_param = "responses_contain"
+#     search_title = _('Task Responses Filter')
+#
+#     def to_html(self, request, queryset, view):
+#         return ""
+#
+#     def get_search_terms(self, request):
+#         """
+#         Search term is set by a ?search=... query parameter.
+#         """
+#         params = request.query_params.get(self.search_param, '')
+#         if not params:
+#             return None
+#         params = params.split(': ')
+#         if len(params) != 2:
+#             return None
+#         return params
+#
+#     def filter_queryset(self, request, queryset, view):
+#
+#         search_fields = self.get_search_fields(view, request)
+#         search_term = self.get_search_terms(request)
+#
+#         if not search_fields or not search_term:
+#             return queryset
+#
+#         tasks = Task.objects.filter(stage__id=search_term[0])
+#         tasks = tasks.filter(responses__icontains=search_term[1])
+#         cases = Case.objects.filter(tasks__in=tasks).distinct()
+#         response = queryset.filter(case__in=cases)
+#         return response
+
+
+class ResponsesContainFilter(filters.SearchFilter):
+    def filter_queryset(self, request, queryset, view):
+        search_fields = self.get_search_fields(view, request)
+        search_term = self.get_search_terms(request)
+
+        if not search_fields or not search_term:
+            return queryset
+
+        queryset = super().filter_queryset(request, queryset, view)
+        cases = Case.objects.filter(tasks__in=queryset).distinct()
+        response = Task.objects.filter(case__in=cases)
+        return response
+
+
 class TaskViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -289,7 +338,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'assignee',
                         'complete']
     search_fields = ['responses']
-    filter_backends = [DjangoFilterBackend, ResponsesFilter, SearchFilter]
+    filter_backends = [DjangoFilterBackend, ResponsesFilter, ResponsesContainFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
