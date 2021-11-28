@@ -1,3 +1,6 @@
+import csv
+
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -23,10 +26,10 @@ from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, NotificationStatusesAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
+    NotificationStatusesAccessPolicy
 from . import utils
 from .utils import paginate
-
 
 from datetime import datetime
 
@@ -78,7 +81,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def list_user_selectable(self, request):
-        campaigns = utils\
+        campaigns = utils \
             .filter_for_user_selectable_campaigns(self.get_queryset(), request)
         serializer = self.get_serializer(campaigns, many=True)
         return Response(serializer.data)
@@ -224,7 +227,6 @@ class CaseViewSet(viewsets.ModelViewSet):
 
 
 class ResponsesFilter(filters.SearchFilter):
-
     search_param = "task_responses"
     search_title = _('Task Responses Filter')
 
@@ -444,7 +446,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        tasks = queryset.filter(assignee=request.user)\
+        tasks = queryset.filter(assignee=request.user) \
             .exclude(stage__assign_user_by="IN")
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
@@ -476,7 +478,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             serializer.save()
             if task.integrator_group is not None:
-                in_tasks = Task.objects.filter(out_tasks=task)\
+                in_tasks = Task.objects.filter(out_tasks=task) \
                     .filter(stage__assign_user_by="IN")
                 if in_tasks:
                     in_tasks.update(assignee=request.user)
@@ -498,8 +500,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                     in_tasks.update(assignee=None)
             return Response({'status': 'assignment released'})
         return Response(
-                {'message': 'It is impossible to release this task.'},
-                status=status.HTTP_403_FORBIDDEN)
+            {'message': 'It is impossible to release this task.'},
+            status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):
@@ -554,8 +556,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                                  "responses": altered_task.responses})
             else:
                 return Response({"error_message": error_description,
-                             "status": response.status_code},
-                            status=status.HTTP_400_BAD_REQUEST)
+                                 "status": response.status_code},
+                                status=status.HTTP_400_BAD_REQUEST)
         # django_response = HttpResponse(
         #     content=response.content,
         #     status=response.status_code,
@@ -734,7 +736,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
                                                             request)
         return notifications
 
-
     @action(detail=True)
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request)
@@ -774,3 +775,54 @@ class NotificationStatusViewSet(viewsets.ModelViewSet):
             self.request, NotificationStatus.objects.all()
         )
 
+
+class PublicCSVViewSet(viewsets.ViewSet):
+    """
+    A view that returns the count of active users, in JSON or YAML.
+    """
+
+    # renderer_classes = (JSONRenderer, YAMLRenderer)
+
+    def list(self, request, format=None):
+        tasks = Task.objects.filter(stage__is_public=True)
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={'Content-Disposition': 'attachment; filename="results.csv"'},
+        )
+        fieldnames = ["uik",
+                      "text",
+                      "time",
+                      "files",
+                      "violation_type",
+                      "violation_subtype",
+                      "complaint",
+                      "location"]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for task in tasks:
+            uik = task.responses.get("uik", "")
+            text = task.responses.get("text", "")
+            time = task.responses.get("time", "")
+            location = task.responses.get("uiks_location", "")
+            files = " ".join(task.responses.get("youtube", []))
+            violations = task.responses.get("violations", {})
+            violation_type = ""
+            violation_subtype = ""
+            complaint = ""
+            for key in violations:
+                if "type_violation" in key:
+                    violation_type = violations[key]
+                elif "subtype_violation" in key:
+                    violation_subtype = violations[key]
+                elif "complaint" in key:
+                    complaint = violations[key]
+            writer.writerow({"uik": uik,
+                             "text": text,
+                             "time": time,
+                             "files": files,
+                             "violation_type": violation_type,
+                             "violation_subtype": violation_subtype,
+                             "complaint": complaint,
+                             "location": location})
+        return response
