@@ -336,3 +336,11 @@ class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
     def scope_queryset(cls, request, queryset):
         return queryset.filter(notification__rank__rankrecord__user=
                                request.user)
+
+
+class PublicCSVAccessPolicy(AccessPolicy):
+    statements = [{
+        "action": ["list"],
+        "principal": "*",
+        "effect": "allow",
+    }]

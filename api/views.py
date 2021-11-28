@@ -27,7 +27,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy
 from . import utils
 from .utils import paginate
 
@@ -780,6 +780,8 @@ class PublicCSVViewSet(viewsets.ViewSet):
     """
     A view that returns the count of active users, in JSON or YAML.
     """
+
+    permission_classes = (PublicCSVAccessPolicy, )
 
     # renderer_classes = (JSONRenderer, YAMLRenderer)
 
