@@ -340,6 +340,7 @@ class TaskAdmin(admin.ModelAdmin):
                    'stage__chain__campaign',
                    'stage__chain',
                    'stage',
+                   'stage__is_public',
                    'complete',
                    'force_complete',
                    TaskResponsesStatusFilter,
