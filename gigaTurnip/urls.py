@@ -63,9 +63,9 @@ router.register(api_v1 + r'notifications',
                 turnip_app.NotificationViewSet,
                 basename='notification')
 
-# router.register(api_v1 + r'csv',
-#                 turnip_app.PublicCSVViewSet,
-#                 basename='csv')
+router.register(api_v1 + r'csv',
+                turnip_app.PublicCSVViewSet,
+                basename='csv')
 # router.register(api_v1 + r'notificationstatuses',
 #                 turnip_app.NotificationStatusViewSet,
 #                 basename='notificationstatus')
