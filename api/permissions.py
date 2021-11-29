@@ -188,6 +188,11 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "allow"
         },
         {
+            "action": ["user_activity_csv"],
+            "principal": "authenticated",
+            "effect": "allow"
+        },
+        {
             "action": ["retrieve", "get_integrated_tasks"],
             "principal": "authenticated",
             "effect": "allow",

@@ -1,5 +1,6 @@
 import csv
 
+from django.db.models import Count
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
@@ -344,17 +345,33 @@ class TaskViewSet(viewsets.ModelViewSet):
     Release user from requested task
     """
 
-    filterset_fields = ['case',
-                        'stage',
-                        'stage__chain__campaign',
-                        'assignee',
-                        'complete']
+    # filterset_fields = ['case',
+    #                     'stage',
+    #                     'stage__chain__campaign',
+    #                     'stage__chain',
+    #                     'assignee',
+    #                     'complete',
+    #                     'created_at',
+    #                     'created_at',
+    #                     'updated_at',
+    #                     'updated_at']
+    filterset_fields = {
+        'case': ['exact'],
+        'stage': ['exact'],
+        'stage__chain__campaign': ['exact'],
+        'stage__chain': ['exact'],
+        'assignee': ['exact'],
+        'assignee__ranks': ['exact'],
+        'complete': ['exact'],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+        'updated_at': ['lte', 'gte', 'lt', 'gt']
+    }
     search_fields = ['responses']
     filter_backends = [DjangoFilterBackend, ResponsesFilter, ResponsesContainFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
-        if self.action == 'list':
+        if self.action == 'list' or self.action == 'user_activity_csv':
             return TaskAccessPolicy.scope_queryset(
                 self.request, Task.objects.all()
             )
@@ -473,6 +490,30 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = self.filter_queryset(self.get_queryset())
         tasks = tasks.filter(stage__is_public=True)
         return tasks
+
+
+    @action(detail=False)
+    def user_activity_csv(self, request):
+        tasks = self.filter_queryset(self.get_queryset())
+        groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+        if request.query_params.get("csv", None):
+            filename = "results" #utils.request_to_name(request)
+            response = HttpResponse(
+                content_type='text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}.csv"'
+                },
+            )
+            fieldnames = ["assignee",
+                          "stage__name",
+                          "pk__count"]
+            writer = csv.DictWriter(response, fieldnames=fieldnames)
+            writer.writeheader()
+            for group in groups:
+                writer.writerow(group)
+            return response
+        return Response(groups)
+
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
