@@ -158,6 +158,11 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "effect": "allow",
             "condition": "is_stage_user_creatable"
         },
+        {
+            "action": ["public"],
+            "principal": "*",
+            "effect": "allow",
+        }
     ]
 
     @classmethod
@@ -179,6 +184,11 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        },
+        {
+            "action": ["user_activity_csv"],
             "principal": "authenticated",
             "effect": "allow"
         },
@@ -336,3 +346,11 @@ class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
     def scope_queryset(cls, request, queryset):
         return queryset.filter(notification__rank__rankrecord__user=
                                request.user)
+
+
+class PublicCSVAccessPolicy(AccessPolicy):
+    statements = [{
+        "action": ["list"],
+        "principal": "*",
+        "effect": "allow",
+    }]
