@@ -8,7 +8,7 @@ from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -477,6 +477,7 @@ admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
 admin.site.register(Webhook, IntegrationAdmin)
+admin.site.register(StagePublisher, IntegrationAdmin)
 admin.site.register(CopyField, CopyFieldAdmin)
 admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)

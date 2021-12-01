@@ -1,5 +1,6 @@
 from abc import ABCMeta
 
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
@@ -146,6 +147,7 @@ class TaskAutoCreateSerializer(serializers.ModelSerializer):
 
 class TaskPublicBasicSerializer(serializers.ModelSerializer):
     stage = TaskStagePublicSerializer(read_only=True)
+    responses = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -153,10 +155,17 @@ class TaskPublicBasicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'responses', 'created_at',
                             'updated_at', 'stage']
 
+    def get_responses(self, task):
+        try:
+            return task.stage.publisher.prepare_responses(task)
+        except ObjectDoesNotExist:
+            return task.responses
+
 
 class TaskPublicSerializer(serializers.ModelSerializer):
     stage = TaskStagePublicSerializer(read_only=True)
     displayed_prev_tasks = serializers.SerializerMethodField()
+    responses = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -168,6 +177,12 @@ class TaskPublicSerializer(serializers.ModelSerializer):
         tasks = obj.get_displayed_prev_tasks(public=True)
         serializer = TaskPublicBasicSerializer(tasks, many=True)
         return serializer.data
+
+    def get_responses(self, task):
+        try:
+            return task.stage.publisher.prepare_responses(task)
+        except ObjectDoesNotExist:
+            return task.responses
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):

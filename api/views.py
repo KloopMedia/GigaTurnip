@@ -1,6 +1,6 @@
 import csv
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
@@ -178,7 +178,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def public(self, request):
         stages = self.filter_queryset(self.get_queryset())
-        stages = stages.filter(is_public=True)
+        stages = stages.filter(
+            Q(is_public=True) | Q(publisher__is_public=True))
         serializer = self.get_serializer(stages, many=True)
         return Response(serializer.data)
 
@@ -488,9 +489,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def public(self, request):
         tasks = self.filter_queryset(self.get_queryset())
-        tasks = tasks.filter(stage__is_public=True)
+        tasks = tasks.filter(
+            Q(stage__is_public=True) | Q(stage__publisher__is_public=True))
         return tasks
-
 
     @action(detail=False)
     def user_activity_csv(self, request):
