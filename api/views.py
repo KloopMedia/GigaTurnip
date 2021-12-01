@@ -490,7 +490,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     def public(self, request):
         tasks = self.filter_queryset(self.get_queryset())
         tasks = tasks.filter(
-            Q(stage__is_public=True) | Q(stage__publisher__is_public=True))
+            Q(stage__is_public=True) |
+            (Q(stage__publisher__is_public=True) & Q(complete=True)))
         return tasks
 
     @action(detail=False)
