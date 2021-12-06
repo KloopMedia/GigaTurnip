@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus
+    Notification, NotificationStatus, ResponseFlattener
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -516,6 +516,28 @@ class TaskViewSet(viewsets.ModelViewSet):
             return response
         return Response(groups)
 
+    @action(detail=False, methods=['post', 'get'])# pk is stage id
+    def csv(self, request):
+        stage = request.query_params.get('stage')
+        items = []
+        if stage and stage.isdigit():
+            tasks = self.filter_queryset(self.get_queryset())
+            if tasks:
+                filename = "results"  # utils.request_to_name(request)
+                response = HttpResponse(
+                    content_type='text/csv',
+                    headers={
+                        'Content-Disposition': f'attachment; filename="{filename}.csv"'
+                    },
+                )
+                writer = csv.DictWriter(response, fieldnames=list(ResponseFlattener.objects.all()[0].columns))
+                writer.writeheader()
+                for task in tasks:
+                    row = ResponseFlattener.objects.all()[0].flatten_response(task)
+                    items.append(row)
+                    writer.writerow(row)
+                return response
+        return Response(items)
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
