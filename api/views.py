@@ -519,8 +519,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post', 'get'])# pk is stage id
     def csv(self, request):
         stage = request.query_params.get('stage')
+        response_flattener = request.query_params.get('response_flattener')
         items = []
-        if stage and stage.isdigit():
+        if stage and stage.isdigit() and response_flattener and response_flattener.isdigit():
             tasks = self.filter_queryset(self.get_queryset())
             if tasks:
                 filename = "results"  # utils.request_to_name(request)
@@ -533,7 +534,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 writer = csv.DictWriter(response, fieldnames=list(ResponseFlattener.objects.all()[0].columns))
                 writer.writeheader()
                 for task in tasks:
-                    row = ResponseFlattener.objects.all()[0].flatten_response(task)
+                    row = ResponseFlattener.objects.get(id=response_flattener).flatten_response(task)
                     items.append(row)
                     writer.writerow(row)
                 return response
