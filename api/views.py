@@ -499,7 +499,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = self.filter_queryset(self.get_queryset())
         groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
         if request.query_params.get("csv", None):
-            filename = "results" #utils.request_to_name(request)
+            filename = "results"  # utils.request_to_name(request)
             response = HttpResponse(
                 content_type='text/csv',
                 headers={
@@ -516,12 +516,12 @@ class TaskViewSet(viewsets.ModelViewSet):
             return response
         return Response(groups)
 
-    @action(detail=False, methods=['post', 'get'])# pk is stage id
+    @action(detail=False, methods=['post', 'get'])  # pk is stage id
     def csv(self, request):
         stage = request.query_params.get('stage')
-        response_flattener = request.query_params.get('response_flattener')
+        response_flattener_id = request.query_params.get('response_flattener')
         items = []
-        if stage and stage.isdigit() and response_flattener and response_flattener.isdigit():
+        if stage and stage.isdigit() and response_flattener_id and response_flattener_id.isdigit():
             tasks = self.filter_queryset(self.get_queryset())
             if tasks:
                 filename = "results"  # utils.request_to_name(request)
@@ -531,12 +531,15 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'Content-Disposition': f'attachment; filename="{filename}.csv"'
                     },
                 )
-                writer = csv.DictWriter(response, fieldnames=list(ResponseFlattener.objects.all()[0].columns))
-                writer.writeheader()
+                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
+                columns = set()
                 for task in tasks:
-                    row = ResponseFlattener.objects.get(id=response_flattener).flatten_response(task)
+                    row = response_flattener.flatten_response(task)
+                    [columns.add(k) for k in row.keys()]
                     items.append(row)
-                    writer.writerow(row)
+                writer = csv.DictWriter(response, fieldnames=list(columns))
+                writer.writeheader()
+                writer.writerows(items)
                 return response
         return Response(items)
 
@@ -857,7 +860,7 @@ class PublicCSVViewSet(viewsets.ViewSet):
     A view that returns the count of active users, in JSON or YAML.
     """
 
-    permission_classes = (PublicCSVAccessPolicy, )
+    permission_classes = (PublicCSVAccessPolicy,)
 
     # renderer_classes = (JSONRenderer, YAMLRenderer)
 

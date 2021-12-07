@@ -577,7 +577,7 @@ class ResponseFlattener(BaseDatesModel):
         return result
 
     def follow_path(self, responses, path):
-        if "__" not in path:
+        if "(i)" in path:  # todo: чтобы можно было опуститься на уровень ниже
             if not path.startswith("("):
                 result = responses.get(path, None)
                 if isinstance(result, dict) or isinstance(result, list):
@@ -589,14 +589,19 @@ class ResponseFlattener(BaseDatesModel):
         result = responses.get(paths[0], None)
         if isinstance(result, dict):
             return self.follow_path(result, paths[1])
+        elif not isinstance(result, dict):
+            return result
         return None
 
     def find_partial_key(self, responses, path):
         for key, value in responses.items():
-            p = path.split(")", 1)[1]
-            if p in key:
+            p = path.split(")", 1)[1].split("__", 1)  # todo: получаем текущий ключ
+            if p[0] in key and p[0] != key:  # todo: сравниваем потому что иногда ключи имеют похожие названия
                 if not isinstance(value, dict) and not isinstance(value, list):
                     return value
+                else:
+                    return self.follow_path(value, p[1])
+
         return None
 
 
