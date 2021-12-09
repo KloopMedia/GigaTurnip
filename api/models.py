@@ -577,7 +577,8 @@ class ResponseFlattener(BaseDatesModel):
         return result
 
     def follow_path(self, responses, path):
-        if "(i)" in path:  # todo: чтобы можно было опуститься на уровень ниже
+        paths = path.split("__", 1)
+        if "(i)" in paths[0]:  # todo: чтобы можно было опуститься на уровень ниже
             if not path.startswith("("):
                 result = responses.get(path, None)
                 if isinstance(result, dict) or isinstance(result, list):
@@ -585,7 +586,6 @@ class ResponseFlattener(BaseDatesModel):
                 return result
             elif path.startswith("("):
                 return self.find_partial_key(responses, path)
-        paths = path.split("__", 1)
         result = responses.get(paths[0], None)
         if isinstance(result, dict):
             return self.follow_path(result, paths[1])

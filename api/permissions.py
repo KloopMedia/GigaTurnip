@@ -188,9 +188,16 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "allow"
         },
         {
-            "action": ["user_activity_csv", "csv"],
+            "action": ["user_activity_csv"],
             "principal": "authenticated",
             "effect": "allow"
+        },
+        {
+
+            "action": ["csv"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager_by_stage"
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
@@ -284,6 +291,13 @@ class TaskAccessPolicy(AccessPolicy):
     def is_webhook(self, request, view, action):
         return bool(view.get_object().stage.get_webhook())
 
+    def is_manager_by_stage(self, request, view, action) -> bool:
+        stage = request.query_params.get('stage')
+        response_flattener_id = request.query_params.get('response_flattener')
+        if stage.isdigit() and response_flattener_id.isdigit():
+            return bool(self.scope_queryset(request, Task.objects.filter(stage=stage)))
+        else:
+            return False
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod

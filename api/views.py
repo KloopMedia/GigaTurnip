@@ -1,7 +1,7 @@
 import csv
 
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseNotFound, Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -523,7 +523,11 @@ class TaskViewSet(viewsets.ModelViewSet):
         items = []
         if stage and stage.isdigit() and response_flattener_id and response_flattener_id.isdigit():
             tasks = self.filter_queryset(self.get_queryset())
-            if tasks:
+            try:
+                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
+            except ResponseFlattener.DoesNotExist:
+                response_flattener = None
+            if tasks and response_flattener:
                 filename = "results"  # utils.request_to_name(request)
                 response = HttpResponse(
                     content_type='text/csv',
@@ -531,7 +535,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'Content-Disposition': f'attachment; filename="{filename}.csv"'
                     },
                 )
-                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
                 columns = set()
                 for task in tasks:
                     row = response_flattener.flatten_response(task)
@@ -541,7 +544,10 @@ class TaskViewSet(viewsets.ModelViewSet):
                 writer.writeheader()
                 writer.writerows(items)
                 return response
-        return Response(items)
+        if items:
+            return Response(items)
+        else:
+            raise Http404
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
