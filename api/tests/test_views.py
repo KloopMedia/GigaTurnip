@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import Group
 from api.models import CustomUser, Campaign, Chain, ConditionalStage, TaskStage, Rank, RankLimit, Task, RankRecord, \
-    Track, CampaignManagement, Stage, Case
+    Track, CampaignManagement, Stage, Case, Integration
 from rest_framework import status
 
 
@@ -339,7 +339,7 @@ class ConditionalStageTest(APITestCase):
         change_name = {"name": self.conditional_stage_json_modified['name']}
         response = self.client.patch(self.url_conditional_stage + f"{self.conditional_stage.id}/", change_name)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(json.loads(response.content)['name'], ConditionalStage.objects.get(id=self.campaign.id).name)
+        self.assertEqual(json.loads(response.content)['name'], ConditionalStage.objects.get(id=self.conditional_stage.id).name)
 
 
 class TaskStageTest(APITestCase):
@@ -494,24 +494,22 @@ class TaskTest(APITestCase):
         self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
         self.conditional_stage = ConditionalStage.objects.create(name="Conditional Stage", x_pos=1, y_pos=1,
                                                                  chain=self.chain)
+
+        self.json_schema = {"type": "object", "properties": {"newInput1": {"title": "New Input 1", "type": "string"},
+                                                             "newInput2": {"title": "New Input 2", "type": "string"}},
+                            "dependencies": {}, "required": []}
+        self.main_field = "newInput1"
+        self.responses = {self.main_field: None}
+
         self.task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                   chain=self.chain)
+                                                   chain=self.chain, json_schema=self.json_schema)
+        self.case = Case.objects.create()
+
         self.another_campaign = Campaign.objects.create(name="Campaign")
         self.another_chain = Chain.objects.create(name="Chain", campaign=self.another_campaign)
         self.another_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
                                                            chain=self.another_chain)
-
-        self.campaign_json = {"name": "campaign", "description": "description"}
-        self.chain_json = {"name": "chain", "description": "description", "campaign": None}
-        self.task_stage_json = {
-            "name": "conditional_stage",
-            "chain": None,
-            "x_pos": 1,
-            "y_pos": 1
-        }
-        self.task_stage_json_modified = self.task_stage_json
-        self.task_stage_json_modified['name'] = "Modified conditional stage"
-        self.campaign_creator_group = Group.objects.create(name='campaign_creator')
+        self.another_case = Case.objects.create()
 
     def get_selectable_tasks(self, task, user):
         queryset = Task.objects.filter(id=task.id)
@@ -906,6 +904,120 @@ class TaskTest(APITestCase):
         self.assertEqual(tasks.count(), 3)
         self.assertEqual(created_task.responses['percent_of_correct_responses'], 66)
 
+    def test_get_integrator_success(self):
+        assigned_tasks = [Task.objects.create(assignee=self.user, stage=self.task_stage, complete=False, case=self.case)
+                          for x in range(5)]
+        not_assigned_tasks = [Task.objects.create(stage=self.task_stage,
+                                                  complete=False, case=self.case) for x in range(5)]
+
+        new_task_stage = TaskStage.objects.create(name="Task stage second", x_pos=1, y_pos=1,
+                                                  chain=self.chain, json_schema=self.json_schema)
+        new_task_stage.in_stages.add(self.task_stage)
+
+        new_integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                        chain=self.chain, assign_user_by="IN")
+        new_integrator_stage.in_stages.add(new_task_stage)
+
+        for i, task in enumerate(assigned_tasks):
+            self.responses[self.main_field] = i * i
+            task.responses = self.responses
+            task.save()
+
+        for i in assigned_tasks[1:]:
+            i.out_tasks.add(assigned_tasks[0])
+
+        Integration.objects.create(task_stage=new_integrator_stage, group_by=self.main_field)
+        response = self.client.get(self.url_tasks + f"{assigned_tasks[0].id}/get_integrated_tasks/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.content)), 4)
+
+    def test_complete_task_next_integrator_success(self):
+        self.responses[self.main_field] = "hello world!"
+        my_task = Task.objects.create(assignee=self.user, stage=self.task_stage, complete=False,
+                                      case=self.case, responses=self.responses)
+        self.task_stage.copy_input = True
+        self.task_stage.save()
+        integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                    chain=self.chain, assign_user_by="IN")
+        integrator_stage.in_stages.add(self.task_stage)
+
+        response = self.client.patch(self.url_tasks + f"{my_task.id}/", {"complete": True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        created_tasks = Task.objects.filter(case=self.case, in_tasks=my_task)
+        self.assertTrue(created_tasks)
+        self.assertEqual(created_tasks[0].stage, integrator_stage)
+
+    def test_copy_input(self):
+        self.responses[self.main_field] = "hello world!"
+        my_task = Task.objects.create(assignee=self.user, stage=self.task_stage, complete=False,
+                                      case=self.case, responses=self.responses)
+        self.task_stage.copy_input = True
+        self.task_stage.is_creatable = True
+        self.task_stage.save()
+        new_taks_stage = TaskStage.objects.create(name="Task stage second", x_pos=1, y_pos=1,
+                                                  chain=self.chain, is_creatable=True, copy_input=True)
+        new_taks_stage.in_stages.add(self.task_stage)
+
+        integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                    chain=self.chain, assign_user_by="IN")
+        integrator_stage.in_stages.add(new_taks_stage)
+
+        response = self.client.patch(self.url_tasks + f"{my_task.id}/", {"complete": True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        created_tasks = Task.objects.filter(case=self.case, in_tasks=my_task)
+        self.assertTrue(created_tasks)
+        for i in Task.objects.filter(case=self.case):
+            self.assertEqual(i.responses, self.responses)
+
+    def test_get_request_assignment_success(self):
+        new_rank = Rank.objects.create(name="rank")
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        RankLimit.objects.create(rank=new_rank, stage=self.task_stage,
+                                 open_limit=2, total_limit=3,
+                                 is_selection_open=True, is_listing_allowed=True)
+
+        task = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
+        response = self.client.get(self.url_tasks + f"{task.id}/request_assignment/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Task.objects.get(id=task.id).assignee, self.user)
+
+    def test_get_request_assignment_fail(self):
+        task = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
+        response = self.client.get(self.url_tasks + f"{task.id}/request_assignment/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def create_rank_limit(self, rank, stage, open,total, is_sel_open, is_list_allowed):
+        return RankLimit.objects.create(rank=rank, stage=stage,
+                                        open_limit=2, total_limit=3,
+                                        is_selection_open=is_sel_open, is_listing_allowed=is_list_allowed)
+
+    def test_request_assignment_integrator_group_success(self):
+        self.task_stage.assign_user_by = "IN"
+        self.task_stage.save()
+        task_first = Task.objects.create(stage=self.task_stage, case=self.case, responses=self.responses)
+        new_rank = Rank.objects.create(name="rank")
+        RankRecord.objects.create(user=self.user, rank=new_rank)
+        self.create_rank_limit(rank=new_rank, stage=self.task_stage, open=2, total=3,is_sel_open=True, is_list_allowed=True)
+
+        new_task_stage = TaskStage.objects.create(name=f"Task stage say hi", x_pos=1, y_pos=1,
+                                          chain=self.chain, json_schema=self.json_schema)
+        self.create_rank_limit(rank=new_rank, stage=new_task_stage, open=2, total=3,is_sel_open=True, is_list_allowed=True)
+        new_task_stage.in_stages.add(self.task_stage)
+        task = Task.objects.create(stage=new_task_stage, case=self.case, responses=self.responses)
+        task.in_tasks.add(task_first)
+
+        new_integrator_stage = TaskStage.objects.create(name="Integrator stage", x_pos=1, y_pos=1,
+                                                        chain=self.chain, assign_user_by="IN")
+        new_integrator_stage.in_stages.add(new_task_stage)
+        Integration.objects.create(task_stage=new_integrator_stage, group_by=self.main_field)
+        response = self.client.post(self.url_tasks + f"{task.id}/request_assignment/",
+                                    {"integrator_group": self.responses}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        assigned_task = Task.objects.filter(out_tasks=task, stage__assign_user_by="IN")
+        self.assertTrue(bool(assigned_task))
+        self.assertGreater(len(assigned_task),0)
+        for i in list(assigned_task)+list(Task.objects.filter(id=task.id)):
+            self.assertEqual(i.assignee, self.user)
 
 class RankTest(APITestCase):
     def setUp(self):
@@ -1017,8 +1129,10 @@ class RankTest(APITestCase):
         self.rank_json['track'] = self.track.id
 
         to_update = {"name": "UPDATED"}
-        response = self.client.patch(self.url_rank + f"{self.track.id}/", to_update)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for i in self.ranks:
+            response = self.client.patch(self.url_rank + f"{i.id}/", to_update)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(json.loads(response.content)['name'], Rank.objects.get(id=i.id).name)
 
 
 class RankRecordTest(APITestCase):
