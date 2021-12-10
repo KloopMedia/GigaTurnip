@@ -23,14 +23,16 @@ class CustomUserAdminTest(TestCase):
         self.chain = Chain.objects.create(name="Chain cola", campaign=self.campaign)
         self.another_chain = Chain.objects.create(name="Chain pepsi", campaign=self.another_campaign)
 
-        self.task_stage = TaskStage.objects.create(name="Task stage cola", x_pos=1, y_pos=1,chain=self.chain)
-        self.another_task_stage = TaskStage.objects.create(name="Task stage pepsi", x_pos=1, y_pos=1,chain=self.another_chain)
+        self.task_stage = TaskStage.objects.create(name="Task stage cola", x_pos=1, y_pos=1, chain=self.chain)
+        self.another_task_stage = TaskStage.objects.create(name="Task stage pepsi", x_pos=1, y_pos=1,
+                                                           chain=self.another_chain)
 
         self.rank = Rank.objects.create(name="rank cola")
         self.another_rank = Rank.objects.create(name="another rank pepsi")
 
         self.track = Track.objects.create(name="my track", campaign=self.campaign, default_rank=self.rank)
-        self.antoher_track = Track.objects.create(name="another track", campaign=self.another_campaign, default_rank=self.another_rank)
+        self.antoher_track = Track.objects.create(name="another track", campaign=self.another_campaign,
+                                                  default_rank=self.another_rank)
 
     def test_set_rank(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -119,11 +121,13 @@ class TaskAdminTest(TestCase):
                                      complete=False) for x in range(5)]
         tasks_complete = tasks[:3]
         data = {'action': 'make_completed_force',
-                '_selected_action': [t.id for t in tasks_complete]}
+                '_selected_action': [t.pk for t in tasks_complete]}
         self.user.managed_campaigns.add(self.campaign)
 
         self.client.login(username=self.user.username, password=self.u_password)
         response = self.client.post(self.url, data, follow=True)
-        self.assertEqual(list(Task.objects.filter(complete=True).filter(force_complete=True)),
-                         list(Task.objects.filter(pk__in=data['_selected_action'])))
-        # intaski один и тот же стэйдж и кейс айди, эф выражение
+        force_completed = Task.objects.filter(complete=True).filter(force_complete=True).distinct()
+        completed = Task.objects.filter(pk__in=[i.pk for i in tasks_complete])
+        self.assertEqual(force_completed.count(), len(tasks_complete))
+        for i, t in enumerate(force_completed):
+            self.assertIn(t, completed)
