@@ -496,9 +496,10 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def user_activity_csv(self, request):
-        tasks = self.filter_queryset(self.get_queryset())
-        groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+        groups = []
         if request.query_params.get("csv", None):
+            tasks = self.filter_queryset(self.get_queryset())
+            groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
             filename = "results"  # utils.request_to_name(request)
             response = HttpResponse(
                 content_type='text/csv',
@@ -516,7 +517,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             return response
         return Response(groups)
 
-    @action(detail=False, methods=['post', 'get'])  # pk is stage id
+    @action(detail=False, )  # pk is stage id
     def csv(self, request):
         stage = request.query_params.get('stage')
         response_flattener_id = request.query_params.get('response_flattener')

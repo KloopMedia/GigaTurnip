@@ -1,6 +1,7 @@
 import json
 from uuid import uuid4
 
+from django.db.models import Count
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
@@ -753,7 +754,6 @@ class GigaTurnip(APITestCase):
 
         new_client = self.create_client(self.user_empl)
         response = self.get_csv(response_flattener.id, client=new_client)
-        print(response)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_get_response_flattener_not_found(self):
@@ -767,5 +767,21 @@ class GigaTurnip(APITestCase):
             self.complete_task(t, responses, self.client)
 
         response = self.get_csv(response_flattener.id+124, stage_id=234)
-        print(response)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_user_activity_csv_success(self):
+        self.user.managed_campaigns.add(self.campaign)
+        tasks = self.create_initial_tasks(5)
+        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        expected_annotation = Task.objects.filter(pk__in=[x.pk for x in tasks])\
+            .values('stage__name', 'assignee').annotate(Count('pk'))
+        # b'assignee,stage__name,pk__count\r\n31,Initial,5\r\n'
+        cols = 'assignee,stage__name,pk__count\r\n'
+        cont = "".join([f"{x['assignee']},{x['stage__name']},{x['pk__count']}\r\n" for x in expected_annotation])
+        self.assertEqual(response.content, str.encode(cols+cont))
+
+    def test_get_user_activity_csv_fail(self):
+        self.create_initial_tasks(5)
+        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
