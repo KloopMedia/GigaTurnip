@@ -154,6 +154,15 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
+    def assert_simple_completed_task(self, task, stage, responses=None):
+        r = responses
+        if not r:
+            r = {"complete":True}
+        self.assertTrue(task.complete)
+        self.assertFalse(task.force_complete)
+        self.assertEqual(task.stage, stage)
+        self.assertEqual(task.responses,  r)
+
     def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
@@ -686,3 +695,36 @@ class GigaTurnipTest(APITestCase):
         task_2 = task.out_tasks.all()[0]
 
         self.assertEqual(task_2.responses, task.responses)
+
+
+    def test_create_stage(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        responses = {"kloop": "media"}
+        init_task = self.create_initial_task()
+        init_task = self.complete_task(init_task, responses=responses)
+        second_task = Task.objects.get(
+            stage=second_stage,
+            case=init_task.case)
+        self.assert_simple_completed_task(
+            init_task,
+            self.initial_stage, responses)
+
+    def test_conditional_stage(self):
+        conditional = ConditionalStage()
+        conditional.conditions = [
+            {"field": "vvv", "value": "yes", "condition": "=="}
+        ]
+
+        conditional = self.initial_stage.add_stage(conditional)
+        closing_stage = conditional.add_stage(TaskStage())
+        init_task = self.create_initial_task()
+        responses = {"vvv": "yes"}
+        init_task = self.complete_task(task=init_task, responses=responses)
+        new_task = Task.objects.get(
+            stage=closing_stage,
+            case=init_task.case)
+        self.assert_simple_completed_task(
+            init_task,
+            self.initial_stage,
+            responses=responses)
+        self.check_task_auto_creation(new_task, closing_stage, init_task)
