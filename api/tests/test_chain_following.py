@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration
+    Task, CopyField, Integration, Quiz
 
 
 class GigaTurnipTest(APITestCase):
@@ -672,7 +672,6 @@ class GigaTurnipTest(APITestCase):
         task_3 = task_2.out_tasks.all()[0]
         self.assertEqual(task_3.responses, task.responses)
 
-
     def test_copy_input(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -686,3 +685,42 @@ class GigaTurnipTest(APITestCase):
         task_2 = task.out_tasks.all()[0]
 
         self.assertEqual(task_2.responses, task.responses)
+
+    def test_quiz(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses
+        )
+        task = self.create_initial_task()
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        task = self.complete_task(task, responses=responses)
+
+        self.assertEqual(task.responses["meta_quiz_score"], 80)
+
+    # def test_quiz_above_threshold(self):
+    #     task_correct_responses = self.create_initial_task()
+    #     correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+    #     task_correct_responses = self.complete_task(
+    #         task_correct_responses,
+    #         responses=correct_responses)
+    #     Quiz.objects.create(
+    #         task_stage=self.initial_stage,
+    #         correct_responses_task=task_correct_responses,
+    #         threshold=70
+    #     )
+    #     second_stage = self.initial_stage.add_stage(
+    #         TaskStage(
+    #             assign_user_by="ST",
+    #             assign_user_from_stage=self.initial_stage
+    #         )
+    #     )
+    #     task = self.create_initial_task()
+    #     responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+    #     task = self.complete_task(task, responses=responses)
+    #
+    #     self.assertEqual(task.responses["meta_quiz_score"], 80)

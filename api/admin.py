@@ -8,7 +8,7 @@ from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -329,6 +329,19 @@ class CopyFieldAdmin(admin.ModelAdmin):
         return filter_by_admin_preference(queryset, request, "task_stage__chain__")
 
 
+class QuizAdmin(admin.ModelAdmin):
+    list_display = ('pk',
+                    'task_stage',
+                    'correct_responses_task')
+    autocomplete_fields = ('task_stage', )
+    raw_id_fields = ('correct_responses_task',)
+    search_fields = ('task_stage', )
+
+    def get_queryset(self, request):
+        queryset = super(QuizAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "task_stage__chain__")
+
+
 class TaskAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'case',
@@ -479,6 +492,7 @@ admin.site.register(Integration, IntegrationAdmin)
 admin.site.register(Webhook, IntegrationAdmin)
 admin.site.register(StagePublisher, IntegrationAdmin)
 admin.site.register(CopyField, CopyFieldAdmin)
+admin.site.register(Quiz, QuizAdmin)
 admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank, RankAdmin)

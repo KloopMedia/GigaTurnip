@@ -331,6 +331,11 @@ class TaskStage(Stage, SchemaProvider):
             return self.webhook
         return None
 
+    def get_quiz(self):
+        if hasattr(self, 'quiz'):
+            return self.quiz
+        return None
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -599,6 +604,45 @@ class StagePublisher(BaseDatesModel, SchemaProvider):
 #                 if not isinstance(value, dict) and not isinstance(value, list):
 #                     return value
 #         return None
+
+
+class Quiz(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="quiz",
+        help_text="Stage of the task that will be published")
+    correct_responses_task = models.OneToOneField(
+        "Task",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="quiz",
+        help_text="Task containing correct responses to the quiz"
+    )
+    threshold = models.FloatField(
+        blank=True,
+        null=True,
+        help_text="If set, task will not be closed with "
+                  "quiz scores lower than this threshold"
+    )
+
+    def is_ready(self):
+        return bool(self.correct_responses_task)
+
+    def check_score(self, task):
+        return self._determine_correctness_ratio(task.responses)
+
+    def _determine_correctness_ratio(self, responses):
+        correct_answers = self.correct_responses_task.responses
+        correct = 0
+        for key, answer in correct_answers.items():
+            if str(responses.get(key)) == str(answer):
+                correct += 1
+        correct_ratio = int(correct * 100 / len(correct_answers))
+        return correct_ratio
+
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
