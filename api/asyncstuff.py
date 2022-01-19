@@ -7,6 +7,23 @@ from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
+    current_stage = task.stage
+
+    # Check if task is a quiz, and if so, score and save result inside
+    # responses as meta_quiz_score. If quiz threshold is set, quiz with
+    # score lower than threshold will be opened and returned without
+    # chain propagation.
+    quiz = current_stage.get_quiz()
+    if quiz and quiz.is_ready():
+        quiz_score = quiz.check_score(task)
+        task.responses["meta_quiz_score"] = quiz_score
+        task.save()
+        if quiz.threshold is not None and quiz_score < quiz.threshold:
+            task.complete = False
+            task.reopened = True
+            task.save()
+            return task
+
     next_direct_task = task.get_direct_next()
     if next_direct_task is not None:
         next_direct_task.complete = False
@@ -16,7 +33,6 @@ def process_completed_task(task):
             return next_direct_task
         else:
             return None
-    current_stage = Stage.objects.get(id=task.stage.id)
     in_conditional_pingpong_stages = ConditionalStage.objects \
         .filter(out_stages=current_stage) \
         .filter(pingpong=True)

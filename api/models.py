@@ -331,6 +331,11 @@ class TaskStage(Stage, SchemaProvider):
             return self.webhook
         return None
 
+    def get_quiz(self):
+        if hasattr(self, 'quiz'):
+            return self.quiz
+        return None
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -507,7 +512,137 @@ class CopyField(BaseDatesModel):
         if responses:
             task.responses = responses
         return task
-            
+
+
+class StagePublisher(BaseDatesModel, SchemaProvider):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="publisher",
+        help_text="Stage of the task that will be published")
+
+    exclude_fields = models.TextField(
+        blank=True,
+        help_text="List of all first level fields to exclude "
+                  "from publication separated by whitespaces."
+    )
+
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Indicates tasks of this stage "
+                  "may be accessed by unauthenticated users."
+    )
+
+    def prepare_responses(self, task):
+        responses = task.responses
+        if isinstance(responses, dict):
+            for exclude_field in self.exclude_fields.split():
+                responses.pop(exclude_field, None)
+        return responses
+
+
+# class ResponseFlattener(BaseDatesModel):
+#     task_stage = models.ForeignKey(
+#         TaskStage,
+#         on_delete=models.CASCADE,
+#         related_name="response_flatteners",
+#         help_text="Stage of the task will be flattened.")
+#     copy_first_level = models.BooleanField(
+#         default=True,
+#         help_text="Copy all first level fields in responses "
+#                   "that are not dictionaries or arrays."
+#     )
+#     exclude_list = models.TextField(
+#         blank=True,
+#         help_text="List of all first level fields to exclude "
+#                   "separated by whitespaces. Dictionary and array "
+#                   "fields are excluded automatically."
+#     )
+#     columns = models.JSONField(
+#         default=list,
+#         blank=True,
+#         help_text="List of columns with with paths to values inside."
+#     )
+#
+#     def flatten_response(self, task):
+#         result = {}
+#         if task.responses:
+#             if self.copy_first_level:
+#                 for key, value in task.responses.items():
+#                     if key not in self.exclude_list.split() and \
+#                             not isinstance(value, dict) and \
+#                             not isinstance(value, list):
+#                         result[key] = value
+#             for column in self.columns:
+#                 for path in column.path_patterns:
+#                     value = self.follow_path(task.responses, path)
+#                     if value:
+#                         result[column.name] = value
+#                         break
+#         return result
+#
+#     def follow_path(self, responses, path):
+#         if "__" not in path:
+#             if not path.startswith("("):
+#                 result = responses.get(path, None)
+#                 if isinstance(result, dict) or isinstance(result, list):
+#                     return None
+#                 return result
+#             elif path.startswith("("):
+#                 return self.find_partial_key(responses, path)
+#         paths = path.split("__", 1)[0]
+#         result = responses.get(paths[0], None)
+#         if isinstance(result, dict):
+#             return self.follow_path(result, paths[1])
+#         return None
+#
+#     def find_partial_key(self, responses, path):
+#         for key, value in responses.items():
+#             p = path.split(")", 1)[1]
+#             if p in key:
+#                 if not isinstance(value, dict) and not isinstance(value, list):
+#                     return value
+#         return None
+
+
+class Quiz(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="quiz",
+        help_text="Stage of the task that will be published")
+    correct_responses_task = models.OneToOneField(
+        "Task",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="quiz",
+        help_text="Task containing correct responses to the quiz"
+    )
+    threshold = models.FloatField(
+        blank=True,
+        null=True,
+        help_text="If set, task will not be closed with "
+                  "quiz scores lower than this threshold"
+    )
+
+    def is_ready(self):
+        return bool(self.correct_responses_task)
+
+    def check_score(self, task):
+        return self._determine_correctness_ratio(task.responses)
+
+    def _determine_correctness_ratio(self, responses):
+        correct_answers = self.correct_responses_task.responses
+        correct = 0
+        for key, answer in correct_answers.items():
+            if str(responses.get(key)) == str(answer):
+                correct += 1
+        correct_ratio = int(correct * 100 / len(correct_answers))
+        return correct_ratio
+
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
