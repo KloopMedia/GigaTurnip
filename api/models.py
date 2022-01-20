@@ -259,7 +259,7 @@ class TaskStage(Stage, SchemaProvider):
 
     assign_user_from_stage = models.ForeignKey(
         Stage,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="assign_user_to_stages",
         blank=True,
         null=True,
