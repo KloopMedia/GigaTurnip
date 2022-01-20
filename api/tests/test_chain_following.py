@@ -702,26 +702,54 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(task.responses["meta_quiz_score"], 80)
         self.assertEqual(Task.objects.count(), 2)
+        self.assertTrue(task.complete)
 
-    # def test_quiz_above_threshold(self):
-    #     task_correct_responses = self.create_initial_task()
-    #     correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
-    #     task_correct_responses = self.complete_task(
-    #         task_correct_responses,
-    #         responses=correct_responses)
-    #     Quiz.objects.create(
-    #         task_stage=self.initial_stage,
-    #         correct_responses_task=task_correct_responses,
-    #         threshold=70
-    #     )
-    #     second_stage = self.initial_stage.add_stage(
-    #         TaskStage(
-    #             assign_user_by="ST",
-    #             assign_user_from_stage=self.initial_stage
-    #         )
-    #     )
-    #     task = self.create_initial_task()
-    #     responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
-    #     task = self.complete_task(task, responses=responses)
-    #
-    #     self.assertEqual(task.responses["meta_quiz_score"], 80)
+    def test_quiz_above_threshold(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            threshold=70
+        )
+        self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+        task = self.create_initial_task()
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        task = self.complete_task(task, responses=responses)
+
+        self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(Task.objects.count(), 3)
+        self.assertTrue(task.complete)
+
+    def test_quiz_below_threshold(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            threshold=90
+        )
+        self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+        task = self.create_initial_task()
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        task = self.complete_task(task, responses=responses)
+
+        self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertFalse(task.complete)
