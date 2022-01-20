@@ -533,11 +533,11 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_12.id)
-        
+
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
-                assign_user_by="ST", 
+                assign_user_by="ST",
                 assign_user_from_stage=self.initial_stage,
                 allow_go_back=True
             ))
@@ -753,3 +753,22 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses["meta_quiz_score"], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertFalse(task.complete)
+
+
+    def test_delete_stage_assign_by_ST(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+                name="second_stage",
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage
+            ))
+        third_stage = second_stage.add_stage(TaskStage(
+                name="third stage",
+                assign_user_by="ST",
+                assign_user_from_stage=second_stage
+            ))
+
+        self.assertEqual(TaskStage.objects.count(), 3)
+
+        self.initial_stage.delete()
+
+        self.assertEqual(TaskStage.objects.count(), 2)
