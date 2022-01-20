@@ -701,6 +701,7 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses=responses)
 
         self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(Task.objects.count(), 2)
 
     # def test_quiz_above_threshold(self):
     #     task_correct_responses = self.create_initial_task()
