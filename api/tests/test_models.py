@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework import status
 
 from api.models import CustomUser, Campaign, CampaignManagement, Chain, TaskStage, Integration, Webhook, Task, Track, \
-    RankRecord, Notification, Rank, RankLimit, CopyField, StagePublisher
+    RankRecord, Notification, Rank, RankLimit, CopyField, StagePublisher, Quiz
 
 
 class GigaTurnip(APITestCase):
@@ -365,3 +365,63 @@ class ModelsTest(GigaTurnip):
         self.assertEqual(old_count, 1)
         self.assertNotEqual(old_count, StagePublisher.objects.count())
         self.assertEqual(0, StagePublisher.objects.count())
+
+    def test_quiz_on_one_to_one_correct_responses_task(self):
+        task = self.create_initial_task()
+        task1 = self.create_initial_task()
+        quiz = Quiz.objects.create(task_stage=self.initial_stage, correct_responses_task=task)
+        error = False
+        try:
+            with transaction.atomic():
+                quiz1 = Quiz.objects.create(task_stage=self.initial_stage, correct_responses_task=task1)
+            self.fail('Duplicate question allowed.')
+        except IntegrityError:
+            error = True
+
+        self.assertEqual(TaskStage.objects.count(), 1)
+        self.assertEqual(Quiz.objects.count(), 1)
+        self.assertTrue(error)
+
+    def test_quiz_on_one_to_one_task_stage(self):
+        task = self.create_initial_task()
+        second_stage = TaskStage.objects.create(
+            name="ID",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            is_creatable=True
+        )
+        quiz = Quiz.objects.create(task_stage=self.initial_stage, correct_responses_task=task)
+        error = False
+        try:
+            with transaction.atomic():
+                quiz1 = Quiz.objects.create(task_stage=second_stage, correct_responses_task=task)
+            self.fail('Duplicate question allowed.')
+        except IntegrityError:
+            error = True
+
+        self.assertEqual(TaskStage.objects.count(), 2)
+        self.assertEqual(Quiz.objects.count(), 1)
+        self.assertTrue(error)
+
+    def test_quiz_on_one_to_one(self):
+        task = self.create_initial_task()
+        second_stage = TaskStage.objects.create(
+            name="ID",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            is_creatable=True
+        )
+        self.client = self.prepare_client(
+            stage=second_stage,
+            user=self.user,
+            rank_limit=RankLimit(is_creation_open=True)
+        )
+        task1 = self.create_task(second_stage)
+
+        quiz1 = Quiz.objects.create(task_stage=second_stage, correct_responses_task=task1)
+        quiz = Quiz.objects.create(task_stage=self.initial_stage, correct_responses_task=task)
+
+        self.assertEqual(TaskStage.objects.count(), 2)
+        self.assertEqual(Quiz.objects.count(), 2)
