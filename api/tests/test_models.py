@@ -196,3 +196,11 @@ class ModelsTest(GigaTurnip):
         self.assertEqual([self.user], list(campaign2.managers.all()))
         self.assertEqual([self.user], list(campaign3.managers.all()))
 
+    def test_chain_on_delete_campaign(self):
+        old_count = Chain.objects.count()
+        self.campaign.delete()
+        self.assertLess(Chain.objects.count(), old_count)
+        self.assertFalse(Chain.objects.filter(id=self.chain.id).exists())
+
+
+
