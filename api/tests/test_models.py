@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework import status
 
 from api.models import CustomUser, Campaign, CampaignManagement, Chain, TaskStage, Integration, Webhook, Task, Track, \
-    RankRecord, Notification, Rank, RankLimit, CopyField
+    RankRecord, Notification, Rank, RankLimit, CopyField, StagePublisher
 
 
 class GigaTurnip(APITestCase):
@@ -342,3 +342,26 @@ class ModelsTest(GigaTurnip):
         self.assertNotEqual(old_count, CopyField.objects.count())
         self.assertEqual(0, CopyField.objects.count())
 
+    def test_stage_publisher_on_task_stage_field(self):
+        stage_publisher = StagePublisher.objects.create(task_stage=self.initial_stage)
+        error = False
+        try:
+            with transaction.atomic():
+                stage_publisher1 = StagePublisher.objects.create(task_stage=self.initial_stage)
+            self.fail('Duplicate question allowed.')
+        except IntegrityError:
+            error = True
+
+        self.assertEqual(TaskStage.objects.count(), 1)
+        self.assertEqual(StagePublisher.objects.count(), 1)
+        self.assertTrue(error)
+
+    def test_stage_publisher_on_delete_task_stage(self):
+        stage_publisher = StagePublisher.objects.create(task_stage=self.initial_stage)
+        old_count = StagePublisher.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertNotEqual(old_count, StagePublisher.objects.count())
+        self.assertEqual(0, StagePublisher.objects.count())
