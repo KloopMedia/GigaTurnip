@@ -425,3 +425,28 @@ class ModelsTest(GigaTurnip):
 
         self.assertEqual(TaskStage.objects.count(), 2)
         self.assertEqual(Quiz.objects.count(), 2)
+
+    def test_quiz_on_delete_task_stage(self):
+        task = self.create_initial_task()
+        quiz = Quiz.objects.create(task_stage=self.initial_stage, correct_responses_task=task)
+
+        old_count = Quiz.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertNotEqual(old_count, Quiz.objects.count())
+        self.assertEqual(0, Quiz.objects.count())
+
+    def test_quiz_on_delete_task(self):
+        task = self.create_initial_task()
+        quiz = Quiz.objects.create(task_stage=self.initial_stage, correct_responses_task=task)
+
+        old_count = Quiz.objects.count()
+
+        task.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertNotEqual(old_count, Quiz.objects.count())
+        self.assertEqual(0, Quiz.objects.count())
+
