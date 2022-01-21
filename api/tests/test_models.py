@@ -280,3 +280,26 @@ class ModelsTest(GigaTurnip):
         self.assertEqual(TaskStage.objects.count(), 1)
         self.assertEqual(Integration.objects.count(), 1)
         self.assertTrue(error)
+
+    def test_webhook_on_delete_task_stage(self):
+        webhook = Webhook.objects.create(task_stage=self.initial_stage)
+        old_count = Webhook.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertNotEqual(old_count, Webhook.objects.count())
+
+    def test_webhook_on_relation_task_stage(self):
+        webhook = Webhook.objects.create(task_stage=self.initial_stage)
+        error = False
+        try:
+            with transaction.atomic():
+                integration1 = Webhook.objects.create(task_stage=self.initial_stage)
+            self.fail('Duplicate question allowed.')
+        except IntegrityError:
+            error = True
+
+        self.assertEqual(TaskStage.objects.count(), 1)
+        self.assertEqual(Webhook.objects.count(), 1)
+        self.assertTrue(error)
