@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework import status
 
 from api.models import CustomUser, Campaign, CampaignManagement, Chain, TaskStage, Integration, Webhook, Task, Track, \
-    RankRecord, Notification, Rank, RankLimit
+    RankRecord, Notification, Rank, RankLimit, CopyField
 
 
 class GigaTurnip(APITestCase):
@@ -303,3 +303,42 @@ class ModelsTest(GigaTurnip):
         self.assertEqual(TaskStage.objects.count(), 1)
         self.assertEqual(Webhook.objects.count(), 1)
         self.assertTrue(error)
+
+    def test_copy_field_on_delete_task_stage(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="second_stage",
+            assign_user_by="ST",
+            assign_user_from_stage=self.initial_stage
+        ))
+        copy_field = CopyField.objects.create(
+            task_stage=second_stage,
+            copy_from_stage=self.initial_stage,
+            copy_all=True
+        )
+        old_count = CopyField.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertNotEqual(old_count, CopyField.objects.count())
+        self.assertEqual(0, CopyField.objects.count())
+
+    def test_copy_field_on_delete_copy_from_stage(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="second_stage",
+            assign_user_by="ST",
+            assign_user_from_stage=self.initial_stage
+        ))
+        copy_field = CopyField.objects.create(
+            task_stage=second_stage,
+            copy_from_stage=self.initial_stage,
+            copy_all=True
+        )
+        old_count = CopyField.objects.count()
+
+        second_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertNotEqual(old_count, CopyField.objects.count())
+        self.assertEqual(0, CopyField.objects.count())
+
