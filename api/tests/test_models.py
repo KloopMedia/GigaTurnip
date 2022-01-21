@@ -1,5 +1,7 @@
 import json
 from uuid import uuid4
+
+from django.db import IntegrityError, transaction
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 from rest_framework import status
@@ -255,3 +257,26 @@ class ModelsTest(GigaTurnip):
         self.assertEqual(stage2.displayed_prev_stages.count(), 2)
         self.assertEqual(stage3.displayed_prev_stages.count(), 0)
 
+    def test_integration_on_delete_task_stage(self):
+        integration = Integration.objects.create(task_stage=self.initial_stage, group_by="int")
+        old_count = Integration.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(TaskStage.objects.count(), 0)
+        self.assertLess(Integration.objects.count(), old_count)
+        self.assertEqual(Integration.objects.count(), 0)
+
+    def test_integration_on_relation_task_stage(self):
+        integration = Integration.objects.create(task_stage=self.initial_stage, group_by="int")
+        error = False
+        try:
+            with transaction.atomic():
+                integration1 = Integration.objects.create(task_stage=self.initial_stage, group_by="int1")
+            self.fail('Duplicate question allowed.')
+        except IntegrityError:
+            error = True
+
+        self.assertEqual(TaskStage.objects.count(), 1)
+        self.assertEqual(Integration.objects.count(), 1)
+        self.assertTrue(error)
