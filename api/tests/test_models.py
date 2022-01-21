@@ -202,5 +202,56 @@ class ModelsTest(GigaTurnip):
         self.assertLess(Chain.objects.count(), old_count)
         self.assertFalse(Chain.objects.filter(id=self.chain.id).exists())
 
+    def test_task_stage_on_delete_chain(self):
+        old_count = TaskStage.objects.count()
+        self.chain.delete()
+        self.assertLess(TaskStage.objects.count(), old_count)
+        self.assertFalse(TaskStage.objects.filter(id=self.initial_stage.id).exists())
 
+    def test_delete_stage_assign_by_ST(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+                name="second_stage",
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage
+            ))
+        third_stage = second_stage.add_stage(TaskStage(
+                name="third stage",
+                assign_user_by="ST",
+                assign_user_from_stage=second_stage
+            ))
+
+        self.assertEqual(TaskStage.objects.count(), 3)
+
+        self.initial_stage.delete()
+
+        self.assertEqual(TaskStage.objects.count(), 2)
+
+        second_stage = TaskStage.objects.get(id=second_stage.id)
+        self.assertEqual(second_stage.assign_user_from_stage, None)
+
+    def test_display_prev_stages(self):
+        stage2 = TaskStage.objects.create(
+            name="second task stage",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            is_creatable=True
+        )
+        stage3 = TaskStage.objects.create(
+            name="third task stage",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            is_creatable=True
+        )
+
+        self.initial_stage.displayed_prev_stages.add(stage2)
+        self.initial_stage.displayed_prev_stages.add(stage3)
+
+        stage2.displayed_prev_stages.add(self.initial_stage)
+        stage2.displayed_prev_stages.add(stage3)
+
+        self.assertEqual(self.initial_stage.displayed_prev_stages.count(), 2)
+        self.assertEqual(stage2.displayed_prev_stages.count(), 2)
+        self.assertEqual(stage3.displayed_prev_stages.count(), 0)
 
