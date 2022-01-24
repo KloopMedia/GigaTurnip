@@ -495,3 +495,16 @@ class ModelsTest(GigaTurnip):
         self.assertLess(Task.objects.count(), old_count)
         self.assertEqual(Task.objects.count(), 0)
 
+    def test_rank_on_delete_track(self):
+        track = Track.objects.create(campaign=self.campaign)
+        rank = Rank.objects.create(
+            stages=[self.initial_stage],
+            track=track
+        )
+        old_count = Rank.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertLess(Rank.objects.count(), old_count)
+        self.assertEqual(Rank.objects.count(), 0)
