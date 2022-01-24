@@ -556,3 +556,23 @@ class ModelsTest(GigaTurnip):
         self.assertLess(RankRecord.objects.count(), old_count)
         self.assertEqual(RankRecord.objects.count(), 0)
 
+    def test_rank_limit_on_delete_rank(self):
+        rank = Rank.objects.all()[0]
+        rank_limit = RankLimit.objects.all()[0]
+        old_count = RankLimit.objects.count()
+
+        rank.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertLess(RankLimit.objects.count(), old_count)
+        self.assertEqual(RankLimit.objects.count(), 0)
+
+    def test_rank_limit_on_delete_stage(self):
+        rank_limit = RankLimit.objects.all()[0]
+        old_count = RankLimit.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertLess(RankLimit.objects.count(), old_count)
+        self.assertEqual(RankLimit.objects.count(), 0)
