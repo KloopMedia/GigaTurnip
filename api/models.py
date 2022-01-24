@@ -542,69 +542,72 @@ class StagePublisher(BaseDatesModel, SchemaProvider):
         return responses
 
 
-# class ResponseFlattener(BaseDatesModel):
-#     task_stage = models.ForeignKey(
-#         TaskStage,
-#         on_delete=models.CASCADE,
-#         related_name="response_flatteners",
-#         help_text="Stage of the task will be flattened.")
-#     copy_first_level = models.BooleanField(
-#         default=True,
-#         help_text="Copy all first level fields in responses "
-#                   "that are not dictionaries or arrays."
-#     )
-#     exclude_list = models.TextField(
-#         blank=True,
-#         help_text="List of all first level fields to exclude "
-#                   "separated by whitespaces. Dictionary and array "
-#                   "fields are excluded automatically."
-#     )
-#     columns = models.JSONField(
-#         default=list,
-#         blank=True,
-#         help_text="List of columns with with paths to values inside."
-#     )
-#
-#     def flatten_response(self, task):
-#         result = {}
-#         if task.responses:
-#             if self.copy_first_level:
-#                 for key, value in task.responses.items():
-#                     if key not in self.exclude_list.split() and \
-#                             not isinstance(value, dict) and \
-#                             not isinstance(value, list):
-#                         result[key] = value
-#             for column in self.columns:
-#                 for path in column.path_patterns:
-#                     value = self.follow_path(task.responses, path)
-#                     if value:
-#                         result[column.name] = value
-#                         break
-#         return result
-#
-#     def follow_path(self, responses, path):
-#         if "__" not in path:
-#             if not path.startswith("("):
-#                 result = responses.get(path, None)
-#                 if isinstance(result, dict) or isinstance(result, list):
-#                     return None
-#                 return result
-#             elif path.startswith("("):
-#                 return self.find_partial_key(responses, path)
-#         paths = path.split("__", 1)[0]
-#         result = responses.get(paths[0], None)
-#         if isinstance(result, dict):
-#             return self.follow_path(result, paths[1])
-#         return None
-#
-#     def find_partial_key(self, responses, path):
-#         for key, value in responses.items():
-#             p = path.split(")", 1)[1]
-#             if p in key:
-#                 if not isinstance(value, dict) and not isinstance(value, list):
-#                     return value
-#         return None
+class ResponseFlattener(BaseDatesModel):
+    task_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="response_flatteners",
+        help_text="Stage of the task will be flattened.")
+    copy_first_level = models.BooleanField(
+        default=True,
+        help_text="Copy all first level fields in responses "
+                  "that are not dictionaries or arrays."
+    )
+    exclude_list = models.TextField(
+        blank=True,
+        help_text="List of all first level fields to exclude "
+                  "separated by whitespaces. Dictionary and array "
+                  "fields are excluded automatically."
+    )
+    columns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of columns with with paths to values inside."
+    )
 
+    def flatten_response(self, task):
+        result = {}
+        if task.responses:
+            if self.copy_first_level:
+                for key, value in task.responses.items():
+                    if key not in self.exclude_list.split() and \
+                            not isinstance(value, dict) and \
+                            not isinstance(value, list):
+                        result[key] = value
+            for path in list(self.columns):
+                value = self.follow_path(task.responses, path)
+                if value:
+                    result[path] = value
+                    # break
+        return result
+
+    def follow_path(self, responses, path):
+        paths = path.split("__", 1)
+        if "(i)" in paths[0]:
+            if not path.startswith("("):
+                result = responses.get(path, None)
+                if isinstance(result, dict) or isinstance(result, list):
+                    return None
+                return result
+            elif path.startswith("("):
+                return self.find_partial_key(responses, path)
+        result = responses.get(paths[0], None)
+        if isinstance(result, dict):
+            return self.follow_path(result, paths[1])
+        elif not isinstance(result, dict):
+            return result
+        return None
+
+    def find_partial_key(self, responses, path):
+        for key, value in responses.items():
+            p = path.split(")", 1)[1].split("__", 1)
+            if p[0] in key and p[0] != key:
+                if not isinstance(value, dict) and not isinstance(value, list):
+                    return value
+                else:
+                    return self.follow_path(value, p[1])
+
+        return None
 
 class Quiz(BaseDatesModel):
     task_stage = models.OneToOneField(

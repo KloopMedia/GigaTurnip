@@ -190,7 +190,15 @@ class TaskAccessPolicy(AccessPolicy):
         {
             "action": ["user_activity_csv"],
             "principal": "authenticated",
-            "effect": "allow"
+            "effect": "allow",
+            "condition": "is_campaign_manager"
+        },
+        {
+
+            "action": ["csv"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_campaign_manager and is_manager_by_stage"
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
@@ -284,6 +292,17 @@ class TaskAccessPolicy(AccessPolicy):
     def is_webhook(self, request, view, action):
         return bool(view.get_object().stage.get_webhook())
 
+    def is_manager_by_stage(self, request, view, action) -> bool:
+        stage = request.query_params.get('stage')
+        response_flattener_id = request.query_params.get('response_flattener')
+        if stage.isdigit() and response_flattener_id.isdigit():
+            return bool(self.scope_queryset(request, Task.objects.filter(stage=stage)))
+        else:
+            return False
+
+    def is_campaign_manager(self, request, view, action):
+        managed_campaigns = request.user.managed_campaigns.all()
+        return bool(managed_campaigns)
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod

@@ -1,7 +1,7 @@
 import csv
 
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus
+    Notification, NotificationStatus, ResponseFlattener
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -496,10 +496,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def user_activity_csv(self, request):
-        tasks = self.filter_queryset(self.get_queryset())
-        groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+        groups = []
         if request.query_params.get("csv", None):
-            filename = "results" #utils.request_to_name(request)
+            tasks = self.filter_queryset(self.get_queryset())
+            groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+            filename = "results"  # utils.request_to_name(request)
             response = HttpResponse(
                 content_type='text/csv',
                 headers={
@@ -516,6 +517,38 @@ class TaskViewSet(viewsets.ModelViewSet):
             return response
         return Response(groups)
 
+    @action(detail=False, )  # pk is stage id
+    def csv(self, request):
+        stage = request.query_params.get('stage')
+        response_flattener_id = request.query_params.get('response_flattener')
+        items = []
+        if stage and stage.isdigit() and response_flattener_id and response_flattener_id.isdigit():
+            tasks = self.filter_queryset(self.get_queryset())
+            try:
+                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
+            except ResponseFlattener.DoesNotExist:
+                response_flattener = None
+            if tasks and response_flattener:
+                filename = "results"  # utils.request_to_name(request)
+                response = HttpResponse(
+                    content_type='text/csv',
+                    headers={
+                        'Content-Disposition': f'attachment; filename="{filename}.csv"'
+                    },
+                )
+                columns = set()
+                for task in tasks:
+                    row = response_flattener.flatten_response(task)
+                    [columns.add(k) for k in row.keys()]
+                    items.append(row)
+                writer = csv.DictWriter(response, fieldnames=list(columns))
+                writer.writeheader()
+                writer.writerows(items)
+                return response
+        if items:
+            return Response(items)
+        else:
+            raise Http404
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):

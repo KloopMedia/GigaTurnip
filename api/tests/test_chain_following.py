@@ -1,15 +1,22 @@
 import json
 from uuid import uuid4
 
+from django.db.models import Count
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz
+    Task, CopyField, Integration, Quiz, ResponseFlattener
 
 
 class GigaTurnipTest(APITestCase):
+
+    def create_client(self, u):
+        client = APIClient()
+        client.force_authenticate(u)
+        return client
+
 
     def prepare_client(self, stage, user=None, rank_limit=None):
         u = user
@@ -36,9 +43,7 @@ class GigaTurnipTest(APITestCase):
             rank_l.rank = rank
             rank_l.stage = stage
         rank_l.save()
-        client = APIClient()
-        client.force_authenticate(u)
-        return client
+        return self.create_client(u)
 
     def setUp(self):
         self.campaign = Campaign.objects.create(name="Campaign")
@@ -52,6 +57,10 @@ class GigaTurnipTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test",
                                                    email='test@email.com',
                                                    password='test')
+
+        self.user_empl = CustomUser.objects.create_user(username="employee",
+                                                   email='employee@email.com',
+                                                   password='employee')
         self.client = self.prepare_client(
             self.initial_stage,
             self.user,
@@ -100,6 +109,9 @@ class GigaTurnipTest(APITestCase):
 
     def create_initial_task(self):
         return self.create_task(self.initial_stage)
+
+    def create_initial_tasks(self, count):
+        return [self.create_initial_task() for x in range(count)]
 
     def complete_task(self, task, responses=None, client=None):
         c = client
@@ -533,11 +545,11 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_12.id)
-        
+
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
-                assign_user_by="ST", 
+                assign_user_by="ST",
                 assign_user_from_stage=self.initial_stage,
                 allow_go_back=True
             ))
@@ -771,3 +783,86 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.delete()
 
         self.assertEqual(TaskStage.objects.count(), 2)
+
+    def test_response_flattener_create_row(self):
+        tasks_a = self.create_initial_tasks(5)
+        tasks_b = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        flattern_row = {'column1': 'First', 'column2': 'SecondColumnt', 'oik__(i)uik': 'SecondLayer'}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        for t in tasks_a:
+            row = response_flattener.flatten_response(Task.objects.get(id=t.id))
+            self.assertEqual(row, flattern_row)
+
+        for t in tasks_b:
+            row = response_flattener.flatten_response(t)
+            self.assertEqual(row, {})
+
+    def test_get_response_flattener_success(self):
+        tasks_a = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.user_empl)
+
+        params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_response_flattener_fail(self):
+        tasks_a = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        new_client = self.create_client(self.user_empl)
+        params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_response_flattener_not_found(self):
+        tasks_a = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        params = {"response_flattener": response_flattener.id+111, "stage": 234}
+        response = self.get_objects("task-csv", params=params)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_user_activity_csv_success(self):
+        self.user.managed_campaigns.add(self.campaign)
+        tasks = self.create_initial_tasks(5)
+        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        expected_annotation = Task.objects.filter(pk__in=[x.pk for x in tasks])\
+            .values('stage__name', 'assignee').annotate(Count('pk'))
+        # b'assignee,stage__name,pk__count\r\n31,Initial,5\r\n'
+        cols = 'assignee,stage__name,pk__count\r\n'
+        cont = "".join([f"{x['assignee']},{x['stage__name']},{x['pk__count']}\r\n" for x in expected_annotation])
+        self.assertEqual(response.content, str.encode(cols+cont))
+
+    def test_get_user_activity_csv_fail(self):
+        self.create_initial_tasks(5)
+        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
