@@ -496,15 +496,44 @@ class ModelsTest(GigaTurnip):
         self.assertEqual(Task.objects.count(), 0)
 
     def test_rank_on_delete_track(self):
-        track = Track.objects.create(campaign=self.campaign)
-        rank = Rank.objects.create(
-            stages=[self.initial_stage],
-            track=track
-        )
+        track = Track.objects.create(name="track", campaign=self.campaign)
+        rank = Rank.objects.all()[0]
         old_count = Rank.objects.count()
 
-        self.initial_stage.delete()
+        track.delete()
 
         self.assertEqual(old_count, 1)
-        self.assertLess(Rank.objects.count(), old_count)
-        self.assertEqual(Rank.objects.count(), 0)
+        self.assertEqual(Rank.objects.count(), old_count)
+
+    def test_track_on_delete_campaign(self):
+        track = Track.objects.create(
+            name="Track",
+            campaign=self.campaign,
+        )
+        rank = Rank.objects.all()[0]
+        track.default_rank = rank
+        track.save()
+
+        old_count = Track.objects.count()
+        self.campaign.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertLess(Track.objects.count(), old_count)
+        self.assertEqual(Track.objects.count(), 0)
+
+    def test_track_on_delete_default_rank(self):
+        track = Track.objects.create(
+            name="Track",
+            campaign=self.campaign,
+        )
+        rank = Rank.objects.all()[0]
+
+        track.default_rank = rank
+        track.save()
+
+        old_count = Track.objects.count()
+        rank.delete()
+
+        # TODO: make decision with on_delete argument
+        self.assertEqual(old_count, Track.objects.count())
+
