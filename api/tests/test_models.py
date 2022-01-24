@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework import status
 
 from api.models import CustomUser, Campaign, CampaignManagement, Chain, TaskStage, Integration, Webhook, Task, Track, \
-    RankRecord, Notification, Rank, RankLimit, CopyField, StagePublisher, Quiz
+    RankRecord, Notification, Rank, RankLimit, CopyField, StagePublisher, Quiz, Case
 
 
 class GigaTurnip(APITestCase):
@@ -449,4 +449,49 @@ class ModelsTest(GigaTurnip):
         self.assertEqual(old_count, 1)
         self.assertNotEqual(old_count, Quiz.objects.count())
         self.assertEqual(0, Quiz.objects.count())
+
+    # TODO test task referenced user delete
+    # def test_task_on_delete_assignee(self):
+        # new_user = CustomUser.objects.create_user(
+        #     username="New User",
+        #     email="new_user@email.com",
+        #     password="new_user"
+        # )
+        #
+        # task = Task.objects.create(assignee=new_user,
+        #                            stage=self.initial_stage
+        #                            )
+        # old_count = Task.objects.count()
+        #
+        # new_user.delete()
+        #
+        # self.assertEqual(old_count, 1)
+        # self.assertLess(Task.objects.count(), old_count)
+        # self.assertEqual(Task.objects.count(), 0)
+
+    def test_task_on_delete_task_stage(self):
+        task = Task.objects.create(assignee=self.user,
+                                   stage=self.initial_stage
+                                   )
+        old_count = Task.objects.count()
+
+        self.initial_stage.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertLess(Task.objects.count(), old_count)
+        self.assertEqual(Task.objects.count(), 0)
+
+    def test_task_on_delete_case(self):
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user,
+                                   stage=self.initial_stage,
+                                   case=case
+                                   )
+        old_count = Task.objects.count()
+
+        case.delete()
+
+        self.assertEqual(old_count, 1)
+        self.assertLess(Task.objects.count(), old_count)
+        self.assertEqual(Task.objects.count(), 0)
 
