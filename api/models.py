@@ -562,7 +562,10 @@ class ResponseFlattener(BaseDatesModel):
     columns = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of columns with with paths to values inside."
+        help_text='List of columns with with paths to values inside. '
+                  'Also you can use: i - if you you want to find keys that have same word in key; r - if you want use '
+                  'regular expressions. '
+                  'For example: ["title", "oik__(i)uik"]'
     )
 
     def flatten_response(self, task):
