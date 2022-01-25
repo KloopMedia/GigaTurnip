@@ -158,7 +158,15 @@ class StageFilter(InputFilter):
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_filter = (UserTaskCompleteFilter, 'ranks', UserNoRankFilter)
+    list_filter = (
+        UserTaskCompleteFilter,
+        UserNoRankFilter,
+        'ranks',
+        'is_active',
+        'is_staff',
+        'is_superuser',
+        'groups',
+    )
     search_fields = ("id", "email", "first_name", "last_name", "username")
 
     def get_actions(self, request):
