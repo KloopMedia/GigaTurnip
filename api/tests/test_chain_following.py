@@ -804,6 +804,26 @@ class GigaTurnipTest(APITestCase):
             row = response_flattener.flatten_response(t)
             self.assertEqual(row, {})
 
+    def test_response_flattener_copy_system_field(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage,
+                                                              copy_first_level=True,
+                                                              copy_system_fields=True)
+
+        task = self.complete_task(task, responses, self.client)
+
+        result = response_flattener.flatten_response(task)
+
+        answer = {
+            "column1": "First",
+            "column2": "SecondColumnt"}
+        response_flattener_dict = response_flattener.__dict__
+        del response_flattener_dict['_state']
+        answer.update(response_flattener_dict)
+        self.assertEqual(answer, result)
+
     def test_response_flattener_regex_happy(self):
         task = self.create_initial_task()
 

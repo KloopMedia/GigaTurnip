@@ -587,6 +587,7 @@ class ResponseFlattener(BaseDatesModel):
                 if value:
                     result[path] = value
         if self.copy_system_fields:
+            # todo: maybe I have to add prefix 'sys_' for system keys
             result.update(self.__dict__)
             del result['_state']
 
