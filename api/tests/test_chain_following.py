@@ -804,6 +804,36 @@ class GigaTurnipTest(APITestCase):
             row = response_flattener.flatten_response(t)
             self.assertEqual(row, {})
 
+    def test_response_flattener_regex_happy(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(r)uik[\d]{1,2}"])
+
+        task = self.complete_task(task, responses, self.client)
+
+        result = response_flattener.flatten_response(task)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        answer = {"column1": "First", "column2": "SecondColumnt", "oik__(r)uik[\d]{1,2}": "SecondLayer"}
+        self.assertEqual(answer, result)
+
+    def test_response_flattener_regex_wrong(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(r)ui[\d]{1,2}"])
+
+        task = self.complete_task(task, responses, self.client)
+
+        result = response_flattener.flatten_response(task)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        answer = {"column1": "First", "column2": "SecondColumnt"}
+        self.assertEqual(answer, result)
+
     def test_get_response_flattener_success(self):
         tasks_a = self.create_initial_tasks(5)
 

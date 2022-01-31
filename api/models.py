@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 from abc import ABCMeta, abstractmethod
 from json import JSONDecodeError
 
@@ -565,7 +566,7 @@ class ResponseFlattener(BaseDatesModel):
         help_text='List of columns with with paths to values inside. '
                   'Also you can use: i - if you you want to find keys that have same word in key; r - if you want use '
                   'regular expressions. '
-                  'For example: ["title", "oik__(i)uik"]'
+                  'For example: ["title", "oik__(i)uik", "oik__(r)question[\d]{1,2}"]'
     )
 
     def flatten_response(self, task):
@@ -586,7 +587,7 @@ class ResponseFlattener(BaseDatesModel):
 
     def follow_path(self, responses, path):
         paths = path.split("__", 1)
-        if "(i)" in paths[0]:
+        if "(i)" in paths[0] or "(r)" in paths[0]:
             if not path.startswith("("):
                 result = responses.get(path, None)
                 if isinstance(result, dict) or isinstance(result, list):
@@ -603,8 +604,13 @@ class ResponseFlattener(BaseDatesModel):
 
     def find_partial_key(self, responses, path):
         for key, value in responses.items():
+            search_type = path[path.find("(") + 1: path.find(")")]
             p = path.split(")", 1)[1].split("__", 1)
-            if p[0] in key and p[0] != key:
+            if search_type == 'i':
+                condition = p[0] in key and p[0] != key
+            elif search_type == 'r':
+                condition = re.findall(rf"{p[0]}", key)
+            if condition:
                 if not isinstance(value, dict) and not isinstance(value, list):
                     return value
                 else:
