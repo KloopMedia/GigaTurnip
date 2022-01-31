@@ -545,7 +545,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_12.id)
-
+        
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
