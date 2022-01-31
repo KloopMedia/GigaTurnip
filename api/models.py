@@ -554,6 +554,10 @@ class ResponseFlattener(BaseDatesModel):
         help_text="Copy all first level fields in responses "
                   "that are not dictionaries or arrays."
     )
+    copy_system_fields = models.BooleanField(
+        default=False,
+        help_text="Copy all system fields fields in tasks."
+    )
     exclude_list = models.TextField(
         blank=True,
         help_text="List of all first level fields to exclude "
@@ -582,12 +586,18 @@ class ResponseFlattener(BaseDatesModel):
                 value = self.follow_path(task.responses, path)
                 if value:
                     result[path] = value
-                    # break
+        if self.copy_system_fields:
+            result.update(self.__dict__)
+            del result['_state']
+
         return result
 
     def follow_path(self, responses, path):
         paths = path.split("__", 1)
-        if "(i)" in paths[0] or "(r)" in paths[0]:
+        current_key = paths[0]
+        next_key = paths[1] if len(paths) > 1 else None
+
+        if "(i)" in current_key or "(r)" in current_key:
             if not path.startswith("("):
                 result = responses.get(path, None)
                 if isinstance(result, dict) or isinstance(result, list):
@@ -595,9 +605,9 @@ class ResponseFlattener(BaseDatesModel):
                 return result
             elif path.startswith("("):
                 return self.find_partial_key(responses, path)
-        result = responses.get(paths[0], None)
+        result = responses.get(current_key, None)
         if isinstance(result, dict):
-            return self.follow_path(result, paths[1])
+            return self.follow_path(result, next_key)
         elif not isinstance(result, dict):
             return result
         return None
@@ -605,18 +615,23 @@ class ResponseFlattener(BaseDatesModel):
     def find_partial_key(self, responses, path):
         for key, value in responses.items():
             search_type = path[path.find("(") + 1: path.find(")")]
-            p = path.split(")", 1)[1].split("__", 1)
+            keys = path.split(")", 1)[1].split("__", 1)
+            key_to_find = keys[0]
+
+            condition = False
             if search_type == 'i':
-                condition = p[0] in key and p[0] != key
+                condition = key_to_find in key and key_to_find != key
             elif search_type == 'r':
-                condition = re.findall(rf"{p[0]}", key)
+                condition = re.findall(rf"{key_to_find}", key)
+
             if condition:
                 if not isinstance(value, dict) and not isinstance(value, list):
                     return value
                 else:
-                    return self.follow_path(value, p[1])
+                    return self.follow_path(value, keys[1])
 
         return None
+
 
 class Quiz(BaseDatesModel):
     task_stage = models.OneToOneField(
