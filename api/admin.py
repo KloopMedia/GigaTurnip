@@ -8,7 +8,8 @@ from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
+    ResponseFlattener
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -434,6 +435,9 @@ class LogAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 
+class ResponseFlattenerAdmin(admin.ModelAdmin):
+    model = ResponseFlattener
+
 # class AdminPreferenceForm(forms.ModelForm):
 #     def clean(self):
 #         if AdminPreference.objects.filter(user=self.request.user):
@@ -506,6 +510,7 @@ admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank, RankAdmin)
 admin.site.register(RankLimit, RankLimitAdmin)
 admin.site.register(RankRecord, RankRecordAdmin)
+admin.site.register(ResponseFlattener, ResponseFlattenerAdmin)
 admin.site.register(CampaignManagement, CampaignManagementAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
