@@ -1,5 +1,6 @@
 from abc import ABCMeta
 
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
@@ -76,7 +77,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
-                  'webhook_response_field']
+                  'webhook_response_field', 'allow_go_back', 'allow_release']
 
 
 class TaskStageSerializer(serializers.ModelSerializer,
@@ -88,7 +89,7 @@ class TaskStageSerializer(serializers.ModelSerializer,
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
-                  'webhook_response_field']
+                  'webhook_response_field', 'allow_go_back', 'allow_release']
 
     def validate_chain(self, value):
         """
@@ -99,6 +100,15 @@ class TaskStageSerializer(serializers.ModelSerializer,
             return value
         raise serializers.ValidationError("User may not add stage "
                                           "to this chain")
+
+
+class TaskStagePublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskStage
+        fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
+                  'library', 'rich_text', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
+                            'library', 'rich_text', 'created_at', 'updated_at']
 
 
 class CaseSerializer(serializers.ModelSerializer):
@@ -124,7 +134,55 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'assignee',
                             'stage',
                             'responses',
+                            'reopened',
+                            'force_complete',
                             'complete']
+
+
+class TaskAutoCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = '__all__'
+
+
+class TaskPublicBasicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer(read_only=True)
+    responses = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = ['id', 'responses', 'created_at', 'updated_at', 'stage']
+        read_only_fields = ['id', 'responses', 'created_at',
+                            'updated_at', 'stage']
+
+    def get_responses(self, task):
+        try:
+            return task.stage.publisher.prepare_responses(task)
+        except ObjectDoesNotExist:
+            return task.responses
+
+
+class TaskPublicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer(read_only=True)
+    displayed_prev_tasks = serializers.SerializerMethodField()
+    responses = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = ['id', 'responses', 'created_at', 'updated_at', 'stage', 'displayed_prev_tasks']
+        read_only_fields = ['id', 'responses', 'created_at',
+                            'updated_at', 'stage', 'displayed_prev_tasks']
+
+    def get_displayed_prev_tasks(self, obj):
+        tasks = obj.get_displayed_prev_tasks(public=True)
+        serializer = TaskPublicBasicSerializer(tasks, many=True)
+        return serializer.data
+
+    def get_responses(self, task):
+        try:
+            return task.stage.publisher.prepare_responses(task)
+        except ObjectDoesNotExist:
+            return task.responses
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
@@ -137,7 +195,9 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['case',
                             'in_tasks',
-                            'assignee']
+                            'assignee',
+                            'reopened',
+                            'force_complete']
 
 
 class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
@@ -153,7 +213,9 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
                             'assignee',
                             'stage',
                             'responses',
-                            'complete']
+                            'complete',
+                            'reopened',
+                            'force_complete']
 
 
 class TaskSelectSerializer(serializers.ModelSerializer):
@@ -278,4 +340,3 @@ class NotificationStatusSerializer(serializers.ModelSerializer,
     class Meta:
         model = NotificationStatus
         fields = '__all__'
-

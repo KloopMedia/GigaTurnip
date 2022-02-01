@@ -8,7 +8,7 @@ from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -53,9 +53,9 @@ class TaskResponsesStatusFilter(SimpleListFilter):
         elif self.value() == "empty_string":
             return queryset.distinct().filter(responses__iexact="")
         elif self.value() == "not_empty":
-            return queryset.distinct()\
-                .exclude(responses__iexact="")\
-                .exclude(responses__iexact="{}")\
+            return queryset.distinct() \
+                .exclude(responses__iexact="") \
+                .exclude(responses__iexact="{}") \
                 .exclude(responses__isnull=True)
 
 
@@ -68,9 +68,9 @@ class LogsTaskResponsesStatusFilter(TaskResponsesStatusFilter):
         elif self.value() == "empty_string":
             return queryset.distinct().filter(task__responses__iexact="")
         elif self.value() == "not_empty":
-            return queryset.distinct()\
-                .exclude(task__responses__iexact="")\
-                .exclude(task__responses__iexact="{}")\
+            return queryset.distinct() \
+                .exclude(task__responses__iexact="") \
+                .exclude(task__responses__iexact="{}") \
                 .exclude(task__responses__isnull=True)
 
 
@@ -85,9 +85,27 @@ class DuplicateTasksCaseFilter(SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == "duplicate":
-            qs = Task.objects.values('stage__id', 'case__id')\
+            qs = Task.objects.values('stage__id', 'case__id') \
                 .annotate(Count('pk')).filter(pk__count__gte=2).values_list('case_id', flat=True)
             return queryset.filter(id__in=qs)
+
+
+class DuplicateTasksFilter(SimpleListFilter):
+    title = "Duplicate Tasks Filter"
+    parameter_name = "Tasks"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("duplicate", "Duplicate"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "duplicate":
+            qs = Task.objects.values('stage__id', 'case__id') \
+                .annotate(Count('pk')).filter(pk__count__gte=2)
+            cases = qs.values_list('case_id', flat=True)
+            stages = qs.values_list('stage_id', flat=True)
+            return queryset.filter(case_id__in=cases).filter(stage_id__in=stages)
 
 
 class UserNoRankFilter(SimpleListFilter):
@@ -130,7 +148,6 @@ class StageFilter(InputFilter):
     def queryset(self, request, queryset):
         terms = self.value()
 
-
         if terms is None or terms == '':
             return queryset
 
@@ -141,7 +158,16 @@ class StageFilter(InputFilter):
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_filter = (UserTaskCompleteFilter, 'ranks', UserNoRankFilter)
+    list_filter = (
+        UserTaskCompleteFilter,
+        UserNoRankFilter,
+        'ranks',
+        'is_active',
+        'is_staff',
+        'is_superuser',
+        'groups',
+    )
+    search_fields = ("id", "email", "first_name", "last_name", "username")
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
@@ -157,7 +183,7 @@ class CustomUserAdmin(UserAdmin):
 
 
 class ChainAdmin(admin.ModelAdmin):
-    list_display = ('name', 'campaign', )
+    list_display = ('name', 'campaign',)
     list_filter = ('campaign',)
     search_fields = ('name',)
 
@@ -174,7 +200,7 @@ class ChainAdmin(admin.ModelAdmin):
 class GeneralStageAdmin(admin.ModelAdmin):
     search_fields = ('name',
                      'chain__name',
-                     'chain__campaign__name', )
+                     'chain__campaign__name',)
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -182,8 +208,8 @@ class GeneralStageAdmin(admin.ModelAdmin):
     def has_view_or_change_permission(self, request, obj=None):
         return False
 
-    def has_delete_permission(self, request, obj=None):
-        return False
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
 
     def has_module_permission(self, request):
         return False
@@ -203,7 +229,7 @@ class StageAdmin(admin.ModelAdmin):
     list_filter = ('chain__campaign', 'chain')
     search_fields = ('name',
                      'chain__name',
-                     'chain__campaign__name', )
+                     'chain__campaign__name',)
     autocomplete_fields = ('chain', 'in_stages')
 
     def get_form(self, request, *args, **kwargs):
@@ -222,8 +248,8 @@ class TaskStageAdmin(StageAdmin):
 
 
 class IntegrationAdmin(admin.ModelAdmin):
-    search_fields = ('task_stage', )
-    autocomplete_fields = ('task_stage', )
+    search_fields = ('task_stage',)
+    autocomplete_fields = ('task_stage',)
 
     def get_form(self, request, *args, **kwargs):
         form = super(IntegrationAdmin, self).get_form(request, *args, **kwargs)
@@ -237,11 +263,91 @@ class IntegrationAdmin(admin.ModelAdmin):
 
 class CaseAdmin(admin.ModelAdmin):
     list_filter = (DuplicateTasksCaseFilter,)
-    search_fields = ('pk', )
+    search_fields = ('pk',)
 
 
 class RankLimitAdmin(admin.ModelAdmin):
-    autocomplete_fields = ('stage', )
+    list_display = ('id',
+                    'rank',
+                    'stage',
+                    'created_at',
+                    'updated_at')
+    autocomplete_fields = ('stage', 'rank')
+
+    def get_queryset(self, request):
+        queryset = super(RankLimitAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "stage__chain__")
+
+
+class RankRecordAdmin(admin.ModelAdmin):
+    list_display = ('id',
+                    'user',
+                    'rank',
+                    'created_at',
+                    'updated_at')
+    raw_id_fields = ('user', )
+    autocomplete_fields = ('rank', )
+    search_fields = ('user__email', 'user__username', 'user__last_name', 'user__first_name')
+
+    def get_queryset(self, request):
+        queryset = super(RankRecordAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "rank__track__")
+
+
+class TrackAdmin(admin.ModelAdmin):
+    list_display = ('id',
+                    'name',
+                    'campaign',
+                    'created_at',
+                    'updated_at')
+    #autocomplete_fields = ('campaign', )
+    search_fields = ('id', 'campaign', 'name')
+
+    def get_queryset(self, request):
+        queryset = super(TrackAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "")
+
+
+class RankAdmin(admin.ModelAdmin):
+    list_display = ('id',
+                    'name',
+                    'track',
+                    'created_at',
+                    'updated_at')
+    autocomplete_fields = ('track', )
+    search_fields = ('name', )
+
+    def get_queryset(self, request):
+        queryset = super(RankAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "track__")
+
+
+class CopyFieldAdmin(admin.ModelAdmin):
+    list_display = ('id',
+                    'task_stage',
+                    'copy_from_stage',
+                    'fields_to_copy',
+                    'created_at',
+                    'updated_at')
+    autocomplete_fields = ('task_stage', 'copy_from_stage')
+    search_fields = ('task_stage', 'copy_from_stage')
+
+    def get_queryset(self, request):
+        queryset = super(CopyFieldAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "task_stage__chain__")
+
+
+class QuizAdmin(admin.ModelAdmin):
+    list_display = ('pk',
+                    'task_stage',
+                    'correct_responses_task')
+    autocomplete_fields = ('task_stage', )
+    raw_id_fields = ('correct_responses_task',)
+    search_fields = ('task_stage', )
+
+    def get_queryset(self, request):
+        queryset = super(QuizAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "task_stage__chain__")
 
 
 class TaskAdmin(admin.ModelAdmin):
@@ -255,19 +361,21 @@ class TaskAdmin(admin.ModelAdmin):
                    'stage__chain__campaign',
                    'stage__chain',
                    'stage',
+                   'stage__is_public',
                    'complete',
                    'force_complete',
                    TaskResponsesStatusFilter,
                    'created_at',
-                   'updated_at')
+                   'updated_at',
+                   DuplicateTasksFilter)
     search_fields = ('id',
                      'case__id',
                      'stage__name',
                      'assignee__email',
                      'stage__chain__name',
                      'stage__chain__campaign__name')
-    autocomplete_fields = ('in_tasks', )
-    raw_id_fields = ('stage', 'assignee', 'case', )
+    autocomplete_fields = ('in_tasks',)
+    raw_id_fields = ('stage', 'assignee', 'case',)
     readonly_fields = ('created_at', 'updated_at')
 
     actions = ['make_completed', 'make_completed_force']
@@ -285,7 +393,7 @@ class TaskAdmin(admin.ModelAdmin):
     def make_completed(self, request, queryset):
         updated = queryset.update(complete=True)
         for task in queryset:
-            process_completed_task(task) # ToDo: put complete=True inside cycle, account for possible interruptions
+            process_completed_task(task)  # ToDo: put complete=True inside cycle, account for possible interruptions
 
         self.message_user(request, ngettext(
             '%d task was successfully marked as completed.',
@@ -295,7 +403,7 @@ class TaskAdmin(admin.ModelAdmin):
 
     @admin.action(description='Mark selected tasks as completed force')
     def make_completed_force(self, request, queryset):
-        updated = queryset.update(complete=True, force_complete=True) # todo: test on force_complete
+        updated = queryset.update(complete=True, force_complete=True)  # todo: test on force_complete
         self.message_user(request, ngettext(
             '%d task was successfully marked as force completed.',
             '%d tasks were successfully marked as force completed.',
@@ -341,7 +449,7 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
     list_display = ('user',
                     'campaign')
 
-    exclude = ('user', )
+    exclude = ('user',)
 
     def has_add_permission(self, request, obj=None):
         return not bool(AdminPreference.objects.filter(user=request.user))
@@ -377,6 +485,11 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
         return super(AdminPreferenceAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+class CampaignManagementAdmin(admin.ModelAdmin):
+    search_fields = ("user", "campaign", "id",)
+    autocomplete_fields = ("user",)
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
@@ -385,13 +498,16 @@ admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
 admin.site.register(Webhook, IntegrationAdmin)
+admin.site.register(StagePublisher, IntegrationAdmin)
+admin.site.register(CopyField, CopyFieldAdmin)
+admin.site.register(Quiz, QuizAdmin)
 admin.site.register(Case, CaseAdmin)
 admin.site.register(Task, TaskAdmin)
-admin.site.register(Rank)
+admin.site.register(Rank, RankAdmin)
 admin.site.register(RankLimit, RankLimitAdmin)
-admin.site.register(RankRecord)
-admin.site.register(CampaignManagement)
-admin.site.register(Track)
+admin.site.register(RankRecord, RankRecordAdmin)
+admin.site.register(CampaignManagement, CampaignManagementAdmin)
+admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)
 admin.site.register(NotificationStatus)

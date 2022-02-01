@@ -7,7 +7,32 @@ from api.models import Stage, TaskStage, ConditionalStage, Task, Case
 
 
 def process_completed_task(task):
-    current_stage = Stage.objects.get(id=task.stage.id)
+    current_stage = task.stage
+
+    # Check if task is a quiz, and if so, score and save result inside
+    # responses as meta_quiz_score. If quiz threshold is set, quiz with
+    # score lower than threshold will be opened and returned without
+    # chain propagation.
+    quiz = current_stage.get_quiz()
+    if quiz and quiz.is_ready():
+        quiz_score = quiz.check_score(task)
+        task.responses["meta_quiz_score"] = quiz_score
+        task.save()
+        if quiz.threshold is not None and quiz_score < quiz.threshold:
+            task.complete = False
+            task.reopened = True
+            task.save()
+            return task
+
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        next_direct_task.complete = False
+        next_direct_task.reopened = True
+        next_direct_task.save()
+        if next_direct_task.assignee == task.assignee:
+            return next_direct_task
+        else:
+            return None
     in_conditional_pingpong_stages = ConditionalStage.objects \
         .filter(out_stages=current_stage) \
         .filter(pingpong=True)
@@ -17,11 +42,19 @@ def process_completed_task(task):
                 in_tasks = Task.objects.filter(out_tasks=task)
                 for in_task in in_tasks:
                     in_task.complete = False
+                    in_task.reopened = True
                     in_task.save()
             else:
                 process_out_stages(current_stage, task)
     else:
         process_out_stages(current_stage, task)
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        if next_direct_task.assignee == task.assignee:
+            return next_direct_task
+        else:
+            return None
+    return None
 
 
 def process_out_stages(current_stage, task):
@@ -75,21 +108,22 @@ def create_new_task(stage, in_task):
         new_task.in_tasks.set([in_task])
         process_completed_task(new_task)
     elif stage.get_integration():
-        integration = stage.get_integration()
-        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
-        # integration_status = IntegrationStatus(
-        #     integrated_task=in_task,
-        #     integrator=integrator_task)
-        # integration_status.save()
-        if created:
-            case = Case.objects.create()
-            integrator_task.case = case
-        if integrator_task.assignee is not None and \
-                in_task.stage.assign_user_by == "IN":
-            in_task.assignee = integrator_task.assignee
-            in_task.save()
-        integrator_task.in_tasks.add(in_task)
-        integrator_task.save()
+        if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+            integration = stage.get_integration()
+            (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+            # integration_status = IntegrationStatus(
+            #     integrated_task=in_task,
+            #     integrator=integrator_task)
+            # integration_status.save()
+            if created:
+                case = Case.objects.create()
+                integrator_task.case = case
+            if integrator_task.assignee is not None and \
+                    in_task.stage.assign_user_by == "IN":
+                in_task.assignee = integrator_task.assignee
+                in_task.save()
+            integrator_task.in_tasks.add(in_task)
+            integrator_task.save()
     else:
         if stage.assign_user_by == "ST":
             if stage.assign_user_from_stage is not None:
@@ -101,10 +135,12 @@ def create_new_task(stage, in_task):
         new_task.in_tasks.set([in_task])
         if stage.copy_input:
             new_task.responses = in_task.responses
-            new_task.save()
         webhook = stage.get_webhook()
         if webhook:
             webhook.trigger(new_task)
+        for copy_field in stage.copy_fields.all():
+            new_task = copy_field.copy_response(new_task)
+        new_task.save()
         if stage.assign_user_by == "IN":
             process_completed_task(new_task)
 
@@ -127,6 +163,7 @@ def process_conditional(stage, in_task):
                         process_completed_task(out_task)
                     else:
                         out_task.complete = False
+                        out_task.reopened = True
                         out_task.save()
             else:
                 create_new_task(stage, in_task)

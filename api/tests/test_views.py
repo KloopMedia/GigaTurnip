@@ -661,6 +661,15 @@ class TaskTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)), 5)
 
+    # Test task completion success for assigned user
+    def test_task_completion_success(self):
+        case = Case.objects.create()
+        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
+        self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
+        updated_task = Task.objects.get(id=task.id)
+        self.assertEqual(updated_task.reopened, False)
+        self.assertEqual(updated_task.complete, True)
+
     # there is task_stage after task. new tasks are creating depending on assigning
     def test_complete_next_task_stage_RA(self):
         new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
@@ -726,6 +735,7 @@ class TaskTest(APITestCase):
         for i in created_tasks:
             self.assertEqual(i.stage, new_task_stage)
             self.assertEqual(i.case, task.case)
+            self.assertEqual(i.reopened, False)
         self.assertEqual(Task.objects.filter(case=case).count(), 2)
 
     # test. after task stage is 5 conditional stages which tests their condition. after cond stages is new task stage.
@@ -808,16 +818,23 @@ class TaskTest(APITestCase):
         created_tasks = Task.objects.filter(case=case).exclude(id=task.id)
         self.assertEqual(created_tasks.count(), 0)
 
-    # Pingpong returned tdd task to employee because condition is true(verificator didn't accepted task).
+    # Pingpong returned tdd task to employee because condition is true (verifier didn't accept task).
     def test_complete_next_ping_pong_condition_true(self):
         responses = {"verified": "Да"}
 
         self.new_user.managed_campaigns.add(self.campaign)
 
-        new_task_stage = TaskStage.objects.create(name="Task stage created test complete", x_pos=1, y_pos=1,
-                                                  chain=self.chain)
-        new_cond_stage = ConditionalStage.objects.create(name="Conditional Stage test complete", x_pos=1, y_pos=1,
-                                                         chain=self.chain, pingpong=True)
+        new_task_stage = TaskStage.objects.create(
+            name="Task stage created test complete",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain)
+        new_cond_stage = ConditionalStage.objects.create(
+            name="Conditional Stage test complete",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            pingpong=True)
         new_cond_stage.conditions = [{"field": "verified", "value": "Да", "condition": "=="}]
         new_cond_stage.save()
 

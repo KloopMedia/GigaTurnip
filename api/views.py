@@ -1,6 +1,13 @@
-from rest_framework import viewsets, status
+import csv
+
+from django.db.models import Count, Q
+from django.http import HttpResponse
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
+from django.utils.translation import gettext_lazy as _
 
 from django.shortcuts import get_object_or_404
 
@@ -15,15 +22,16 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer
+    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
+    TaskStagePublicSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, NotificationStatusesAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy
 from . import utils
 from .utils import paginate
-
 
 from datetime import datetime
 
@@ -75,7 +83,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def list_user_selectable(self, request):
-        campaigns = utils\
+        campaigns = utils \
             .filter_for_user_selectable_campaigns(self.get_queryset(), request)
         serializer = self.get_serializer(campaigns, many=True)
         return Response(serializer.data)
@@ -147,6 +155,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
                 self.action == 'update' or \
                 self.action == 'partial_update':
             return TaskStageSerializer
+        elif self.action == 'public':
+            return TaskStagePublicSerializer
         else:
             return TaskStageReadSerializer
 
@@ -165,10 +175,21 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(stages, many=True)
         return Response(serializer.data)
 
+    @action(detail=False)
+    def public(self, request):
+        stages = self.filter_queryset(self.get_queryset())
+        stages = stages.filter(
+            Q(is_public=True) | Q(publisher__is_public=True))
+        serializer = self.get_serializer(stages, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post', 'get'])
     def create_task(self, request, pk=None):
         case = Case.objects.create()
-        task = Task(stage=self.get_object(), assignee=request.user, case=case)
+        stage = self.get_object()
+        task = Task(stage=stage, assignee=request.user, case=case)
+        for copy_field in stage.copy_fields.all():
+            task = copy_field.copy_response(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
@@ -217,6 +238,87 @@ class CaseViewSet(viewsets.ModelViewSet):
     serializer_class = CaseSerializer
 
 
+class ResponsesFilter(filters.SearchFilter):
+    search_param = "task_responses"
+    search_title = _('Task Responses Filter')
+
+    def to_html(self, request, queryset, view):
+        return ""
+
+    def get_search_terms(self, request):
+        """
+        Search term is set by a ?search=... query parameter.
+        """
+        params = request.query_params.get(self.search_param, '')
+        if not params:
+            return None
+        params = utils.str_to_responses_dict(params)
+        return params
+
+    def filter_queryset(self, request, queryset, view):
+
+        search_fields = self.get_search_fields(view, request)
+        search_term = self.get_search_terms(request)
+
+        if not search_fields or not search_term:
+            return queryset
+
+        tasks = Task.objects.filter(stage__id=search_term["stage"])
+        tasks = tasks.filter(**search_term["responses"])
+        cases = Case.objects.filter(tasks__in=tasks).distinct()
+        response = queryset.filter(case__in=cases)
+        return response
+
+
+# class ResponsesContainFilter(filters.SearchFilter):
+#
+#     search_param = "responses_contain"
+#     search_title = _('Task Responses Filter')
+#
+#     def to_html(self, request, queryset, view):
+#         return ""
+#
+#     def get_search_terms(self, request):
+#         """
+#         Search term is set by a ?search=... query parameter.
+#         """
+#         params = request.query_params.get(self.search_param, '')
+#         if not params:
+#             return None
+#         params = params.split(': ')
+#         if len(params) != 2:
+#             return None
+#         return params
+#
+#     def filter_queryset(self, request, queryset, view):
+#
+#         search_fields = self.get_search_fields(view, request)
+#         search_term = self.get_search_terms(request)
+#
+#         if not search_fields or not search_term:
+#             return queryset
+#
+#         tasks = Task.objects.filter(stage__id=search_term[0])
+#         tasks = tasks.filter(responses__icontains=search_term[1])
+#         cases = Case.objects.filter(tasks__in=tasks).distinct()
+#         response = queryset.filter(case__in=cases)
+#         return response
+
+
+class ResponsesContainFilter(filters.SearchFilter):
+    def filter_queryset(self, request, queryset, view):
+        search_fields = self.get_search_fields(view, request)
+        search_term = self.get_search_terms(request)
+
+        if not search_fields or not search_term:
+            return queryset
+
+        queryset = super().filter_queryset(request, queryset, view)
+        cases = Case.objects.filter(tasks__in=queryset).distinct()
+        response = Task.objects.filter(case__in=cases)
+        return response
+
+
 class TaskViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -244,15 +346,33 @@ class TaskViewSet(viewsets.ModelViewSet):
     Release user from requested task
     """
 
-    filterset_fields = ['case',
-                        'stage',
-                        'stage__chain__campaign',
-                        'assignee',
-                        'complete']
+    # filterset_fields = ['case',
+    #                     'stage',
+    #                     'stage__chain__campaign',
+    #                     'stage__chain',
+    #                     'assignee',
+    #                     'complete',
+    #                     'created_at',
+    #                     'created_at',
+    #                     'updated_at',
+    #                     'updated_at']
+    filterset_fields = {
+        'case': ['exact'],
+        'stage': ['exact'],
+        'stage__chain__campaign': ['exact'],
+        'stage__chain': ['exact'],
+        'assignee': ['exact'],
+        'assignee__ranks': ['exact'],
+        'complete': ['exact'],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+        'updated_at': ['lte', 'gte', 'lt', 'gt']
+    }
+    search_fields = ['responses']
+    filter_backends = [DjangoFilterBackend, ResponsesFilter, ResponsesContainFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
-        if self.action == 'list':
+        if self.action == 'list' or self.action == 'user_activity_csv':
             return TaskAccessPolicy.scope_queryset(
                 self.request, Task.objects.all()
             )
@@ -261,13 +381,15 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'create':
-            return TaskCreateSerializer
+            return TaskAutoCreateSerializer
         elif self.action == 'update' or self.action == 'partial_update':
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
         elif self.action == 'user_selectable':
             return TaskSelectSerializer
+        elif self.action == 'public':
+            return TaskPublicSerializer
         else:
             return TaskDefaultSerializer
 
@@ -300,26 +422,47 @@ class TaskViewSet(viewsets.ModelViewSet):
                                          data=request.data,
                                          partial=partial)
         if serializer.is_valid():
-            complete = serializer.validated_data.get("complete")
-            # serializer.save()
             data = serializer.validated_data
             data['id'] = instance.id
-            if complete:
-                instance.set_complete(responses=serializer.validated_data.get("responses"))
-                process_completed_task(instance)
-            else:
-                serializer.save()
+            next_direct_task = None
+            complete = serializer.validated_data.get("complete", False)
+            if complete and not utils.can_complete(instance, request.user):
+                return Response(
+                    {"message": "You may not submit this task!",
+                     "id": instance.id},
+                    status=status.HTTP_403_FORBIDDEN)
+            try:
+                task = instance.set_complete(
+                    responses=serializer.validated_data.get("responses", {}),
+                    complete=complete
+                )
+                if complete:
+                    next_direct_task = process_completed_task(task)
+            except Task.CompletionInProgress:
+                return Response(
+                    {"message": "Task is being completed!",
+                     "id": instance.id},
+                    status=status.HTTP_403_FORBIDDEN)
+            except Task.AlreadyCompleted:
+                return Response(
+                    {"message": "Task is already complete!",
+                     "id": instance.id},
+                    status=status.HTTP_403_FORBIDDEN)
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset,
                 # we need to forcibly invalidate the prefetch
                 # cache on the instance.
                 instance._prefetched_objects_cache = {}
-            # if data['complete']:
-            #     result(async_task(process_completed_task,
-            #                data['id'],
-            #                task_name='process_completed_task',
-            #                group='follow_chain'))
-            return Response(data, status=status.HTTP_200_OK)
+            if next_direct_task:
+                return Response(
+                    {"message": "Next direct task is available.",
+                     "id": instance.id,
+                     "next_direct_id": next_direct_task.id},
+                    status=status.HTTP_200_OK)
+            return Response(
+                {"message": "Task saved.",
+                 "id": instance.id},
+                status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
@@ -331,7 +474,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        tasks = queryset.filter(assignee=request.user)\
+        tasks = queryset.filter(assignee=request.user) \
             .exclude(stage__assign_user_by="IN")
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
@@ -341,6 +484,38 @@ class TaskViewSet(viewsets.ModelViewSet):
     def user_selectable(self, request):
         tasks = self.filter_queryset(self.get_queryset())
         return utils.filter_for_user_selectable_tasks(tasks, request)
+
+    @paginate
+    @action(detail=False)
+    def public(self, request):
+        tasks = self.filter_queryset(self.get_queryset())
+        tasks = tasks.filter(
+            Q(stage__is_public=True) |
+            (Q(stage__publisher__is_public=True) & Q(complete=True)))
+        return tasks
+
+    @action(detail=False)
+    def user_activity_csv(self, request):
+        tasks = self.filter_queryset(self.get_queryset())
+        groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+        if request.query_params.get("csv", None):
+            filename = "results" #utils.request_to_name(request)
+            response = HttpResponse(
+                content_type='text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}.csv"'
+                },
+            )
+            fieldnames = ["assignee",
+                          "stage__name",
+                          "pk__count"]
+            writer = csv.DictWriter(response, fieldnames=fieldnames)
+            writer.writeheader()
+            for group in groups:
+                writer.writerow(group)
+            return response
+        return Response(groups)
+
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
@@ -356,7 +531,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             serializer.save()
             if task.integrator_group is not None:
-                in_tasks = Task.objects.filter(out_tasks=task)\
+                in_tasks = Task.objects.filter(out_tasks=task) \
                     .filter(stage__assign_user_by="IN")
                 if in_tasks:
                     in_tasks.update(assignee=request.user)
@@ -368,14 +543,54 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post', 'get'])
     def release_assignment(self, request, pk=None):
         task = self.get_object()
-        task.assignee = None
-        task.save()
-        if task.integrator_group is not None:
-            in_tasks = Task.objects.filter(out_tasks=task) \
-                .filter(stage__assign_user_by="IN")
-            if in_tasks:
-                in_tasks.update(assignee=None)
-        return Response({'status': 'assignment released'})
+        if task.stage.allow_release and not task.complete:
+            task.assignee = None
+            task.save()
+            if task.integrator_group is not None:
+                in_tasks = Task.objects.filter(out_tasks=task) \
+                    .filter(stage__assign_user_by="IN")
+                if in_tasks:
+                    in_tasks.update(assignee=None)
+            return Response({'status': 'assignment released'})
+        return Response(
+            {'message': 'It is impossible to release this task.'},
+            status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=True, methods=['post', 'get'])
+    def uncomplete(self, request, pk=None):
+        task = self.get_object()
+        try:
+            task.set_not_complete()
+            return Response({'status': 'Assignment uncompleted', 'id': task.id})
+        except Task.ImpossibleToUncomplete:
+            return Response(
+                {'message': 'It is impossible to uncomplete this task.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    @action(detail=True, methods=['post', 'get'])
+    def open_previous(self, request, pk=None):
+        task = self.get_object()
+        try:
+            (prev_task, task) = task.open_previous()
+            return Response({'status': 'Previous task opened.', 'id': prev_task.id})
+        except Task.ImpossibleToOpenPrevious:
+            return Response(
+                {'message': 'It is impossible to open previous task.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # @action(detail=True, methods=['post', 'get'])
+    # def open_next(self, request, pk=None):
+    #     task = self.get_object()
+    #     try:
+    #         next_task = task.open_next()
+    #         return Response({'status': 'Next task opened.', 'id': next_task.id})
+    #     except Task.ImpossibleToOpenNext:
+    #         return Response(
+    #             {'message': 'It is impossible to open next task.'},
+    #             status=status.HTTP_403_FORBIDDEN
+    #         )
 
     @action(detail=True, methods=['get'])
     def list_displayed_previous(self, request, pk=None):
@@ -394,8 +609,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                                  "responses": altered_task.responses})
             else:
                 return Response({"error_message": error_description,
-                             "status": response.status_code},
-                            status=status.HTTP_400_BAD_REQUEST)
+                                 "status": response.status_code},
+                                status=status.HTTP_400_BAD_REQUEST)
         # django_response = HttpResponse(
         #     content=response.content,
         #     status=response.status_code,
@@ -574,7 +789,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
                                                             request)
         return notifications
 
-
     @action(detail=True)
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request)
@@ -614,3 +828,56 @@ class NotificationStatusViewSet(viewsets.ModelViewSet):
             self.request, NotificationStatus.objects.all()
         )
 
+
+class PublicCSVViewSet(viewsets.ViewSet):
+    """
+    A view that returns the count of active users, in JSON or YAML.
+    """
+
+    permission_classes = (PublicCSVAccessPolicy, )
+
+    # renderer_classes = (JSONRenderer, YAMLRenderer)
+
+    def list(self, request, format=None):
+        tasks = Task.objects.filter(stage__is_public=True, stage__id=871)
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={'Content-Disposition': 'attachment; filename="results.csv"'},
+        )
+        fieldnames = ["uik",
+                      "text",
+                      "time",
+                      "files",
+                      "violation_type",
+                      "violation_subtype",
+                      "complaint",
+                      "location"]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for task in tasks:
+            uik = task.responses.get("uik", "")
+            text = task.responses.get("text", "")
+            time = task.responses.get("time", "")
+            location = task.responses.get("uiks_location", "")
+            files = " ".join(task.responses.get("youtube", []))
+            violations = task.responses.get("violations", {})
+            violation_type = ""
+            violation_subtype = ""
+            complaint = ""
+            for key in violations:
+                if "type_violation" in key:
+                    violation_type = violations[key]
+                elif "subtype_violation" in key:
+                    violation_subtype = violations[key]
+                elif "complaint" in key:
+                    complaint = violations[key]
+            writer.writerow({"uik": uik,
+                             "text": text,
+                             "time": time,
+                             "files": files,
+                             "violation_type": violation_type,
+                             "violation_subtype": violation_subtype,
+                             "complaint": complaint,
+                             "location": location})
+        return response

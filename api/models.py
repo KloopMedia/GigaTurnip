@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
-from django.db import models, transaction
+from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
@@ -165,9 +165,7 @@ class Chain(BaseModel, CampaignInterface):
         return self.campaign
 
     def __str__(self):
-        return str("Chain: " +
-                   self.name + " " +
-                   self.campaign.__str__())
+        return self.name
 
 
 class Stage(PolymorphicModel, BaseModel, CampaignInterface):
@@ -201,10 +199,20 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.chain.campaign
 
+    def add_stage(self, stage):
+        stage.chain = self.chain
+        if not hasattr(stage, "name"):
+            stage.name = "NoName"
+        if not hasattr(stage, "x_pos") or stage.x_pos is None:
+            stage.x_pos = 1
+        if not hasattr(stage, "y_pos") or stage.y_pos is None:
+            stage.y_pos = 1
+        stage.save()
+        stage.in_stages.add(self)
+        return stage
+
     def __str__(self):
-        return str("Stage: " +
-                   self.name + " " +
-                   self.chain.__str__())
+        return self.name
 
 
 class TaskStage(Stage, SchemaProvider):
@@ -251,12 +259,28 @@ class TaskStage(Stage, SchemaProvider):
 
     assign_user_from_stage = models.ForeignKey(
         Stage,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="assign_user_to_stages",
         blank=True,
         null=True,
         help_text="Stage id. User from assign_user_from_stage "
                   "will be assigned to a task")
+
+    allow_go_back = models.BooleanField(
+        default=False,
+        help_text="Indicates that previous task can be opened."
+    )
+
+    allow_release = models.BooleanField(
+        default=False,
+        help_text="Indicates task can be released."
+    )
+
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Indicates tasks of this stage "
+                  "may be accessed by unauthenticated users."
+    )
 
     webhook_address = models.URLField(
         null=True,
@@ -307,6 +331,11 @@ class TaskStage(Stage, SchemaProvider):
             return self.webhook
         return None
 
+    def get_quiz(self):
+        if hasattr(self, 'quiz'):
+            return self.quiz
+        return None
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -347,8 +376,9 @@ class Integration(BaseDatesModel):
         group = {}
         groupings = self.group_by.split()
         for grouping in groupings:
-            if grouping in responses:
-                group[grouping] = responses[grouping]
+            if responses:
+                if grouping in responses:
+                    group[grouping] = responses[grouping]
         return group
 
     def __str__(self):
@@ -412,6 +442,209 @@ class Webhook(BaseDatesModel):
 
         return False, task, response, "See response status code"
 
+
+class CopyField(BaseDatesModel):
+    USER = 'US'
+    CASE = 'CA'
+    COPY_BY_CHOICES = [
+        (USER, 'User'),
+        (CASE, 'Case')
+    ]
+    copy_by = models.CharField(
+        max_length=2,
+        choices=COPY_BY_CHOICES,
+        default=USER,
+        help_text="Where to copy fields from"
+    )
+    task_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="copy_fields",
+        help_text="Stage of the task that accepts data being copied")
+    copy_from_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="copycat_fields",
+        help_text="Stage of the task that provides data being copied")
+    fields_to_copy = models.TextField(
+        help_text="List of responses field pairs to copy. \n"
+                  "Format: original_field1->copy_field1  \n"
+                  "Pairs are joined by arrow and separated"
+                  "by whitespaces. \n"
+                  "Example: phone->observer_phone uik->uik ")
+    copy_all = models.BooleanField(
+        default=False,
+        help_text="Copy all fields and ignore fields_to_copy."
+    )
+
+    def copy_response(self, task):
+        if task.reopened or \
+                self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
+            return task
+        if self.copy_by == self.USER:
+            if task.assignee is None:
+                return task
+            original_task = Task.objects.filter(
+                assignee=task.assignee,
+                stage=self.copy_from_stage,
+                complete=True)
+        else:
+            original_task = Task.objects.filter(
+                case=task.case,
+                stage=self.copy_from_stage,
+                complete=True)
+        if original_task:
+            original_task = original_task.latest("updated_at")
+        else:
+            return task
+        if self.copy_all:
+            responses = original_task.responses
+        else:
+            responses = task.responses
+            if not isinstance(responses, dict):
+                responses = {}
+            for pair in self.fields_to_copy.split():
+                pair = pair.split("->")
+                if len(pair) == 2:
+                    response = original_task.responses.get(pair[0], None)
+                    if response is not None:
+                        responses[pair[1]] = response
+        if responses:
+            task.responses = responses
+        return task
+
+
+class StagePublisher(BaseDatesModel, SchemaProvider):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="publisher",
+        help_text="Stage of the task that will be published")
+
+    exclude_fields = models.TextField(
+        blank=True,
+        help_text="List of all first level fields to exclude "
+                  "from publication separated by whitespaces."
+    )
+
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Indicates tasks of this stage "
+                  "may be accessed by unauthenticated users."
+    )
+
+    def prepare_responses(self, task):
+        responses = task.responses
+        if isinstance(responses, dict):
+            for exclude_field in self.exclude_fields.split():
+                responses.pop(exclude_field, None)
+        return responses
+
+
+# class ResponseFlattener(BaseDatesModel):
+#     task_stage = models.ForeignKey(
+#         TaskStage,
+#         on_delete=models.CASCADE,
+#         related_name="response_flatteners",
+#         help_text="Stage of the task will be flattened.")
+#     copy_first_level = models.BooleanField(
+#         default=True,
+#         help_text="Copy all first level fields in responses "
+#                   "that are not dictionaries or arrays."
+#     )
+#     exclude_list = models.TextField(
+#         blank=True,
+#         help_text="List of all first level fields to exclude "
+#                   "separated by whitespaces. Dictionary and array "
+#                   "fields are excluded automatically."
+#     )
+#     columns = models.JSONField(
+#         default=list,
+#         blank=True,
+#         help_text="List of columns with with paths to values inside."
+#     )
+#
+#     def flatten_response(self, task):
+#         result = {}
+#         if task.responses:
+#             if self.copy_first_level:
+#                 for key, value in task.responses.items():
+#                     if key not in self.exclude_list.split() and \
+#                             not isinstance(value, dict) and \
+#                             not isinstance(value, list):
+#                         result[key] = value
+#             for column in self.columns:
+#                 for path in column.path_patterns:
+#                     value = self.follow_path(task.responses, path)
+#                     if value:
+#                         result[column.name] = value
+#                         break
+#         return result
+#
+#     def follow_path(self, responses, path):
+#         if "__" not in path:
+#             if not path.startswith("("):
+#                 result = responses.get(path, None)
+#                 if isinstance(result, dict) or isinstance(result, list):
+#                     return None
+#                 return result
+#             elif path.startswith("("):
+#                 return self.find_partial_key(responses, path)
+#         paths = path.split("__", 1)[0]
+#         result = responses.get(paths[0], None)
+#         if isinstance(result, dict):
+#             return self.follow_path(result, paths[1])
+#         return None
+#
+#     def find_partial_key(self, responses, path):
+#         for key, value in responses.items():
+#             p = path.split(")", 1)[1]
+#             if p in key:
+#                 if not isinstance(value, dict) and not isinstance(value, list):
+#                     return value
+#         return None
+
+
+class Quiz(BaseDatesModel):
+    task_stage = models.OneToOneField(
+        TaskStage,
+        primary_key=True,
+        on_delete=models.CASCADE,
+        related_name="quiz",
+        help_text="Stage of the task that will be published")
+    correct_responses_task = models.OneToOneField(
+        "Task",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="quiz",
+        help_text="Task containing correct responses to the quiz"
+    )
+    threshold = models.FloatField(
+        blank=True,
+        null=True,
+        help_text="If set, task will not be closed with "
+                  "quiz scores lower than this threshold"
+    )
+
+    def is_ready(self):
+        return bool(self.correct_responses_task)
+
+    def check_score(self, task):
+        return self._determine_correctness_ratio(task.responses)
+
+    def _determine_correctness_ratio(self, responses):
+        correct_answers = self.correct_responses_task.responses
+        correct = 0
+        for key, answer in correct_answers.items():
+            if str(responses.get(key)) == str(answer):
+                correct += 1
+        len_correct_answers = len(correct_answers)
+        if correct_answers.get("meta_quiz_score"):
+            len_correct_answers -= 1
+        correct_ratio = int(correct * 100 / len_correct_answers)
+        return correct_ratio
 
 
 class ConditionalStage(Stage):
@@ -477,30 +710,109 @@ class Task(BaseDatesModel, CampaignInterface):
     )
     complete = models.BooleanField(default=False)
     force_complete = models.BooleanField(default=False)
-
-    def set_complete(self, responses=None, force=False):
-        task = Task.objects.select_for_update().filter(id=self.id)[0]
-        with transaction.atomic():
-            task.complete = True
-            if responses:
-                task.responses = responses
-            if force:
-                task.force_complete = True
-            task.save()
-
+    reopened = models.BooleanField(
+        default=False,
+        help_text="Indicates that task was returned to user, "
+                  "usually because of pingpong stages.")
 
     class Meta:
         UniqueConstraint(
             fields=['integrator_group', 'stage'],
             name='unique_integrator_group')
 
+    class ImpossibleToUncomplete(Exception):
+        pass
+
+    class ImpossibleToOpenPrevious(Exception):
+        pass
+
+    class AlreadyCompleted(Exception):
+        pass
+
+    class CompletionInProgress(Exception):
+        pass
+
+    def set_complete(self, responses=None, force=False, complete=True):
+        if self.complete:
+            raise Task.AlreadyCompleted
+
+        with transaction.atomic():
+            try:
+                task = Task.objects.select_for_update(nowait=True).get(pk=self.id)
+            except OperationalError:
+                raise Task.CompletionInProgress
+            # task = Task.objects.select_for_update().filter(id=self.id)[0]
+            # task.complete = True
+            if task.complete:
+                raise Task.AlreadyCompleted
+
+            if responses:
+                task.responses = responses
+            if force:
+                task.force_complete = True
+            if complete:
+                task.complete = True
+            task.save()
+            return task
+
+    def set_not_complete(self):
+        if self.complete:
+            if self.stage.assign_user_by == "IN":
+                if len(self.out_tasks.all()) == 1:
+                    if not self.out_tasks.all()[0].complete:
+                        self.complete = False
+                        self.reopened = True
+                        self.save()
+                        return self
+        raise Task.ImpossibleToUncomplete
+
+    def get_direct_previous(self):
+        in_tasks = self.in_tasks.all()
+        if len(in_tasks) == 1:
+            if self._are_directly_connected(in_tasks[0], self):
+                return in_tasks[0]
+        return None
+
+    def get_direct_next(self):
+        out_tasks = self.out_tasks.all()
+        if len(out_tasks) == 1:
+            if self._are_directly_connected(self, out_tasks[0]):
+                return out_tasks[0]
+        return None
+
+    def open_previous(self):
+        if not self.complete and self.stage.allow_go_back:
+            prev_task = self.get_direct_previous()
+            if prev_task:
+                if prev_task.assignee == self.assignee:
+                    self.complete = True
+                    prev_task.complete = False
+                    prev_task.reopened = True
+                    self.save()
+                    prev_task.save()
+                    return prev_task, self
+        raise Task.ImpossibleToOpenPrevious
+
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
-    def get_displayed_prev_tasks(self):
-        return Task.objects.filter(case=self.case) \
+    def get_displayed_prev_tasks(self, public=False):
+        tasks = Task.objects.filter(case=self.case) \
             .filter(stage__in=self.stage.displayed_prev_stages.all()) \
             .exclude(id=self.id)
+        if public:
+            tasks = tasks.filter(stage__is_public=True)
+        return tasks
+
+    def _are_directly_connected(self, task1, task2):
+        in_tasks = task2.in_tasks.all()
+        if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
+            if len(task2.stage.in_stages.all()) == 1 and \
+                    task2.stage.in_stages.all()[0] == task1.stage:
+                if len(task1.stage.out_stages.all()) == 1:
+                    if task1.out_tasks.all().count() == 1:
+                        return True
+        return False
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
@@ -665,11 +977,11 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.stage.get_campaign()
 
-    def __str__(self):
-        return str("Rank limit: " +
-                   self.rank.__str__() +
-                   " " +
-                   self.stage.__str__())
+    # def __str__(self):
+    #     return str("Rank limit: " +
+    #                self.rank.__str__() +
+    #                " " +
+    #                self.stage.__str__())
 
 
 class Log(BaseDatesModel, CampaignInterface):
