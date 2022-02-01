@@ -437,6 +437,11 @@ class LogAdmin(admin.ModelAdmin):
 
 class ResponseFlattenerAdmin(admin.ModelAdmin):
     model = ResponseFlattener
+    list_display = ('task_stage', 'copy_first_level', 'copy_system_fields')
+    list_filter = ('task_stage', 'copy_first_level', 'copy_system_fields')
+    search_fields = ('task_stage',)
+    autocomplete_fields = ('task_stage',)
+
 
 # class AdminPreferenceForm(forms.ModelForm):
 #     def clean(self):
