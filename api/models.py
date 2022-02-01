@@ -636,13 +636,14 @@ class Quiz(BaseDatesModel):
 
     def _determine_correctness_ratio(self, responses):
         correct_answers = self.correct_responses_task.responses
-        if correct_answers.get("meta_quiz_score"):
-            del correct_answers['meta_quiz_score']
         correct = 0
         for key, answer in correct_answers.items():
             if str(responses.get(key)) == str(answer):
                 correct += 1
-        correct_ratio = int(correct * 100 / len(correct_answers))
+        len_correct_answers = len(correct_answers)
+        if correct_answers.get("meta_quiz_score"):
+            len_correct_answers -= 1
+        correct_ratio = int(correct * 100 / len_correct_answers)
         return correct_ratio
 
 
