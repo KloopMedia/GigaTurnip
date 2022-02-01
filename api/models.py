@@ -213,7 +213,7 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         return stage
 
     def __str__(self):
-        return self.name
+        return f"ID: {self.id}; {self.name}"
 
 
 class TaskStage(Stage, SchemaProvider):
@@ -592,6 +592,9 @@ class ResponseFlattener(BaseDatesModel):
             del result['_state']
 
         return result
+
+    def __str__(self):
+        return f"ID: {self.id}; TaskStage ID: {self.task_stage.id}"
 
     def follow_path(self, responses, path):
         paths = path.split("__", 1)

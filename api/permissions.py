@@ -295,7 +295,7 @@ class TaskAccessPolicy(AccessPolicy):
     def is_manager_by_stage(self, request, view, action) -> bool:
         stage = request.query_params.get('stage')
         response_flattener_id = request.query_params.get('response_flattener')
-        if stage.isdigit() and response_flattener_id.isdigit():
+        if stage and stage.isdigit() and response_flattener_id.isdigit():
             return bool(self.scope_queryset(request, Task.objects.filter(stage=stage)))
         else:
             return False
