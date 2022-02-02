@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz
+    Task, CopyField, Integration, Quiz, Log
 
 
 class GigaTurnipTest(APITestCase):
@@ -154,7 +154,6 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
-    def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
 
@@ -533,11 +532,11 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_12.id)
-        
+
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
-                assign_user_by="ST", 
+                assign_user_by="ST",
                 assign_user_from_stage=self.initial_stage,
                 allow_go_back=True
             ))
@@ -753,3 +752,14 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses["meta_quiz_score"], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertFalse(task.complete)
+
+    def test_logs_for_task_stages(self):
+        old_count = Log.objects.count()
+        self.user.managed_campaigns.add(self.campaign)
+
+        update_js = {"name": "Rename stage"}
+        url = reverse("taskstage-detail", kwargs={"pk": self.initial_stage.id})
+        response = self.client.patch(url, update_js)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(old_count, 0)
+        self.assertEqual(Log.objects.count(), 1)
