@@ -138,12 +138,14 @@ class CampaignManagement(BaseDatesModel, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        related_name="campaign_managements"
+        related_name="campaign_managements",
+        help_text="The User(id) who will manage the campaign"
     )
     campaign = models.ForeignKey(
         Campaign,
         on_delete=models.CASCADE,
-        related_name="campaign_managements"
+        related_name="campaign_managements",
+        help_text="The Campaign(id) which will be managed"
     )
 
     class Meta:
@@ -228,18 +230,18 @@ class TaskStage(Stage, SchemaProvider):
     )
     allow_multiple_files = models.BooleanField(
         default=False,
-        help_text="Allow user to upload multiple files"
+        help_text="Allow user to upload multiple files. Boolean type."
     )
     is_creatable = models.BooleanField(
         default=False,
-        help_text="Allow user to create a task manually"
+        help_text="Allow user to create a task manually. Boolean type."
     )
     displayed_prev_stages = models.ManyToManyField(
         Stage,
         related_name="displayed_following_stages",
         blank=True,
         help_text="List of previous stages (tasks data) "
-                  "to be shown in current stage"
+                  "to be shown in current stage. Array of integers."
     )
 
     RANK = 'RA'
@@ -268,18 +270,18 @@ class TaskStage(Stage, SchemaProvider):
 
     allow_go_back = models.BooleanField(
         default=False,
-        help_text="Indicates that previous task can be opened."
+        help_text="Indicates that previous task can be opened. Boolean type."
     )
 
     allow_release = models.BooleanField(
         default=False,
-        help_text="Indicates task can be released."
+        help_text="Indicates task can be released. Boolean type."
     )
 
     is_public = models.BooleanField(
         default=False,
         help_text="Indicates tasks of this stage "
-                  "may be accessed by unauthenticated users."
+                  "may be accessed by unauthenticated users. Boolean type."
     )
 
     webhook_address = models.URLField(
@@ -308,7 +310,7 @@ class TaskStage(Stage, SchemaProvider):
         null=True,
         blank=True,
         help_text=(
-            "Get parameters sent to webhook."
+            "Get parameters sent to webhook. JSON type."
         )
     )
 
@@ -343,11 +345,11 @@ class Integration(BaseDatesModel):
         primary_key=True,
         on_delete=models.CASCADE,
         related_name="integration",
-        help_text="Parent TaskStage")
+        help_text="Parent TaskStage(id)")
     group_by = models.TextField(
         blank=True,
         help_text="Top level Task responses keys for task grouping "
-                  "separated by whitespaces."
+                  "separated by whitespaces. Array of str."
     )
     # exclusion_stage = models.ForeignKey(
     #     TaskStage,
@@ -391,7 +393,7 @@ class Webhook(BaseDatesModel):
         primary_key=True,
         on_delete=models.CASCADE,
         related_name="webhook",
-        help_text="Parent TaskStage")
+        help_text="Parent TaskStage(id)")
 
     url = models.URLField(
         blank=True,
@@ -410,7 +412,7 @@ class Webhook(BaseDatesModel):
         default=dict,
         blank=True,
         help_text=(
-            "Headers sent to webhook."
+            "Headers sent to webhook. JSON type."
         )
     )
 
@@ -520,12 +522,12 @@ class StagePublisher(BaseDatesModel, SchemaProvider):
         primary_key=True,
         on_delete=models.CASCADE,
         related_name="publisher",
-        help_text="Stage of the task that will be published")
+        help_text="Stage(id) of the task that will be published")
 
     exclude_fields = models.TextField(
         blank=True,
         help_text="List of all first level fields to exclude "
-                  "from publication separated by whitespaces."
+                  "from publication separated by whitespaces. Array of str."
     )
 
     is_public = models.BooleanField(
@@ -612,20 +614,20 @@ class Quiz(BaseDatesModel):
         primary_key=True,
         on_delete=models.CASCADE,
         related_name="quiz",
-        help_text="Stage of the task that will be published")
+        help_text="Stage(id) of the task that will be published.")
     correct_responses_task = models.OneToOneField(
         "Task",
         on_delete=models.CASCADE,
         blank=True,
         null=True,
         related_name="quiz",
-        help_text="Task containing correct responses to the quiz"
+        help_text="Task(id) containing correct responses to the quiz."
     )
     threshold = models.FloatField(
         blank=True,
         null=True,
         help_text="If set, task will not be closed with "
-                  "quiz scores lower than this threshold"
+                  "quiz scores lower than this threshold."
     )
 
     def is_ready(self):
@@ -649,10 +651,10 @@ class Quiz(BaseDatesModel):
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
-                                  help_text="JSON logic conditions")
+                                  help_text="JSON logic conditions. JSON type.")
     pingpong = models.BooleanField(default=False,
                                    help_text="If True, makes 'in stages' "
-                                             "task incomplete")
+                                             "task incomplete. Boolean type.")
 
     # def __str__(self):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
@@ -672,13 +674,13 @@ class Task(BaseDatesModel, CampaignInterface):
         related_name="tasks",
         blank=True,
         null=True,
-        help_text="User id who is responsible for the task"
+        help_text="User id who is responsible for the task."
     )
     stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
         related_name="tasks",
-        help_text="Stage id"
+        help_text="Stage id."
     )
     case = models.ForeignKey(
         Case,
@@ -686,34 +688,37 @@ class Task(BaseDatesModel, CampaignInterface):
         related_name="tasks",
         blank=True,
         null=True,
-        help_text="Case id"
+        help_text="Case id."
     )
     responses = models.JSONField(
         null=True,
         blank=True,
         help_text="User generated responses "
-                  "(answers)"
+                  "(answers). JSON type."
     )
     in_tasks = models.ManyToManyField(
         "self",
         related_name="out_tasks",
         blank=True,
         symmetrical=False,
-        help_text="Preceded tasks"
+        help_text="Preceded tasks."
     )
     integrator_group = models.JSONField(
         null=True,
         blank=True,
         default=None,
         help_text="Response fields that must be shared "
-                  "by all tasks being integrated."
+                  "by all tasks being integrated. JSON type."
     )
-    complete = models.BooleanField(default=False)
-    force_complete = models.BooleanField(default=False)
+    complete = models.BooleanField(default=False,
+                                   help_text="Task sent on the check. "
+                                             "If the task complete equals true you can not edit it."
+                                   )
+    force_complete = models.BooleanField(default=False, help_text="Shows if the task was closed by admins.")
     reopened = models.BooleanField(
         default=False,
         help_text="Indicates that task was returned to user, "
-                  "usually because of pingpong stages.")
+                  "usually because of pingpong stages. Boolean type.")
 
     class Meta:
         UniqueConstraint(
@@ -870,13 +875,13 @@ class Rank(BaseModel, CampaignInterface):
         TaskStage,
         related_name="ranks",
         through="RankLimit",
-        help_text="Stages id"
+        help_text="Stages id."
     )
     track = models.ForeignKey(
         "Track",
         related_name="ranks",
         on_delete=models.CASCADE,
-        help_text="Track this rank belongs to",
+        help_text="Track(id) this rank belongs to.",
         null=True,
         blank=True
     )
@@ -893,7 +898,7 @@ class Track(BaseModel, CampaignInterface):
         Campaign,
         related_name="tracks",
         on_delete=models.CASCADE,
-        help_text="Campaign id"
+        help_text="Campaign id."
     )
     default_rank = models.ForeignKey(
         Rank,
@@ -901,7 +906,7 @@ class Track(BaseModel, CampaignInterface):
         on_delete=models.CASCADE,
         blank=True,
         null=True,
-        help_text="Rank id"
+        help_text="Rank id."
     )
 
     def get_campaign(self) -> Campaign:
@@ -915,12 +920,12 @@ class RankRecord(BaseDatesModel, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        help_text="User id"
+        help_text="User id who will be connect to the rank."
     )
     rank = models.ForeignKey(
         Rank,
         on_delete=models.CASCADE,
-        help_text="Rank id"
+        help_text="Rank id which will be connected to the user."
     )
 
     class Meta:
@@ -937,38 +942,41 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     rank = models.ForeignKey(
         Rank,
         on_delete=models.CASCADE,
-        help_text="Rank id"
+        help_text="Rank id that gets limits."
     )
     stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
         related_name="ranklimits",
-        help_text="Stage id"
+        help_text="Stage id that gets limits"
     )
     open_limit = models.IntegerField(
         default=0,
         help_text="The maximum number of tasks that "
-                  "can be opened at the same time for a user"
+                  "can be opened at the same time for a user. Default 0."
+                  "0 - unlimited."
     )
     total_limit = models.IntegerField(
         default=0,
-        help_text="The maximum number of tasks that user can obtain"
+        help_text="The maximum number of tasks that user can obtain. Default 0."
+                  "0 - unlimited."
+
     )
     is_listing_allowed = models.BooleanField(
         default=False,
-        help_text="Allow user to see the list of created tasks"
+        help_text="Allow user to see the list of created tasks. Default False"
     )
     is_submission_open = models.BooleanField(
         default=True,
-        help_text="Allow user to submit a task"
+        help_text="Allow user to submit a task. Default True"
     )
     is_selection_open = models.BooleanField(
         default=True,
-        help_text="Allow user to select a task"
+        help_text="Allow user to select a task. Default True"
     )
     is_creation_open = models.BooleanField(
         default=True,
-        help_text="Allow user to create a task"
+        help_text="Allow user to create a task. Default True"
     )
 
     class Meta:
@@ -992,7 +1000,7 @@ class Log(BaseDatesModel, CampaignInterface):
         Campaign,
         related_name="logs",
         on_delete=models.CASCADE,
-        help_text="Campaign related to the issue in the log"
+        help_text="Campaign related to the issue in the log."
     )
     chain = models.ForeignKey(
         Chain,
@@ -1000,7 +1008,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="Chain related to the issue in the log"
+        help_text="Chain related to the issue in the log."
     )
     stage = models.ForeignKey(
         Stage,
@@ -1008,7 +1016,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="Stage related to the issue in the log"
+        help_text="Stage related to the issue in the log."
     )
     case = models.ForeignKey(
         Case,
@@ -1016,7 +1024,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="Case related to the issue in the log"
+        help_text="Case related to the issue in the log."
     )
     task = models.ForeignKey(
         Task,
@@ -1024,7 +1032,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="Task related to the issue in the log"
+        help_text="Task related to the issue in the log."
     )
     user = models.ForeignKey(
         CustomUser,
@@ -1032,7 +1040,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="User related to the issue in the log"
+        help_text="User related to the issue in the log."
     )
     track = models.ForeignKey(
         Track,
@@ -1040,7 +1048,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="Track related to the issue in the log"
+        help_text="Track related to the issue in the log."
     )
     rank = models.ForeignKey(
         Rank,
@@ -1048,7 +1056,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="Rank related to the issue in the log"
+        help_text="Rank related to the issue in the log."
     )
     rank_limit = models.ForeignKey(
         RankLimit,
@@ -1056,7 +1064,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="logs",
         blank=True,
         null=True,
-        help_text="RankLimit related to the issue in the log"
+        help_text="RankLimit related to the issue in the log."
     )
     rank_record = models.ForeignKey(
         RankLimit,
@@ -1064,7 +1072,7 @@ class Log(BaseDatesModel, CampaignInterface):
         related_name="rr_logs",
         blank=True,
         null=True,
-        help_text="RankRecord related to the issue in the log"
+        help_text="RankRecord related to the issue in the log."
     )
 
     def get_campaign(self) -> Campaign:
@@ -1074,32 +1082,32 @@ class Log(BaseDatesModel, CampaignInterface):
 class Notification(BaseDates, CampaignInterface):
     title = models.CharField(
         max_length=150,
-        help_text="Instance title"
+        help_text="Instance title."
     )
 
     text = models.TextField(
         null=True,
         blank=True,
-        help_text="Text notification"
+        help_text="Text notification."
     )
 
     campaign = models.ForeignKey(
         Campaign,
         on_delete=models.CASCADE,
         related_name="notifications",
-        help_text="Campaign id"
+        help_text="Campaign id."
     )
 
     importance = models.IntegerField(
         default=3,
-        help_text="The lower the more important")
+        help_text="The lower the more important.")
 
     rank = models.ForeignKey(
         Rank,
         blank=True,
         null=True,
         on_delete=models.CASCADE,
-        help_text="Rank id"
+        help_text="Rank id."
     )
 
     target_user = models.ForeignKey(
@@ -1107,7 +1115,7 @@ class Notification(BaseDates, CampaignInterface):
         blank=True,
         null=True,
         on_delete=models.CASCADE,
-        help_text="User id"
+        help_text="User id."
     )
 
     def open(self, request):
@@ -1136,13 +1144,13 @@ class NotificationStatus(BaseDates, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        help_text="User id"
+        help_text="User id."
     )
 
     notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
-        help_text="Notification id",
+        help_text="Notification id.",
         related_name="notification_statuses",
     )
 
