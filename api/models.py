@@ -32,6 +32,7 @@ class CustomUser(AbstractUser, BaseDatesModel):
     ranks = models.ManyToManyField(
         "Rank",
         through="RankRecord",
+        help_text="Ranks user has",
         related_name="users")
 
     def __str__(self):
