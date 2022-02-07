@@ -97,10 +97,19 @@ class CampaignInterface:
 
     @abstractmethod
     def get_campaign(self):
+        """
+        The ethod returns the campaign referenced by the stage.
+        :return:
+        """
         pass
 
 
 class Campaign(BaseModel, CampaignInterface):
+
+    """
+    join:
+    get a user from request and connect him with the default rank got from default_track
+    """
     default_track = models.ForeignKey(
         "Track",
         on_delete=models.CASCADE,  # TODO Change deletion method
@@ -119,6 +128,11 @@ class Campaign(BaseModel, CampaignInterface):
                                help_text="If True, users can join")
 
     def join(self, request):
+        """
+        The join method creates RankRecord with the requesting user and default rank taken from the default track.
+        :param request:
+        :return:
+        """
         if request.user is not None:
             rank_record, created = RankRecord.objects.get_or_create(
                 user=request.user,
@@ -203,6 +217,11 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         return self.chain.campaign
 
     def add_stage(self, stage):
+        """
+        The method adds a stage in the in_stages field to the self-object. Note: the argument stage must be typed
+        ConditionalStage or TaskStage.
+         :param stage: :return:
+        """
         stage.chain = self.chain
         if not hasattr(stage, "name"):
             stage.name = "NoName"
@@ -325,16 +344,28 @@ class TaskStage(Stage, SchemaProvider):
     )
 
     def get_integration(self):
+        """
+        The method returns the integration object if the self has the integration attribute. Otherwise, it returns None
+        :return:
+        """
         if hasattr(self, 'integration'):
             return self.integration
         return None
 
     def get_webhook(self):
+        """
+        The method returns the webhook object if the self has the webhook attribute. Otherwise, it returns None
+        :return:
+        """
         if hasattr(self, 'webhook'):
             return self.webhook
         return None
 
     def get_quiz(self):
+        """
+        The method returns the quiz object if the self has the quiz attribute. Otherwise, it returns None
+        :return:
+        """
         if hasattr(self, 'quiz'):
             return self.quiz
         return None
@@ -351,7 +382,8 @@ class Integration(BaseDatesModel):
         blank=True,
         help_text="Top level Task responses keys for task grouping "
                   "separated by whitespaces. Array of str."
-    )
+    ) #Todo: The group_by field have to be ArrayOfStr field than TextField because we can face up issues so if we got not the array of str
+
     # exclusion_stage = models.ForeignKey(
     #     TaskStage,
     #     on_delete=models.SET_NULL,
@@ -368,6 +400,11 @@ class Integration(BaseDatesModel):
     # )
 
     def get_or_create_integrator_task(self, task): # TODO Check for race condition
+        """
+        Create new integration task based on dictionary of top level fields returned by _get_task_fields
+        :param task:
+        :return:
+        """
         integrator_group = self._get_task_fields(task.responses)
         integrator_task = Task.objects.get_or_create(
             stage=self.task_stage,
@@ -376,6 +413,12 @@ class Integration(BaseDatesModel):
         return integrator_task
 
     def _get_task_fields(self, responses):
+        """
+        Returns dictionary of fields specified in group_by field from responses. Note that the method doesn't go into
+        fields, it can return only top-level fields
+        :param responses:
+        :return:
+        """
         group = {}
         groupings = self.group_by.split()
         for grouping in groupings:
@@ -427,6 +470,14 @@ class Webhook(BaseDatesModel):
     )
 
     def trigger(self, task):
+        """
+        The trigger method get all in_tasks of the task you passed and extract their responses then all in_tasks
+        responses will be sent to the webhook you input in the url field.
+        Note the method can return exception, based on response from webhook.
+        If there wasn't any exception task will accept new responses got from webhook and update current task.
+        :param task:
+        :return:
+        """
         data = []
         for in_task in task.in_tasks.all():
             data.append(in_task.responses)
@@ -632,12 +683,28 @@ class Quiz(BaseDatesModel):
     )
 
     def is_ready(self):
+        """
+        Returns true if correct responses are set, false - if correct responses don't set.
+        :return:
+        """
         return bool(self.correct_responses_task)
 
     def check_score(self, task):
+        """
+        Returns result of counting correct responses with users' answers for the current task.
+        :param task:
+        :return:
+        """
         return self._determine_correctness_ratio(task.responses)
 
     def _determine_correctness_ratio(self, responses):
+        """
+        The _determine_correctness_ratio determines percent of correct answers of user.
+        The _determine_correctness_ratio method gets as argument users' responses to compare with correct responses.
+        The method returns percent of correct answers.
+        :param responses:
+        :return:
+        """
         correct_answers = self.correct_responses_task.responses
         correct = 0
         for key, answer in correct_answers.items():
@@ -739,6 +806,16 @@ class Task(BaseDatesModel, CampaignInterface):
         pass
 
     def set_complete(self, responses=None, force=False, complete=True):
+        """
+        The set_complete method preventing race condition. Depending on transaction it can raise exception like:
+        - AlreadyCompleted (if task have been completed)
+        - CompletionInProgress (if task completion in progress)
+        Otherwise, it will update task fields, and set complete.
+        :param responses:
+        :param force:
+        :param complete:
+        :return:
+        """
         if self.complete:
             raise Task.AlreadyCompleted
 
@@ -773,6 +850,10 @@ class Task(BaseDatesModel, CampaignInterface):
         raise Task.ImpossibleToUncomplete
 
     def get_direct_previous(self):
+        """
+        The method get_direct_previous returns the previous direct task. If there are no previous tasks it returns None.
+        :return:
+        """
         in_tasks = self.in_tasks.all()
         if len(in_tasks) == 1:
             if self._are_directly_connected(in_tasks[0], self):
@@ -780,6 +861,10 @@ class Task(BaseDatesModel, CampaignInterface):
         return None
 
     def get_direct_next(self):
+        """
+        The method get_direct_next returns the next direct task. If there are no next tasks it returns None.
+        :return:
+        """
         out_tasks = self.out_tasks.all()
         if len(out_tasks) == 1:
             if self._are_directly_connected(self, out_tasks[0]):
@@ -787,6 +872,15 @@ class Task(BaseDatesModel, CampaignInterface):
         return None
 
     def open_previous(self):
+        """
+        The method open_previous open previous task if these condition is true:
+        - self.complete is not true;
+        - self.stage.allow_go_back is true;
+        - previous stage is exist;
+        - prev_task assignee equals is self.assignee;
+        Otherwise, the method returns Task.ImpossibleToOpenPrevious exception
+        :return:
+        """
         if not self.complete and self.stage.allow_go_back:
             prev_task = self.get_direct_previous()
             if prev_task:
@@ -803,6 +897,11 @@ class Task(BaseDatesModel, CampaignInterface):
         return self.stage.get_campaign()
 
     def get_displayed_prev_tasks(self, public=False):
+        """
+        Returns all previous tasks of the current task.
+        :param public:
+        :return:
+        """
         tasks = Task.objects.filter(case=self.case) \
             .filter(stage__in=self.stage.displayed_prev_stages.all()) \
             .exclude(id=self.id)
@@ -811,6 +910,12 @@ class Task(BaseDatesModel, CampaignInterface):
         return tasks
 
     def _are_directly_connected(self, task1, task2):
+        """
+        The method _are_directly_connected check if the tasks connected directly
+        :param task1:
+        :param task2:
+        :return:
+        """
         in_tasks = task2.in_tasks.all()
         if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
             if len(task2.stage.in_stages.all()) == 1 and \
@@ -1120,6 +1225,12 @@ class Notification(BaseDates, CampaignInterface):
     )
 
     def open(self, request):
+        """
+        The open method gets the user from the request and creates new notification status.
+        This method implements the opening function of the notification.
+        :param request:
+        :return:
+        """
         if request.user is not None:
             notification_status, created = NotificationStatus \
                 .objects.get_or_create(
