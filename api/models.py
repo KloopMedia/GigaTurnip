@@ -121,7 +121,8 @@ class Campaign(BaseModel, CampaignInterface):
     managers = models.ManyToManyField(
         CustomUser,
         through="CampaignManagement",
-        related_name="managed_campaigns"
+        related_name="managed_campaigns",
+        help_text="All managers that can manage campaign"
     )
 
     open = models.BooleanField(default=False,
