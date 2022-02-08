@@ -15,8 +15,9 @@ def process_completed_task(task):
     # chain propagation.
     quiz = current_stage.get_quiz()
     if quiz and quiz.is_ready():
-        quiz_score = quiz.check_score(task)
+        quiz_score, answers_status = quiz.check_score(task)
         task.responses["meta_quiz_score"] = quiz_score
+        task.responses["meta_quiz_answers_status"] = answers_status
         task.save()
         if quiz.threshold is not None and quiz_score < quiz.threshold:
             task.complete = False

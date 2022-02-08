@@ -636,15 +636,23 @@ class Quiz(BaseDatesModel):
 
     def _determine_correctness_ratio(self, responses):
         correct_answers = self.correct_responses_task.responses
+        answers_status = {}
         correct = 0
         for key, answer in correct_answers.items():
             if str(responses.get(key)) == str(answer):
                 correct += 1
+                answers_status[key] = True
+            else:
+                answers_status[key] = False
+
         len_correct_answers = len(correct_answers)
-        if correct_answers.get("meta_quiz_score"):
-            len_correct_answers -= 1
+        unnecessary_keys = ["meta_quiz_score", "meta_quiz_answers_status"]
+        for k in unnecessary_keys:
+            if correct_answers.get(k):
+                len_correct_answers -= 1
+
         correct_ratio = int(correct * 100 / len_correct_answers)
-        return correct_ratio
+        return correct_ratio, answers_status
 
 
 class ConditionalStage(Stage):

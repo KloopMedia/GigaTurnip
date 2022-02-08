@@ -704,6 +704,26 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
+    def test_quiz_correctly_answers(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses
+        )
+        task = self.create_initial_task()
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        answers_status = {"1": True, "2": True, "3": True, "4": True, "5": False}
+        task = self.complete_task(task, responses=responses)
+
+        self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(task.responses["meta_quiz_answers_status"], answers_status)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertTrue(task.complete)
+
     def test_quiz_above_threshold(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
