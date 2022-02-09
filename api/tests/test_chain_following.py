@@ -154,6 +154,7 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
+    def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
 
