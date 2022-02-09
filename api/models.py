@@ -984,6 +984,47 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     #                self.stage.__str__())
 
 
+class TaskAward(BaseDatesModel, CampaignInterface):
+    task_stage_completion = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="task_stage_completion",
+        help_text="Task Stage completion")
+    task_stage_verified = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="task_stage_verified",
+        help_text="Task Stage verified")
+    rank = models.ForeignKey(
+        Rank,
+        on_delete=models.CASCADE,
+        help_text="Rank to create record with user")
+    count = models.PositiveIntegerField(help_text="The count of completed tasks for given award")
+    title = models.TextField(help_text="Title for message for users who achieve award")
+    message = models.TextField(help_text="Message for users who achieve award")
+    message_before_achieve = models.TextField(help_text="Message for users about coming award")
+
+    def get_campaign(self) -> Campaign:
+        return self.task_stage_completion.chain.campaign
+
+    def connect_user_with_rank(self, case):
+        current_case_tasks = Task.objects.filter(case = case)
+        all_finished_tasks = current_case_tasks.filter(
+            stage=self.task_stage_verified,
+            force_complete=False
+        ).all()
+        if all_finished_tasks.count() == self.count:
+            user = current_case_tasks.get(stage=self.task_stage_completion)
+            rank_record = RankRecord.objects.create(user=user, rank=self.rank)#todo:make get_or_create()
+            Notification.objects.create(target_user=user,
+                                        title=self.title,
+                                        text=self.message,
+                                        )
+            return rank_record
+        else:
+            return None
+
+
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)

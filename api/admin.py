@@ -8,7 +8,8 @@ from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
+    TaskAward
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -322,6 +323,22 @@ class RankAdmin(admin.ModelAdmin):
         return filter_by_admin_preference(queryset, request, "track__")
 
 
+class TaskAwardAdmin(admin.ModelAdmin):
+    list_display = (
+        "task_stage_completion",
+        "task_stage_verified",
+        "rank",
+        "count"
+    )
+    list_filter = (
+        "task_stage_completion__chain__campaign",
+        "task_stage_completion",
+        "task_stage_verified",
+        "rank",
+        "count"
+    )
+
+
 class CopyFieldAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'task_stage',
@@ -507,6 +524,7 @@ admin.site.register(Rank, RankAdmin)
 admin.site.register(RankLimit, RankLimitAdmin)
 admin.site.register(RankRecord, RankRecordAdmin)
 admin.site.register(CampaignManagement, CampaignManagementAdmin)
+admin.site.register(TaskAward, TaskAwardAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)

@@ -3,7 +3,7 @@ import json
 import requests
 from django.db.models import Q
 
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
 
 
 def process_completed_task(task):
@@ -49,11 +49,15 @@ def process_completed_task(task):
     else:
         process_out_stages(current_stage, task)
     next_direct_task = task.get_direct_next()
+    task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
     if next_direct_task is not None:
         if next_direct_task.assignee == task.assignee:
             return next_direct_task
         else:
             return None
+    elif (next_direct_task is None) and task_awards:
+        for task_award in task_awards:
+            rank_record = task_award.connect_user_with_rank(task.case)
     return None
 
 
