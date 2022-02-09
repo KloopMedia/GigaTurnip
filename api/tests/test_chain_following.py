@@ -689,6 +689,29 @@ class GigaTurnipTest(APITestCase):
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -706,7 +729,36 @@ class GigaTurnipTest(APITestCase):
 
     def test_quiz_correctly_answers(self):
         task_correct_responses = self.create_initial_task()
-        correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "q_1": {
+                    "enum": [ "a", "b", "c" ],
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "q_2": {
+                    "enum": [ "a", "b", "c" ],
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "q_3": {
+                    "enum": [ "a", "b", "c" ],
+                    "title": "Question 3",
+                    "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": [
+                "q_1",
+                "q_2",
+                "q_3"
+            ]
+        }
+        self.initial_stage.save()
+
+        correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -715,18 +767,40 @@ class GigaTurnipTest(APITestCase):
             correct_responses_task=task_correct_responses
         )
         task = self.create_initial_task()
-        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
-        answers_status = {"1": True, "2": True, "3": True, "4": True, "5": False}
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses["meta_quiz_score"], 80)
-        self.assertEqual(task.responses["meta_quiz_answers_status"], answers_status)
+        self.assertEqual(task.responses["meta_quiz_score"], 33)
+        self.assertEqual(task.responses["meta_quiz_incorrect_questions"], "Question 2\nQuestion 3")
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
     def test_quiz_above_threshold(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -752,6 +826,29 @@ class GigaTurnipTest(APITestCase):
     def test_quiz_below_threshold(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
