@@ -1000,7 +1000,7 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text="Rank to create record with user")
     count = models.PositiveIntegerField(help_text="The count of completed tasks for given award")
-    title = models.TextField(help_text="Title for message for users who achieve award")
+    title = models.TextField(null=True, help_text="Title for message for users who achieve award")
     message = models.TextField(help_text="Message for users who achieve award")
     message_before_achieve = models.TextField(help_text="Message for users about coming award")
 

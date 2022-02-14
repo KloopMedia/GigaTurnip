@@ -764,3 +764,39 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(old_count, 0)
         self.assertEqual(Log.objects.count(), 1)
+
+    def test_task_awards(self):
+        new_user = CustomUser.objects.create_user(username="new_user",
+                                                   email='new_user@email.com',
+                                                   password='new_user')
+
+        # second_stage = self.initial_stage.add_stage(TaskStage(
+        #     assign_user_by="ST",
+        #     assign_user_from_stage=self.initial_stage
+        # ))
+        verification_task_stage = self.initial_stage.add_stage(TaskStage(
+            assign_user_by="RA"
+        ))
+        verificator_rank = Rank.objects.create(
+            name="verificator",
+
+        )
+        RankRecord.objects.create(
+            user=new_user,
+            rank=verificator_rank)
+
+        rank_l = RankLimit.objects.create(
+            rank=verificator_rank,
+            stage=verification_task_stage,
+            open_limit=0,
+            total_limit=0,
+            is_listing_allowed=True,
+            is_creation_open=False)
+
+        new_client = APIClient()
+        new_client.force_authenticate(new_user)
+
+        task = self.create_task(self.initial_stage, self.client)
+        task = self.complete_task(task, responses={"answer":"norm"})
+
+
