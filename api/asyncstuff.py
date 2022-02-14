@@ -57,7 +57,7 @@ def process_completed_task(task):
             return None
     elif (next_direct_task is None) and task_awards:
         for task_award in task_awards:
-            rank_record = task_award.connect_user_with_rank(task.case)
+            rank_record = task_award.connect_user_with_rank(task)
     return None
 
 

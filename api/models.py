@@ -1007,23 +1007,47 @@ class TaskAward(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.task_stage_completion.chain.campaign
 
-    def connect_user_with_rank(self, case):
-        current_case_tasks = Task.objects.filter(case = case)
-        all_finished_tasks = current_case_tasks.filter(
+    def connect_user_with_rank(self, task):
+        user = None
+        # Get user from task which stage is stage of completion
+        for i in task.in_tasks.all():
+            if i.stage == self.task_stage_completion:
+                user = i.assignee
+                break
+
+        # Get tasks which was completed by user to get cases id
+        user_completed_tasks = Task.objects.filter(
+            stage=self.task_stage_completion,
+            assignee=user,
+            complete=True,
+            force_complete=False)
+        # Collect all cases where user have completing tasks
+        cases_of_tasks = [i[0] for i in user_completed_tasks.values_list('case')]
+
+        # Get all tasks with our needing cases
+        all_tasks_by_cases = Task.objects.filter(case__in=cases_of_tasks)
+
+        # Get verified tasks for compare with min. count of tasks to give achievement
+        verified = all_tasks_by_cases.filter(
             stage=self.task_stage_verified,
-            force_complete=False
-        ).all()
-        if all_finished_tasks.count() == self.count:
-            user = current_case_tasks.get(stage=self.task_stage_completion)
-            rank_record = RankRecord.objects.create(user=user, rank=self.rank)#todo:make get_or_create()
-            Notification.objects.create(target_user=user,
-                                        title=self.title,
-                                        text=self.message,
-                                        )
+            force_complete=False)
+        # if count is equal -> create notification and give rank
+        if verified.count() == self.count:
+            rank_record = RankRecord.objects.create(user=user, rank=self.rank)  # todo:make get_or_create()
+            Notification.objects.create(
+                target_user=user,
+                campaign=self.get_campaign(),
+                title=self.title,
+                text=self.message,
+            )
             return rank_record
         else:
             return None
 
+    def __str__(self):
+        return f"Completion: {self.task_stage_completion.id} " \
+               f"Verified: {self.task_stage_verified.id} " \
+               f"Rank: {self.rank.id}"
 
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
