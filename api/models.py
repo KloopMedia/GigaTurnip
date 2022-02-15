@@ -989,25 +989,33 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         TaskStage,
         on_delete=models.CASCADE,
         related_name="task_stage_completion",
-        help_text="Task Stage completion")
+        help_text="Task Stage completion. Usually, it is the stage that the user completes.")
     task_stage_verified = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
         related_name="task_stage_verified",
-        help_text="Task Stage verified")
+        help_text="Task Stage verified. It is the stage that is checked by the verifier.")
     rank = models.ForeignKey(
         Rank,
         on_delete=models.CASCADE,
-        help_text="Rank to create record with user")
-    count = models.PositiveIntegerField(help_text="The count of completed tasks for given award")
-    title = models.TextField(null=True, help_text="Title for message for users who achieve award")
-    message = models.TextField(help_text="Message for users who achieve award")
-    message_before_achieve = models.TextField(help_text="Message for users about coming award")
+        help_text="Rank to create the record with a user. It is a rank that will be given user, as an award who "
+                  "have completed a defined count of tasks")
+    count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
+    title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
+    message = models.TextField(help_text="Message for users who achieve award.")
+    message_before_achieve = models.TextField(help_text="Message for users about coming award.")
 
     def get_campaign(self) -> Campaign:
         return self.task_stage_completion.chain.campaign
 
     def connect_user_with_rank(self, task):
+        """
+        The method gives an award to the user if the user completed a defined count of tasks.
+        In the beginning, we find all his tasks by cases and get all that haven't been force completed by the verifier.
+        If the count is equal - we will create RankRecord with prize rank with the user.
+        :param task:
+        :return:
+        """
         user = None
         # Get user from task which stage is stage of completion
         t = task
