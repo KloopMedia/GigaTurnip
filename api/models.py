@@ -1010,9 +1010,11 @@ class TaskAward(BaseDatesModel, CampaignInterface):
     def connect_user_with_rank(self, task):
         user = None
         # Get user from task which stage is stage of completion
-        for i in task.in_tasks.all():
-            if i.stage == self.task_stage_completion:
-                user = i.assignee
+        t = task
+        while user is None and bool(t.get_direct_previous()):
+            t = t.get_direct_previous()
+            if t.stage == self.task_stage_completion:
+                user = t.assignee
                 break
 
         # Get tasks which was completed by user to get cases id
