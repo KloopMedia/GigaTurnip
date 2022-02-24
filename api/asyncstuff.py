@@ -147,6 +147,8 @@ def create_new_task(stage, in_task):
         new_task.save()
         if stage.assign_user_by == "IN":
             process_completed_task(new_task)
+        if stage.assign_user_by == "AU":
+            process_completed_task(new_task)
 
 
 def process_conditional(stage, in_task):

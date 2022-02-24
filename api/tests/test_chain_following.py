@@ -936,3 +936,60 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(user_notifications.count(), 1)
         self.assertEqual(user_notifications[0].title, task_awards.title)
         self.assertEqual(user_notifications[0].text, task_awards.message)
+
+    def test_task_awards_for_giving_ranks(self):
+        conditional_stage = ConditionalStage()
+        conditional_stage.conditions = [
+            {"field": "answer", "value": "norm", "condition": "=="}
+        ]
+        conditional_stage = self.initial_stage.add_stage(conditional_stage)
+        verification_task_stage = conditional_stage.add_stage(TaskStage(
+            name='verification',
+            assign_user_by="AU"
+        ))
+        verifier_rank = Rank.objects.create(name="verifier")
+        RankRecord.objects.create(
+            user=self.employee,
+            rank=Rank.objects.get(name="Initial"))
+        RankRecord.objects.create(
+            user=self.user,
+            rank=verifier_rank)
+
+        prize_rank = Rank.objects.create(name="SUPERMAN")
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=self.initial_stage,
+            task_stage_verified=verification_task_stage,
+            rank=prize_rank,
+            count=3,
+            title="You achieve new rank",
+            message="Congratulations! You achieve new rank!",
+            message_before_achieve=""
+        )
+
+        rank_l = RankLimit.objects.create(
+            rank=verifier_rank,
+            stage=verification_task_stage,
+            open_limit=5,
+            total_limit=0,
+            is_creation_open=False,
+            is_listing_allowed=True,
+            is_selection_open=True,
+            is_submission_open=True)
+
+        for i in range(3):
+            task = self.create_task(self.initial_stage, self.employee_client)
+            task = self.complete_task(task, {"answer": "norm"}, self.employee_client)
+
+            # response_assign = self.get_objects("task-request-assignment", pk=task.out_tasks.all()[0].id)
+            # self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+            # task_to_check = Task.objects.get(assignee=self.user, case=task.case)
+            # task_to_check = self.complete_task(task_to_check, {"decision": "pass"}, client=self.client)
+
+        employee_ranks = [i.rank for i in RankRecord.objects.filter(user=self.employee)]
+        self.assertEqual(len(employee_ranks), 2)
+        self.assertIn(prize_rank, employee_ranks)
+
+        user_notifications = Notification.objects.filter(target_user=self.employee)
+        self.assertEqual(user_notifications.count(), 1)
+        self.assertEqual(user_notifications[0].title, task_awards.title)
+        self.assertEqual(user_notifications[0].text, task_awards.message)

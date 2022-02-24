@@ -245,10 +245,11 @@ class TaskStage(Stage, SchemaProvider):
     RANK = 'RA'
     STAGE = 'ST'
     INTEGRATOR = 'IN'
+    AUTO_COMPLETE = 'AU'
     ASSIGN_BY_CHOICES = [
         (RANK, 'Rank'),
         (STAGE, 'Stage'),
-        (INTEGRATOR, 'Integrator')
+        (AUTO_COMPLETE, 'Auto-complete')
     ]
     assign_user_by = models.CharField(
         max_length=2,
