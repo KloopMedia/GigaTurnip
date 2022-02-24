@@ -1016,14 +1016,12 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         :param task:
         :return:
         """
-        user = None
         # Get user from task which stage is stage of completion
-        t = task
-        while user is None and bool(t.get_direct_previous()):
-            t = t.get_direct_previous()
-            if t.stage == self.task_stage_completion:
-                user = t.assignee
-                break
+        user = Task.objects.filter(
+            stage=self.task_stage_completion,
+            case=task.case,
+            complete=True,
+            force_complete=False)[0].assignee
 
         # Get tasks which was completed by user to get cases id
         user_completed_tasks = Task.objects.filter(
