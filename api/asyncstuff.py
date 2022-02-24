@@ -145,7 +145,11 @@ def create_new_task(stage, in_task):
         for copy_field in stage.copy_fields.all():
             new_task = copy_field.copy_response(new_task)
         new_task.save()
-        if stage.assign_user_by == "IN" or stage.assign_user_by == "AU":
+        if stage.assign_user_by == "IN":
+            process_completed_task(new_task)
+        if stage.assign_user_by == "AU":
+            new_task.complete = True
+            new_task.save()
             process_completed_task(new_task)
 
 
