@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, Log
+    Task, CopyField, Integration, Quiz, Log, Track
 
 
 class GigaTurnipTest(APITestCase):
@@ -84,6 +84,8 @@ class GigaTurnipTest(APITestCase):
         if c is None:
             c = self.client
         response = c.get(task_create_url)
+        if response.status_code == 403:
+            return response
         return Task.objects.get(id=response.data["id"])
 
     def request_assignment(self, task, client=None):
@@ -881,3 +883,65 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(old_count, 0)
         self.assertEqual(Log.objects.count(), 1)
+
+    def test_rank_limits_open_limit(self):
+        employee = CustomUser.objects.create_user(username="employee",
+                                                  email='employee@email.com',
+                                                  password='employee')
+        employee_client = APIClient()
+        employee_client.force_authenticate(employee)
+        track = Track.objects.create(
+            name="first_rank",
+            campaign=self.campaign
+        )
+        first_rank = Rank.objects.create(
+            name="first_rank",
+            track=track
+        )
+        first_ranklimit = RankLimit.objects.create(
+            stage=self.initial_stage,
+            rank=first_rank,
+            open_limit=1,
+            total_limit=0,
+        )
+        RankRecord.objects.create(
+            user=employee,
+            rank=first_rank
+        )
+
+        cs_host = ConditionalStage.objects.create(
+            name="Host",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            conditions=[{"field": "role", "value": "host", "condition": "=="}]
+        )
+
+        cs_driver = ConditionalStage.objects.create(
+            name="Host",
+            x_pos=1,
+            y_pos=1,
+            chain=self.chain,
+            conditions=[{"field": "role", "value": "driver", "condition": "=="}]
+        )
+        cs_host = self.initial_stage.add_stage(cs_host)
+        cs_driver = self.initial_stage.add_stage(cs_driver)
+
+        ts_host = cs_host.add_stage(TaskStage(
+            name="live in my house",
+            assign_user_by="ST",
+            assign_user_from_stage=self.initial_stage
+        ))
+        ts_driver = cs_driver.add_stage(TaskStage(
+            name="Go with me",
+            assign_user_by="ST",
+            assign_user_from_stage=self.initial_stage
+        ))
+
+        task = self.create_task(self.initial_stage, employee_client)
+        task = self.complete_task(task, responses={"role": "host"}, client=employee_client)
+        # created_task = Task.objects.get(stage=ts_driver, case=task.case)
+        self.assertEqual(Task.objects.count(), 2)
+
+        new_init_task = self.create_task(self.initial_stage, employee_client)
+        self.assertEqual(Task.objects.count(), 2)
