@@ -25,10 +25,12 @@ def filter_for_user_creatable_stages(queryset, request):
         .distinct()
     filtered_stages = TaskStage.objects.none()
     for stage in stages:
-        tasks = Task.objects.filter(assignee=request.user.id) \
-            .filter(stage=stage).distinct()
+        all_tasks_in_chain = Task.objects.filter(assignee=request.user.id) \
+            .filter(stage__in=stage.chain.stages.all())
+        tasks = all_tasks_in_chain.filter(stage=stage).distinct()
         total = len(tasks)
-        incomplete = len(tasks.filter(complete=False))
+        # incomplete = len(tasks.filter(complete=False))
+        incomplete = len(all_tasks_in_chain.filter(complete=False))
         ranklimits = RankLimit.objects.filter(stage=stage) \
             .filter(rank__rankrecord__user__id=request.user.id)
         for ranklimit in ranklimits:
