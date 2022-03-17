@@ -32,6 +32,9 @@ router.register(api_v1 + r'chains',
 router.register(api_v1 + r'taskstages',
                 turnip_app.TaskStageViewSet,
                 basename='taskstage')
+router.register(api_v1 + r'taskawards',
+                turnip_app.TaskAwardViewSet,
+                basename='taskaward')
 # router.register(api_v1 + r'webhookstages',
 #                 turnip_app.WebHookStageViewSet,
 #                 basename='webhookstage')

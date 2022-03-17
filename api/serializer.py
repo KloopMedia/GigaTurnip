@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, TaskAward
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -110,6 +110,13 @@ class TaskStagePublicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
                             'library', 'rich_text', 'created_at', 'updated_at']
 
+
+class TaskAwardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TaskAward
+        fields = ["task_stage_completion", "task_stage_verified",
+                  "rank", "count", "title", "message", "message_before_achieve"]
 
 class CaseSerializer(serializers.ModelSerializer):
     class Meta:

@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus
+    Notification, NotificationStatus, TaskAward
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -23,13 +23,13 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer
+    TaskStagePublicSerializer, TaskAwardSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, TaskAwardAccessPolicy
 from . import utils
 from .utils import paginate
 
@@ -139,6 +139,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         'chain__campaign': ['exact'],
         'is_creatable': ['exact'],
         'ranks': ['exact'],
+        'in_stages': ['exact'],
+        'assign_user_by': ['exact'],
         'ranks__users': ['exact'],
         'ranklimits__is_creation_open': ['exact'],
         'ranklimits__total_limit': ['exact', 'lt', 'gt'],
@@ -881,3 +883,13 @@ class PublicCSVViewSet(viewsets.ViewSet):
                              "complaint": complaint,
                              "location": location})
         return response
+
+
+class TaskAwardViewSet(viewsets.ModelViewSet):
+    permission_classes = (TaskAwardAccessPolicy,)
+    serializer_class = TaskAwardSerializer
+
+    def get_queryset(self):
+        return TaskAwardAccessPolicy.scope_queryset(
+            self.request, TaskAward.objects.all()
+        )
