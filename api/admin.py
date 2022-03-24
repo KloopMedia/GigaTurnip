@@ -171,9 +171,12 @@ class CustomUserAdmin(UserAdmin):
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
-        campaign = AdminPreference.objects.filter(campaign__managers=request.user)
-        if list(campaign):
-            queryset = Rank.objects.filter(track__campaign=campaign[0].campaign)
+        preference = AdminPreference.objects.get(campaign__managers=request.user)
+        if preference:
+            # queryset = Rank.objects.filter(stages__chain__in=preference.campaign.chains.all())
+            queryset = Rank.objects.filter(stages__chain__in=preference.campaign.chains.all())
+            print(queryset)
+            # queryset = Rank.objects.filter(id__in=)
             for rank in queryset:
                 action = set_rank_to_user_action(rank)
                 actions[action.__name__] = (action,
