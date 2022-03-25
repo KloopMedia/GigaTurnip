@@ -173,7 +173,6 @@ class CustomUserAdmin(UserAdmin):
         actions = super(CustomUserAdmin, self).get_actions(request)
         preference = AdminPreference.objects.get(campaign__managers=request.user)
         if preference:
-            # queryset = Rank.objects.filter(stages__chain__in=preference.campaign.chains.all())
             queryset = Rank.objects.filter(track__in=preference.campaign.tracks.all())
             for rank in queryset:
                 action = set_rank_to_user_action(rank)
