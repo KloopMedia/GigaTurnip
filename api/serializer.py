@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, TaskAward
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -76,6 +76,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
+                  'ranks',
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
@@ -110,6 +111,13 @@ class TaskStagePublicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
                             'library', 'rich_text', 'created_at', 'updated_at']
 
+
+class TaskAwardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TaskAward
+        fields = ["id", "task_stage_completion", "task_stage_verified",
+                  "rank", "count", "title", "message", "message_before_achieve"]
 
 class CaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -244,6 +252,11 @@ class TaskSelectSerializer(serializers.ModelSerializer):
         tasks = obj.get_displayed_prev_tasks()
         serializer = TaskDefaultSerializer(tasks, many=True)
         return serializer.data
+
+
+class RankIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rank
 
 
 class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track, Task
+from api.models import Campaign, TaskStage, Track, Task, Chain, RankRecord
 from . import utils
 
 
@@ -373,3 +373,10 @@ class PublicCSVAccessPolicy(AccessPolicy):
         "principal": "*",
         "effect": "allow",
     }]
+
+
+class TaskAwardAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        # TODO: Set filters
+        return queryset.filter()
