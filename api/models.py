@@ -153,6 +153,9 @@ class CampaignManagement(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.campaign
 
+    def __str__(self):
+        return f"{self.campaign.name} - {self.user}"
+
 
 class Chain(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(
@@ -350,6 +353,7 @@ class Integration(BaseDatesModel):
         help_text="Top level Task responses keys for task grouping "
                   "separated by whitespaces."
     )
+
     # exclusion_stage = models.ForeignKey(
     #     TaskStage,
     #     on_delete=models.SET_NULL,
@@ -365,7 +369,7 @@ class Integration(BaseDatesModel):
     #               "for exclusion is mandatory."
     # )
 
-    def get_or_create_integrator_task(self, task): # TODO Check for race condition
+    def get_or_create_integrator_task(self, task):  # TODO Check for race condition
         integrator_group = self._get_task_fields(task.responses)
         integrator_task = Task.objects.get_or_create(
             stage=self.task_stage,
@@ -668,11 +672,22 @@ class Quiz(BaseDatesModel):
     def _determine_correctness_ratio(self, responses):
         correct_answers = self.correct_responses_task.responses
         correct = 0
+        questions = eval(self.task_stage.json_schema).get('properties')
+        incorrect_questions = []
         for key, answer in correct_answers.items():
             if str(responses.get(key)) == str(answer):
                 correct += 1
-        correct_ratio = int(correct * 100 / len(correct_answers))
-        return correct_ratio
+            else:
+                incorrect_questions.append(questions.get(key).get('title'))
+
+        len_correct_answers = len(correct_answers)
+        unnecessary_keys = ["meta_quiz_score", "meta_quiz_incorrect_questions"]
+        for k in unnecessary_keys:
+            if correct_answers.get(k):
+                len_correct_answers -= 1
+
+        correct_ratio = int(correct * 100 / len_correct_answers)
+        return correct_ratio, "\n".join(incorrect_questions)
 
 
 class ConditionalStage(Stage):
