@@ -76,6 +76,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
+                  'ranks',
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
@@ -115,7 +116,7 @@ class TaskAwardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaskAward
-        fields = ["task_stage_completion", "task_stage_verified",
+        fields = ["id", "task_stage_completion", "task_stage_verified",
                   "rank", "count", "title", "message", "message_before_achieve"]
 
 class CaseSerializer(serializers.ModelSerializer):
@@ -251,6 +252,11 @@ class TaskSelectSerializer(serializers.ModelSerializer):
         tasks = obj.get_displayed_prev_tasks()
         serializer = TaskDefaultSerializer(tasks, many=True)
         return serializer.data
+
+
+class RankIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rank
 
 
 class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
