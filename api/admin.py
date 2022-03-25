@@ -172,14 +172,16 @@ class CustomUserAdmin(UserAdmin):
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
-        preference = AdminPreference.objects.get(campaign__managers=request.user)
-        if preference:
+        try:
+            preference = AdminPreference.objects.get(campaign__managers=request.user)
             queryset = Rank.objects.filter(track__in=preference.campaign.tracks.all())
             for rank in queryset:
                 action = set_rank_to_user_action(rank)
                 actions[action.__name__] = (action,
                                             action.__name__,
                                             action.short_description)
+        except AdminPreference.DoesNotExist:
+            pass
         return actions
 
 
