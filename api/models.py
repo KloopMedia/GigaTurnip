@@ -152,6 +152,9 @@ class CampaignManagement(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.campaign
 
+    def __str__(self):
+        return f"{self.campaign.name} - {self.user}"
+
 
 class Chain(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(
