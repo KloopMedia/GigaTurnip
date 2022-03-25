@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 from abc import ABCMeta, abstractmethod
 from json import JSONDecodeError
 
@@ -152,6 +153,9 @@ class CampaignManagement(BaseDatesModel, CampaignInterface):
     def get_campaign(self) -> Campaign:
         return self.campaign
 
+    def __str__(self):
+        return f"{self.campaign.name} - {self.user}"
+
 
 class Chain(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(
@@ -212,7 +216,7 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         return stage
 
     def __str__(self):
-        return self.name
+        return f"ID: {self.id}; {self.name}"
 
 
 class TaskStage(Stage, SchemaProvider):
@@ -349,6 +353,7 @@ class Integration(BaseDatesModel):
         help_text="Top level Task responses keys for task grouping "
                   "separated by whitespaces."
     )
+
     # exclusion_stage = models.ForeignKey(
     #     TaskStage,
     #     on_delete=models.SET_NULL,
@@ -364,7 +369,7 @@ class Integration(BaseDatesModel):
     #               "for exclusion is mandatory."
     # )
 
-    def get_or_create_integrator_task(self, task): # TODO Check for race condition
+    def get_or_create_integrator_task(self, task):  # TODO Check for race condition
         integrator_group = self._get_task_fields(task.responses)
         integrator_task = Task.objects.get_or_create(
             stage=self.task_stage,
@@ -542,68 +547,98 @@ class StagePublisher(BaseDatesModel, SchemaProvider):
         return responses
 
 
-# class ResponseFlattener(BaseDatesModel):
-#     task_stage = models.ForeignKey(
-#         TaskStage,
-#         on_delete=models.CASCADE,
-#         related_name="response_flatteners",
-#         help_text="Stage of the task will be flattened.")
-#     copy_first_level = models.BooleanField(
-#         default=True,
-#         help_text="Copy all first level fields in responses "
-#                   "that are not dictionaries or arrays."
-#     )
-#     exclude_list = models.TextField(
-#         blank=True,
-#         help_text="List of all first level fields to exclude "
-#                   "separated by whitespaces. Dictionary and array "
-#                   "fields are excluded automatically."
-#     )
-#     columns = models.JSONField(
-#         default=list,
-#         blank=True,
-#         help_text="List of columns with with paths to values inside."
-#     )
-#
-#     def flatten_response(self, task):
-#         result = {}
-#         if task.responses:
-#             if self.copy_first_level:
-#                 for key, value in task.responses.items():
-#                     if key not in self.exclude_list.split() and \
-#                             not isinstance(value, dict) and \
-#                             not isinstance(value, list):
-#                         result[key] = value
-#             for column in self.columns:
-#                 for path in column.path_patterns:
-#                     value = self.follow_path(task.responses, path)
-#                     if value:
-#                         result[column.name] = value
-#                         break
-#         return result
-#
-#     def follow_path(self, responses, path):
-#         if "__" not in path:
-#             if not path.startswith("("):
-#                 result = responses.get(path, None)
-#                 if isinstance(result, dict) or isinstance(result, list):
-#                     return None
-#                 return result
-#             elif path.startswith("("):
-#                 return self.find_partial_key(responses, path)
-#         paths = path.split("__", 1)[0]
-#         result = responses.get(paths[0], None)
-#         if isinstance(result, dict):
-#             return self.follow_path(result, paths[1])
-#         return None
-#
-#     def find_partial_key(self, responses, path):
-#         for key, value in responses.items():
-#             p = path.split(")", 1)[1]
-#             if p in key:
-#                 if not isinstance(value, dict) and not isinstance(value, list):
-#                     return value
-#         return None
+class ResponseFlattener(BaseDatesModel):
+    task_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="response_flatteners",
+        help_text="Stage of the task will be flattened.")
+    copy_first_level = models.BooleanField(
+        default=True,
+        help_text="Copy all first level fields in responses "
+                  "that are not dictionaries or arrays."
+    )
+    copy_system_fields = models.BooleanField(
+        default=False,
+        help_text="Copy all system fields fields in tasks."
+    )
+    exclude_list = models.TextField(
+        blank=True,
+        help_text="List of all first level fields to exclude "
+                  "separated by whitespaces. Dictionary and array "
+                  "fields are excluded automatically."
+    )
+    columns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of columns with with paths to values inside. '
+                  'Also you can use: i - if you you want to find keys that have same word in key; r - if you want use '
+                  'regular expressions. '
+                  'For example: ["title", "oik__(i)uik", "oik__(r)question[\d]{1,2}"]'
+    )
+
+    def flatten_response(self, task):
+        result = {}
+        if task.responses:
+            if self.copy_first_level:
+                for key, value in task.responses.items():
+                    if key not in self.exclude_list.split() and \
+                            not isinstance(value, dict) and \
+                            not isinstance(value, list):
+                        result[key] = value
+            for path in list(self.columns):
+                value = self.follow_path(task.responses, path)
+                if value:
+                    result[path] = value
+        if self.copy_system_fields:
+            # todo: maybe I have to add prefix 'sys_' for system keys
+            result.update(self.__dict__)
+            del result['_state']
+
+        return result
+
+    def __str__(self):
+        return f"ID: {self.id}; TaskStage ID: {self.task_stage.id}"
+
+    def follow_path(self, responses, path):
+        paths = path.split("__", 1)
+        current_key = paths[0]
+        next_key = paths[1] if len(paths) > 1 else None
+
+        if "(i)" in current_key or "(r)" in current_key:
+            if not path.startswith("("):
+                result = responses.get(path, None)
+                if isinstance(result, dict) or isinstance(result, list):
+                    return None
+                return result
+            elif path.startswith("("):
+                return self.find_partial_key(responses, path)
+        result = responses.get(current_key, None)
+        if isinstance(result, dict):
+            return self.follow_path(result, next_key)
+        elif not isinstance(result, dict):
+            return result
+        return None
+
+    def find_partial_key(self, responses, path):
+        for key, value in responses.items():
+            search_type = path[path.find("(") + 1: path.find(")")]
+            keys = path.split(")", 1)[1].split("__", 1)
+            key_to_find = keys[0]
+
+            condition = False
+            if search_type == 'i':
+                condition = key_to_find in key and key_to_find != key
+            elif search_type == 'r':
+                condition = re.findall(rf"{key_to_find}", key)
+
+            if condition:
+                if not isinstance(value, dict) and not isinstance(value, list):
+                    return value
+                else:
+                    return self.follow_path(value, keys[1])
+
+        return None
 
 
 class Quiz(BaseDatesModel):
@@ -637,14 +672,22 @@ class Quiz(BaseDatesModel):
     def _determine_correctness_ratio(self, responses):
         correct_answers = self.correct_responses_task.responses
         correct = 0
+        questions = eval(self.task_stage.json_schema).get('properties')
+        incorrect_questions = []
         for key, answer in correct_answers.items():
             if str(responses.get(key)) == str(answer):
                 correct += 1
+            else:
+                incorrect_questions.append(questions.get(key).get('title'))
+
         len_correct_answers = len(correct_answers)
-        if correct_answers.get("meta_quiz_score"):
-            len_correct_answers -= 1
+        unnecessary_keys = ["meta_quiz_score", "meta_quiz_incorrect_questions"]
+        for k in unnecessary_keys:
+            if correct_answers.get(k):
+                len_correct_answers -= 1
+
         correct_ratio = int(correct * 100 / len_correct_answers)
-        return correct_ratio
+        return correct_ratio, "\n".join(incorrect_questions)
 
 
 class ConditionalStage(Stage):

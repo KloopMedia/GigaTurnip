@@ -1,15 +1,22 @@
 import json
 from uuid import uuid4
 
+from django.db.models import Count
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, Log
+    Task, CopyField, Integration, Quiz, ResponseFlattener, Log
 
 
 class GigaTurnipTest(APITestCase):
+
+    def create_client(self, u):
+        client = APIClient()
+        client.force_authenticate(u)
+        return client
+
 
     def prepare_client(self, stage, user=None, rank_limit=None):
         u = user
@@ -36,9 +43,7 @@ class GigaTurnipTest(APITestCase):
             rank_l.rank = rank
             rank_l.stage = stage
         rank_l.save()
-        client = APIClient()
-        client.force_authenticate(u)
-        return client
+        return self.create_client(u)
 
     def setUp(self):
         self.campaign = Campaign.objects.create(name="Campaign")
@@ -52,6 +57,10 @@ class GigaTurnipTest(APITestCase):
         self.user = CustomUser.objects.create_user(username="test",
                                                    email='test@email.com',
                                                    password='test')
+
+        self.user_empl = CustomUser.objects.create_user(username="employee",
+                                                   email='employee@email.com',
+                                                   password='employee')
         self.client = self.prepare_client(
             self.initial_stage,
             self.user,
@@ -100,6 +109,9 @@ class GigaTurnipTest(APITestCase):
 
     def create_initial_task(self):
         return self.create_task(self.initial_stage)
+
+    def create_initial_tasks(self, count):
+        return [self.create_initial_task() for x in range(count)]
 
     def complete_task(self, task, responses=None, client=None):
         c = client
@@ -689,6 +701,29 @@ class GigaTurnipTest(APITestCase):
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": [ "a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -704,9 +739,80 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
+    def test_quiz_correctly_answers(self):
+        task_correct_responses = self.create_initial_task()
+
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "q_1": {
+                    "enum": [ "a", "b", "c" ],
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "q_2": {
+                    "enum": [ "a", "b", "c" ],
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "q_3": {
+                    "enum": [ "a", "b", "c" ],
+                    "title": "Question 3",
+                    "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": [
+                "q_1",
+                "q_2",
+                "q_3"
+            ]
+        }
+        self.initial_stage.save()
+
+        correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses
+        )
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+
+        self.assertEqual(task.responses["meta_quiz_score"], 33)
+        self.assertEqual(task.responses["meta_quiz_incorrect_questions"], "Question 2\nQuestion 3")
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertTrue(task.complete)
+
     def test_quiz_above_threshold(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -732,6 +838,29 @@ class GigaTurnipTest(APITestCase):
     def test_quiz_below_threshold(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -753,6 +882,157 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses["meta_quiz_score"], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertFalse(task.complete)
+
+    def test_delete_stage_assign_by_ST(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+                name="second_stage",
+                assign_user_by="ST",
+                assign_user_from_stage=self.initial_stage
+            ))
+        third_stage = second_stage.add_stage(TaskStage(
+                name="third stage",
+                assign_user_by="ST",
+                assign_user_from_stage=second_stage
+            ))
+
+        self.assertEqual(TaskStage.objects.count(), 3)
+
+        self.initial_stage.delete()
+
+        self.assertEqual(TaskStage.objects.count(), 2)
+
+    def test_response_flattener_create_row(self):
+        tasks_a = self.create_initial_tasks(5)
+        tasks_b = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        flattern_row = {'column1': 'First', 'column2': 'SecondColumnt', 'oik__(i)uik': 'SecondLayer'}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        for t in tasks_a:
+            row = response_flattener.flatten_response(Task.objects.get(id=t.id))
+            self.assertEqual(row, flattern_row)
+
+        for t in tasks_b:
+            row = response_flattener.flatten_response(t)
+            self.assertEqual(row, {})
+
+    def test_response_flattener_copy_system_field(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage,
+                                                              copy_first_level=True,
+                                                              copy_system_fields=True)
+
+        task = self.complete_task(task, responses, self.client)
+
+        result = response_flattener.flatten_response(task)
+
+        answer = {
+            "column1": "First",
+            "column2": "SecondColumnt"}
+        response_flattener_dict = response_flattener.__dict__
+        del response_flattener_dict['_state']
+        answer.update(response_flattener_dict)
+        self.assertEqual(answer, result)
+
+    def test_response_flattener_regex_happy(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(r)uik[\d]{1,2}"])
+
+        task = self.complete_task(task, responses, self.client)
+
+        result = response_flattener.flatten_response(task)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        answer = {"column1": "First", "column2": "SecondColumnt", "oik__(r)uik[\d]{1,2}": "SecondLayer"}
+        self.assertEqual(answer, result)
+
+    def test_response_flattener_regex_wrong(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(r)ui[\d]{1,2}"])
+
+        task = self.complete_task(task, responses, self.client)
+
+        result = response_flattener.flatten_response(task)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        answer = {"column1": "First", "column2": "SecondColumnt"}
+        self.assertEqual(answer, result)
+
+    def test_get_response_flattener_success(self):
+        tasks_a = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.user_empl)
+
+        params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_response_flattener_fail(self):
+        tasks_a = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        new_client = self.create_client(self.user_empl)
+        params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_response_flattener_not_found(self):
+        tasks_a = self.create_initial_tasks(5)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+
+        for t in tasks_a:
+            self.complete_task(t, responses, self.client)
+
+        params = {"response_flattener": response_flattener.id+111, "stage": 234}
+        response = self.get_objects("task-csv", params=params)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_user_activity_csv_success(self):
+        self.user.managed_campaigns.add(self.campaign)
+        tasks = self.create_initial_tasks(5)
+        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        expected_annotation = Task.objects.filter(pk__in=[x.pk for x in tasks])\
+            .values('stage__name', 'assignee').annotate(Count('pk'))
+        # b'assignee,stage__name,pk__count\r\n31,Initial,5\r\n'
+        cols = 'assignee,stage__name,pk__count\r\n'
+        cont = "".join([f"{x['assignee']},{x['stage__name']},{x['pk__count']}\r\n" for x in expected_annotation])
+        self.assertEqual(response.content, str.encode(cols+cont))
+
+    def test_get_user_activity_csv_fail(self):
+        self.create_initial_tasks(5)
+        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_logs_for_task_stages(self):
         old_count = Log.objects.count()

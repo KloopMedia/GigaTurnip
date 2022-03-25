@@ -1,7 +1,7 @@
 import csv
 
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus
+    Notification, NotificationStatus, ResponseFlattener
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -323,27 +323,46 @@ class TaskViewSet(viewsets.ModelViewSet):
     """
     list:
     Return a list of all the existing tasks.
+
     create:
     Create a new task instance. Note: if task is completed,
     process_completed_task() function will be called.
+
     delete:
     Delete task.
+
     read:
     Get task data.
+
     update:
     Update task data. Note: if task is completed,
     process_completed_task() function will be called.
+
     partial_update:
     Partial update task data.
+
     user_relevant:
     Return a list of tasks where user is task assignee.
+
     user_selectable:
     Return a list of not assigned
     uncompleted tasks that are allowed to the user.
+
     request_assignment:
-    Assign user to requested task
+    Assign user to requested task.
+
     release_assignment:
-    Release user from requested task
+    Release user from requested task.
+
+    user_activity_csv:
+    Return list of activities on stages. Allow to download csv file.
+
+    csv:
+    Return csv file with tasks information. Note: params stage and response_flattener are important.
+
+    get_integrated_tasks:
+    Return integrated tasks of requested task.
+
     """
 
     # filterset_fields = ['case',
@@ -394,6 +413,11 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskDefaultSerializer
 
     def create(self, request, *args, **kwargs):
+        """
+        post:
+        Create a new task instance. Note: if task is completed,
+        process_completed_task() function will be called.
+        """
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             case = Case.objects.create()
@@ -416,6 +440,11 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
 
     def update(self, request, *args, **kwargs):
+        """
+        Post:
+        Update task data. Note: if task is completed,
+        process_completed_task() function will be called.
+        """
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance,
@@ -468,11 +497,19 @@ class TaskViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
     def partial_update(self, request, *args, **kwargs):
+        """
+        Post:
+        Partial update task data.
+        """
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
     @action(detail=False)
     def user_relevant(self, request):
+        """
+        Get:
+        Return a list of tasks where user is task assignee.
+        """
         queryset = self.filter_queryset(self.get_queryset())
         tasks = queryset.filter(assignee=request.user) \
             .exclude(stage__assign_user_by="IN")
@@ -482,6 +519,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def user_selectable(self, request):
+        """
+        Get:
+        Return a list of not assigned
+        uncompleted tasks that are allowed to the user.
+        """
         tasks = self.filter_queryset(self.get_queryset())
         return utils.filter_for_user_selectable_tasks(tasks, request)
 
@@ -496,10 +538,19 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def user_activity_csv(self, request):
-        tasks = self.filter_queryset(self.get_queryset())
-        groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+        """
+        Get:
+        Return list of activities on stages. Note: if you want download csv file you have to set 'csv' in params as true
+
+        Also for custom statistics you can use filters. And on top of all that you can use filters in csv using 'task_responses' key in params.
+        Params for example:
+        ?csv=true&task_responses={"a":"b"}
+        """
+        groups = []
         if request.query_params.get("csv", None):
-            filename = "results" #utils.request_to_name(request)
+            tasks = self.filter_queryset(self.get_queryset())
+            groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+            filename = "results"  # utils.request_to_name(request)
             response = HttpResponse(
                 content_type='text/csv',
                 headers={
@@ -516,9 +567,53 @@ class TaskViewSet(viewsets.ModelViewSet):
             return response
         return Response(groups)
 
+    @action(detail=False, )  # pk is stage id
+    def csv(self, request):
+        """
+        Get:
+        Return csv file with tasks information. Note: params stage and response_flattener are important
+
+        Also for custom statistics you can use filters. And on top of all that you can use filters in csv using 'task_responses' key in params.
+        Params for example:
+        ?stage=1&response_flattener=1&task_responses={"a":"b"}
+        """
+        stage = request.query_params.get('stage')
+        response_flattener_id = request.query_params.get('response_flattener')
+        items = []
+        if stage and stage.isdigit() and response_flattener_id and response_flattener_id.isdigit():
+            tasks = self.filter_queryset(self.get_queryset())
+            try:
+                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
+            except ResponseFlattener.DoesNotExist:
+                response_flattener = None
+            if tasks and response_flattener:
+                filename = "results"  # utils.request_to_name(request)
+                response = HttpResponse(
+                    content_type='text/csv',
+                    headers={
+                        'Content-Disposition': f'attachment; filename="{filename}.csv"'
+                    },
+                )
+                columns = set()
+                for task in tasks:
+                    row = response_flattener.flatten_response(task)
+                    [columns.add(k) for k in row.keys()]
+                    items.append(row)
+                writer = csv.DictWriter(response, fieldnames=list(columns))
+                writer.writeheader()
+                writer.writerows(items)
+                return response
+        if items:
+            return Response(items)
+        else:
+            raise Http404
 
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
+        """
+        Get:
+        Return integrated tasks
+        """
         tasks = self.filter_queryset(self.get_queryset())
         tasks = tasks.filter(out_tasks=self.get_object())
         serializer = self.get_serializer(tasks, many=True)
@@ -526,6 +621,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
+        #todo: ask about post and get requests
+        """
+        Get:
+        Request task assignment to user
+        """
         task = self.get_object()
         serializer = self.get_serializer(task, request.data)
         if serializer.is_valid():
@@ -542,6 +642,10 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'get'])
     def release_assignment(self, request, pk=None):
+        """
+        Get:
+        Request task release assignment
+        """
         task = self.get_object()
         if task.stage.allow_release and not task.complete:
             task.assignee = None

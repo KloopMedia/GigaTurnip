@@ -8,7 +8,8 @@ from django.db.models import Count
 
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz
+    Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
+    ResponseFlattener
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -171,9 +172,9 @@ class CustomUserAdmin(UserAdmin):
 
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
-        campaign = AdminPreference.objects.filter(campaign__managers=request.user)
-        if list(campaign):
-            queryset = Rank.objects.filter(track__campaign=campaign[0].campaign)
+        preference = AdminPreference.objects.get(campaign__managers=request.user)
+        if preference:
+            queryset = Rank.objects.filter(track__in=preference.campaign.tracks.all())
             for rank in queryset:
                 action = set_rank_to_user_action(rank)
                 actions[action.__name__] = (action,
@@ -434,6 +435,14 @@ class LogAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 
+class ResponseFlattenerAdmin(admin.ModelAdmin):
+    model = ResponseFlattener
+    list_display = ('task_stage', 'copy_first_level', 'copy_system_fields')
+    list_filter = ('task_stage', 'copy_first_level', 'copy_system_fields')
+    search_fields = ('task_stage',)
+    autocomplete_fields = ('task_stage',)
+
+
 # class AdminPreferenceForm(forms.ModelForm):
 #     def clean(self):
 #         if AdminPreference.objects.filter(user=self.request.user):
@@ -486,6 +495,7 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
 
 
 class CampaignManagementAdmin(admin.ModelAdmin):
+    list_display = ("campaign", "user",)
     search_fields = ("user", "campaign", "id",)
     autocomplete_fields = ("user",)
 
@@ -506,6 +516,7 @@ admin.site.register(Task, TaskAdmin)
 admin.site.register(Rank, RankAdmin)
 admin.site.register(RankLimit, RankLimitAdmin)
 admin.site.register(RankRecord, RankRecordAdmin)
+admin.site.register(ResponseFlattener, ResponseFlattenerAdmin)
 admin.site.register(CampaignManagement, CampaignManagementAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
