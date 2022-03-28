@@ -198,7 +198,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["csv"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_campaign_manager and is_manager_by_stage"
+            "condition_expression": "is_campaign_manager" # and is_manager_by_stage
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
