@@ -988,6 +988,17 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects("task-csv", params=params, client=new_client)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_get_response_flattener_copy_whole_response_success(self):
+        task = self.create_task(self.initial_stage)
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": {"uik1": [322,123,23]}}}
+        task.responses = responses
+        task.save()
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_all_response=True)
+
+        result = {'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': "[322, 123, 23]"}
+        self.assertEqual(response_flattener.flatten_response(task), result)
+
     def test_get_response_flattener_fail(self):
         tasks_a = self.create_initial_tasks(5)
 
