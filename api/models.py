@@ -558,7 +558,7 @@ class ResponseFlattener(BaseDatesModel):
         help_text="Copy all first level fields in responses "
                   "that are not dictionaries or arrays."
     )
-    copy_all_response = models.BooleanField(
+    flatten_all = models.BooleanField(
         default=False,
         help_text="Copy all response fields even they deeper than "
                   "first level."
@@ -584,7 +584,7 @@ class ResponseFlattener(BaseDatesModel):
 
     def flatten_response(self, task):
         result = {}
-        if task.responses and not self.copy_all_response:
+        if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():
                     if key not in self.exclude_list.split() and \
@@ -595,7 +595,7 @@ class ResponseFlattener(BaseDatesModel):
                 value = self.follow_path(task.responses, path)
                 if value:
                     result[path] = value
-        elif self.copy_all_response and task.responses:
+        elif self.flatten_all and task.responses:
             for key, value in task.responses.items():
                 col_name, value = self._get_the_value(key, value)
                 if value:
