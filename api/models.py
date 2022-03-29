@@ -558,6 +558,11 @@ class ResponseFlattener(BaseDatesModel):
         help_text="Copy all first level fields in responses "
                   "that are not dictionaries or arrays."
     )
+    copy_all_response = models.BooleanField(
+        default=False,
+        help_text="Copy all response fields even they deeper than "
+                  "first level."
+    )
     copy_system_fields = models.BooleanField(
         default=False,
         help_text="Copy all system fields fields in tasks."
@@ -579,7 +584,7 @@ class ResponseFlattener(BaseDatesModel):
 
     def flatten_response(self, task):
         result = {}
-        if task.responses:
+        if task.responses and not self.copy_all_response:
             if self.copy_first_level:
                 for key, value in task.responses.items():
                     if key not in self.exclude_list.split() and \
@@ -590,12 +595,49 @@ class ResponseFlattener(BaseDatesModel):
                 value = self.follow_path(task.responses, path)
                 if value:
                     result[path] = value
+        elif self.copy_all_response and task.responses:
+            for key, value in task.responses.items():
+                col_name, value = self._get_the_value(key, value)
+                if value:
+                    result[col_name] = value
         if self.copy_system_fields:
             # todo: maybe I have to add prefix 'sys_' for system keys
             result.update(self.__dict__)
             del result['_state']
 
         return result
+
+    def _get_the_value(self, k, v):
+        # sub_dicts = []
+
+        if not isinstance(v, dict):  # and not isinstance(v, list)
+            return k, str(v)
+        # elif isinstance(v, list):
+        #     print("FFF")
+        # if self.is_list_of_strings(v) or self.is_list_of_ints(v):
+        #     return k, str(v), False
+        # else:
+        #     for i, dictionary in enumerate(v):
+        #         for sub_key, sub_val in dictionary.items():
+        #             sub_dicts.append(self._get_the_value(f"{k}__{i}__{sub_key}", sub_val))
+        else:
+            for sub_key, sub_val in v.items():
+                return self._get_the_value(k + "__" + sub_key, sub_val)
+
+
+    def is_list_of_ints(self, arr):
+        res = []
+        for i in arr:
+            if isinstance(i, int):
+                res.append(True)
+        return len(res) == len(arr)
+
+    def is_list_of_strings(self, arr):
+        res = []
+        for i in arr:
+            if isinstance(i, str):
+                res.append(True)
+        return len(res) == len(arr)
 
     def __str__(self):
         return f"ID: {self.id}; TaskStage ID: {self.task_stage.id}"
