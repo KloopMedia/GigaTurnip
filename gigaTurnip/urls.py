@@ -70,6 +70,10 @@ router.register(api_v1 + r'csv',
 #                 turnip_app.NotificationStatusViewSet,
 #                 basename='notificationstatus')
 
+router.register(api_v1 + r'responseflattener',
+                turnip_app.ResponseFlattenerViewSet,
+                basename='responseflattener')
+
 
 urlpatterns = [path('admin/', admin.site.urls),
                path('docs/', include_docs_urls(title='Giga Turnip API Documentation'))
