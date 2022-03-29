@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track, Task
+from api.models import Campaign, TaskStage, Track, Task, AdminPreference
 from . import utils
 
 
@@ -198,7 +198,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["csv"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_campaign_manager" # and is_manager_by_stage
+            "condition_expression": "is_campaign_manager"  # and is_manager_by_stage
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
@@ -304,6 +304,7 @@ class TaskAccessPolicy(AccessPolicy):
         managed_campaigns = request.user.managed_campaigns.all()
         return bool(managed_campaigns)
 
+
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):
@@ -350,7 +351,6 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-
         notifications_ranks = queryset.filter(rank__rankrecord__user=request.user)
 
         notifications_target_user = queryset.filter(target_user=request.user)
@@ -373,3 +373,45 @@ class PublicCSVAccessPolicy(AccessPolicy):
         "principal": "*",
         "effect": "allow",
     }]
+
+
+class ResponseFlattenerAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_campaign_manager",
+        },
+        {
+            "action": ["retrieve", "partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_manager",
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        }
+
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        managed_campaigns = request.user.managed_campaigns.all()
+        preferences = AdminPreference.objects.filter(
+            campaign__in=managed_campaigns,
+            user=request.user
+        )
+        return queryset. \
+            filter(task_stage__chain__campaign__in=preferences.values_list('campaign')) \
+            .distinct()
+
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
+
+    def is_campaign_manager(self, request, view, action):
+        managed_campaigns = request.user.managed_campaigns.all()
+        return bool(managed_campaigns)

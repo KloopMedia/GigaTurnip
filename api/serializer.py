@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -339,4 +339,11 @@ class NotificationStatusSerializer(serializers.ModelSerializer,
                                    CampaignValidationCheck):
     class Meta:
         model = NotificationStatus
+        fields = '__all__'
+
+
+class ResponseFlattenerSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ResponseFlattener
         fields = '__all__'

@@ -23,13 +23,13 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer
+    TaskStagePublicSerializer, ResponseFlattenerSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy
 from . import utils
 from .utils import paginate
 
@@ -985,3 +985,15 @@ class PublicCSVViewSet(viewsets.ViewSet):
                              "complaint": complaint,
                              "location": location})
         return response
+
+
+class ResponseFlattenerViewSet(viewsets.ModelViewSet):
+    permission_classes = (ResponseFlattenerAccessPolicy, )
+
+    def get_queryset(self):
+        return ResponseFlattenerAccessPolicy.scope_queryset(
+            self.request, ResponseFlattener.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return ResponseFlattenerSerializer
