@@ -547,7 +547,7 @@ class StagePublisher(BaseDatesModel, SchemaProvider):
         return responses
 
 
-class ResponseFlattener(BaseDatesModel):
+class ResponseFlattener(BaseDatesModel, CampaignInterface):
     task_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
@@ -583,7 +583,7 @@ class ResponseFlattener(BaseDatesModel):
     )
 
     def flatten_response(self, task):
-        result = {"task_id": task.id}
+        result = {"id": task.id}
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():
@@ -682,6 +682,8 @@ class ResponseFlattener(BaseDatesModel):
 
         return None
 
+    def get_campaign(self) -> Campaign:
+        return self.task_stage.get_campaign()
 
 class Quiz(BaseDatesModel):
     task_stage = models.OneToOneField(
