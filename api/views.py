@@ -577,10 +577,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         Params for example:
         ?stage=1&response_flattener=1&task_responses={"a":"b"}
         """
-        stage = request.query_params.get('stage')
         response_flattener_id = request.query_params.get('response_flattener')
         items = []
-        if stage and stage.isdigit() and response_flattener_id and response_flattener_id.isdigit():
+        if response_flattener_id and response_flattener_id.isdigit():
             tasks = self.filter_queryset(self.get_queryset())
             try:
                 response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
