@@ -387,7 +387,13 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
             "action": ["retrieve", "partial_update", "update"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_manager",
+            "condition": "is_manager",
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_campaign_manager"
         },
         {
             "action": ["destroy"],
@@ -414,4 +420,8 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
 
     def is_campaign_manager(self, request, view, action):
         managed_campaigns = request.user.managed_campaigns.all()
-        return bool(managed_campaigns)
+        preferences = AdminPreference.objects.filter(
+            campaign__in=managed_campaigns,
+            user=request.user
+        )
+        return bool(preferences)

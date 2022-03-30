@@ -70,7 +70,7 @@ router.register(api_v1 + r'csv',
 #                 turnip_app.NotificationStatusViewSet,
 #                 basename='notificationstatus')
 
-router.register(api_v1 + r'responseflattener',
+router.register(api_v1 + r'responseflatteners',
                 turnip_app.ResponseFlattenerViewSet,
                 basename='responseflattener')
 

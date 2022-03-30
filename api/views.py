@@ -988,6 +988,13 @@ class PublicCSVViewSet(viewsets.ViewSet):
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
+    filterset_fields = {
+        'task_stage': ['exact'],
+        'task_stage__chain__campaign': ['exact'],
+        'task_stage__chain': ['exact'],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+        'updated_at': ['lte', 'gte', 'lt', 'gt']
+    }
     permission_classes = (ResponseFlattenerAccessPolicy, )
 
     def get_queryset(self):

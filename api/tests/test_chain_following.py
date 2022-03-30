@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, ResponseFlattener, Log
+    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference
 
 
 class GigaTurnipTest(APITestCase):
@@ -901,45 +901,139 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(TaskStage.objects.count(), 2)
 
+    def test_response_flattener_new(self):
+        response_falttener = ResponseFlattener(task_stage=self.initial_stage)
+        self.assertEqual(response_falttener.task_stage, self.initial_stage)
+        self.assertTrue(response_falttener.copy_first_level)
+        self.assertFalse(response_falttener.flatten_all)
+        self.assertFalse(response_falttener.copy_system_fields)
+        self.assertEqual(response_falttener.exclude_list, '')
+        self.assertEqual(response_falttener.columns, [])
+
+    def test_response_flattener_list_wrong_not_manager(self):
+        response = self.get_objects('responseflattener-list', client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_response_flattener_list_wrong_preference(self):
+        self.user.managed_campaigns.add(self.campaign)
+
+        response = self.get_objects('responseflattener-list', client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_response_flattener_list_happy(self):
+        self.user.managed_campaigns.add(self.campaign)
+        AdminPreference.objects.create(user=self.user, campaign=self.campaign)
+
+        response_flattener = ResponseFlattener.objects.create(
+            task_stage=self.initial_stage
+        )
+
+        response = self.get_objects('responseflattener-list', client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_response_flattener_retrieve_wrong_not_manager(self):
+        response_flattener = ResponseFlattener.objects.create(
+            task_stage=self.initial_stage
+        )
+
+        response = self.get_objects('responseflattener-detail', pk=response_flattener.id, client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+    def test_response_flattener_retrieve_wrong_not_my_flattener(self):
+        self.user_empl.managed_campaigns.add(self.campaign)
+        AdminPreference.objects.create(user=self.user_empl, campaign=self.campaign)
+
+        new_campaign = Campaign.objects.create(name="Another")
+
+        self.user.managed_campaigns.add(new_campaign)
+        AdminPreference.objects.create(user=self.user, campaign=self.campaign)
+
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage)
+
+        response = self.get_objects('responseflattener-detail', pk=response_flattener.id, client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+    def test_response_flattener_retrieve_happy_my_flattener(self):
+        self.user.managed_campaigns.add(self.campaign)
+        AdminPreference.objects.create(user=self.user, campaign=self.campaign)
+
+        response_flattener = ResponseFlattener.objects.create(
+            task_stage=self.initial_stage
+        )
+
+        response = self.get_objects('responseflattener-detail', pk=response_flattener.id, client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_response_flattener_create_wrong(self):
+        resp_flattener = {
+            'task_stage': self.initial_stage.id,
+        }
+
+        response = self.client.post(reverse('responseflattener-list'), data=resp_flattener)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_response_flattener_create_happy(self):
+        self.user.managed_campaigns.add(self.campaign)
+        AdminPreference.objects.create(user=self.user, campaign=self.campaign)
+
+        resp_flattener = {
+            'task_stage': self.initial_stage.id,
+        }
+
+        response = self.client.post(reverse('responseflattener-list'), data=resp_flattener)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+    def test_response_flattener_update_wrong(self):
+        resp_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True)
+        self.assertTrue(resp_flattener.copy_first_level)
+
+        response = self.client.patch(reverse('responseflattener-detail', kwargs={"pk": resp_flattener.id}),
+                                     data={"copy_first_level": False})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(resp_flattener.copy_first_level)
+
+    def test_response_flattener_update_happy(self):
+        self.user.managed_campaigns.add(self.campaign)
+        AdminPreference.objects.create(user=self.user, campaign=self.campaign)
+
+        resp_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True)
+
+        response = self.client.patch(reverse('responseflattener-detail', kwargs={"pk": resp_flattener.id}),
+                                     {"copy_first_level": False})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        resp_flattener = ResponseFlattener.objects.get(id=resp_flattener.id)
+        self.assertFalse(resp_flattener.copy_first_level)
+
+
     def test_response_flattener_create_row(self):
-        tasks_a = self.create_initial_tasks(5)
-        tasks_b = self.create_initial_tasks(5)
+        task = self.create_initial_task()
 
         responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
-        flattern_row = {'column1': 'First', 'column2': 'SecondColumnt', 'oik__(i)uik': 'SecondLayer'}
+        row = {'id': task.id, 'column1': 'First', 'column2': 'SecondColumnt', 'oik__(i)uik': 'SecondLayer'}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
 
-        for t in tasks_a:
-            self.complete_task(t, responses, self.client)
+        task = self.complete_task(task, responses, self.client)
 
-        for t in tasks_a:
-            row = response_flattener.flatten_response(Task.objects.get(id=t.id))
-            self.assertEqual(row, flattern_row)
-
-        for t in tasks_b:
-            row = response_flattener.flatten_response(t)
-            self.assertEqual(row, {})
+        flattener_row = response_flattener.flatten_response(task)
+        self.assertEqual(row, flattener_row)
 
     def test_response_flattener_copy_system_field(self):
         task = self.create_initial_task()
 
-        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage,
-                                                              copy_first_level=True,
                                                               copy_system_fields=True)
 
-        task = self.complete_task(task, responses, self.client)
+        task = self.complete_task(task, {}, self.client)
 
         result = response_flattener.flatten_response(task)
-
-        answer = {
-            "column1": "First",
-            "column2": "SecondColumnt"}
         response_flattener_dict = response_flattener.__dict__
         del response_flattener_dict['_state']
-        answer.update(response_flattener_dict)
-        self.assertEqual(answer, result)
+
+        self.assertEqual(response_flattener_dict, result)
 
     def test_response_flattener_regex_happy(self):
         task = self.create_initial_task()
@@ -951,9 +1045,9 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses, self.client)
 
         result = response_flattener.flatten_response(task)
-
         self.user_empl.managed_campaigns.add(self.campaign)
-        answer = {"column1": "First", "column2": "SecondColumnt", "oik__(r)uik[\d]{1,2}": "SecondLayer"}
+        answer = {"id": task.id, "column1": "First", "column2": "SecondColumnt", "oik__(r)uik[\d]{1,2}": "SecondLayer"}
+
         self.assertEqual(answer, result)
 
     def test_response_flattener_regex_wrong(self):
@@ -966,20 +1060,19 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses, self.client)
 
         result = response_flattener.flatten_response(task)
-
         self.user_empl.managed_campaigns.add(self.campaign)
-        answer = {"column1": "First", "column2": "SecondColumnt"}
+        answer = {"id":task.id, "column1": "First", "column2": "SecondColumnt"}
+
         self.assertEqual(answer, result)
 
     def test_get_response_flattener_success(self):
-        tasks_a = self.create_initial_tasks(5)
+        task = self.create_initial_task()
 
         responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
 
-        for t in tasks_a:
-            self.complete_task(t, responses, self.client)
+        task = self.complete_task(task, responses, self.client)
 
         self.user_empl.managed_campaigns.add(self.campaign)
         new_client = self.create_client(self.user_empl)
@@ -994,38 +1087,29 @@ class GigaTurnipTest(APITestCase):
         responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": {"uik1": [322,123,23]}}}
         task.responses = responses
         task.save()
-        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_all_response=True)
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
 
-        result = {'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': "[322, 123, 23]"}
+        result = {'id':task.id, 'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': "[322, 123, 23]"}
         self.assertEqual(response_flattener.flatten_response(task), result)
 
     def test_get_response_flattener_fail(self):
-        tasks_a = self.create_initial_tasks(5)
-
-        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
-
-        for t in tasks_a:
-            self.complete_task(t, responses, self.client)
 
         new_client = self.create_client(self.user_empl)
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
         response = self.get_objects("task-csv", params=params, client=new_client)
+
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_get_response_flattener_not_found(self):
-        tasks_a = self.create_initial_tasks(5)
 
-        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
 
-        for t in tasks_a:
-            self.complete_task(t, responses, self.client)
-
         params = {"response_flattener": response_flattener.id+111, "stage": 234}
         response = self.get_objects("task-csv", params=params)
+
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_get_user_activity_csv_success(self):
