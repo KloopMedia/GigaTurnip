@@ -583,7 +583,7 @@ class ResponseFlattener(BaseDatesModel):
     )
 
     def flatten_response(self, task):
-        result = {}
+        result = {"task_id": task.id}
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():
