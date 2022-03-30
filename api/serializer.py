@@ -343,6 +343,7 @@ class NotificationStatusSerializer(serializers.ModelSerializer,
 
 
 class ResponseFlattenerSerializer(serializers.ModelSerializer):
+    task_stage = TaskStageReadSerializer(read_only=True)
 
     class Meta:
         model = ResponseFlattener
