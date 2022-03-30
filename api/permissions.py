@@ -406,12 +406,13 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):
         managed_campaigns = request.user.managed_campaigns.all()
-        preferences = AdminPreference.objects.filter(campaign__in=managed_campaigns, user=request.user)
-        if preferences:
-            return queryset. \
-                filter(task_stage__chain__campaign__in=preferences.values_list('campaign')) \
-                .distinct()
-        return False
+        preferences = AdminPreference.objects.filter(
+            campaign__in=managed_campaigns,
+            user=request.user
+        )
+        return queryset. \
+            filter(task_stage__chain__campaign__in=preferences.values_list('campaign')) \
+            .distinct()
 
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()
