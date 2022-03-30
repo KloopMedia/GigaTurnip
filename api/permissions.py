@@ -390,6 +390,12 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
             "condition_expression": "is_manager",
         },
         {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_campaign_manager"
+        },
+        {
             "action": ["destroy"],
             "principal": "*",
             "effect": "deny"
