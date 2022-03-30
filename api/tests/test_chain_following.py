@@ -1,6 +1,7 @@
 import json
 from uuid import uuid4
 
+from django.db import IntegrityError
 from django.db.models import Count
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
@@ -907,7 +908,7 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(response_falttener.copy_first_level)
         self.assertFalse(response_falttener.flatten_all)
         self.assertFalse(response_falttener.copy_system_fields)
-        self.assertEqual(response_falttener.exclude_list, '')
+        self.assertEqual(response_falttener.exclude_list, [])
         self.assertEqual(response_falttener.columns, [])
 
     def test_response_flattener_list_wrong_not_manager(self):
@@ -1080,6 +1081,47 @@ class GigaTurnipTest(APITestCase):
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
         response = self.get_objects("task-csv", params=params, client=new_client)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_response_flattener_unique_success(self):
+        task = self.create_initial_task()
+
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
+                                                              columns=["oik__(i)uik"])
+        response_flattener_second = ResponseFlattener.objects.get_or_create(task_stage=self.initial_stage)
+
+        self.assertEqual(ResponseFlattener.objects.count(), 1)
+
+        task = self.complete_task(task, responses, self.client)
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.user_empl)
+
+        params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_response_flattener_get_tasks_success(self):
+        tasks = self.create_initial_tasks(5)
+
+        responses = {"column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
+
+        for i,t in enumerate(tasks):
+            task = self.complete_task(t, responses, self.client)
+            tasks[i] = task
+
+        self.user_empl.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.user_empl)
+
+        params = {"response_flattener": response_flattener.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        r = {"column2": "SecondColumnt", "oik__uik1": "SecondLayer"}
+        for t in tasks:
+            r["id"] = t.id
+            self.assertEqual(r, response_flattener.flatten_response(t))
 
     def test_get_response_flattener_copy_whole_response_success(self):
         task = self.create_task(self.initial_stage)

@@ -548,7 +548,7 @@ class StagePublisher(BaseDatesModel, SchemaProvider):
 
 
 class ResponseFlattener(BaseDatesModel, CampaignInterface):
-    task_stage = models.ForeignKey(
+    task_stage = models.OneToOneField(
         TaskStage,
         on_delete=models.CASCADE,
         related_name="response_flatteners",
@@ -567,7 +567,8 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         default=False,
         help_text="Copy all system fields fields in tasks."
     )
-    exclude_list = models.TextField(
+    exclude_list = models.JSONField(
+        default=list,
         blank=True,
         help_text="List of all first level fields to exclude "
                   "separated by whitespaces. Dictionary and array "
@@ -587,7 +588,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():
-                    if key not in self.exclude_list.split() and \
+                    if key not in self.exclude_list and \
                             not isinstance(value, dict) and \
                             not isinstance(value, list):
                         result[key] = value
