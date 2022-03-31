@@ -23,7 +23,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerSerializer
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -1003,4 +1003,7 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
         )
 
     def get_serializer_class(self):
-        return ResponseFlattenerSerializer
+        if self.action in ['create', 'partial_update', 'update']:
+            return ResponseFlattenerCreateSerializer
+        if self.action in ['retrieve', 'list']:
+            return ResponseFlattenerReadSerializer

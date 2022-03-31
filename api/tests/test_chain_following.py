@@ -940,7 +940,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('responseflattener-detail', pk=response_flattener.id, client=self.client)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-
     def test_response_flattener_retrieve_wrong_not_my_flattener(self):
         self.user_empl.managed_campaigns.add(self.campaign)
         AdminPreference.objects.create(user=self.user_empl, campaign=self.campaign)
@@ -954,7 +953,6 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects('responseflattener-detail', pk=response_flattener.id, client=self.client)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
 
     def test_response_flattener_retrieve_happy_my_flattener(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -986,7 +984,6 @@ class GigaTurnipTest(APITestCase):
         response = self.client.post(reverse('responseflattener-list'), data=resp_flattener)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-
     def test_response_flattener_update_wrong(self):
         resp_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True)
         self.assertTrue(resp_flattener.copy_first_level)
@@ -1007,7 +1004,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         resp_flattener = ResponseFlattener.objects.get(id=resp_flattener.id)
         self.assertFalse(resp_flattener.copy_first_level)
-
 
     def test_response_flattener_create_row(self):
         task = self.create_initial_task()
