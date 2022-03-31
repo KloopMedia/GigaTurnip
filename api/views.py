@@ -391,7 +391,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
-        if self.action == 'list' or self.action == 'user_activity_csv':
+        if self.action in ['list', 'csv', 'user_activity_csv']:
             return TaskAccessPolicy.scope_queryset(
                 self.request, Task.objects.all()
             )
@@ -580,9 +580,10 @@ class TaskViewSet(viewsets.ModelViewSet):
         response_flattener_id = request.query_params.get('response_flattener')
         items = []
         if response_flattener_id and response_flattener_id.isdigit():
-            tasks = self.filter_queryset(self.get_queryset())
+            tasks = []
             try:
                 response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
+                tasks = self.filter_queryset(self.get_queryset()).filter(stage=response_flattener.task_stage)
             except ResponseFlattener.DoesNotExist:
                 response_flattener = None
             if tasks and response_flattener:
@@ -620,7 +621,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
-        #todo: ask about post and get requests
+        # todo: ask about post and get requests
         """
         Get:
         Request task assignment to user
@@ -937,7 +938,7 @@ class PublicCSVViewSet(viewsets.ViewSet):
     A view that returns the count of active users, in JSON or YAML.
     """
 
-    permission_classes = (PublicCSVAccessPolicy, )
+    permission_classes = (PublicCSVAccessPolicy,)
 
     # renderer_classes = (JSONRenderer, YAMLRenderer)
 
@@ -994,7 +995,7 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
         'created_at': ['lte', 'gte', 'lt', 'gt'],
         'updated_at': ['lte', 'gte', 'lt', 'gt']
     }
-    permission_classes = (ResponseFlattenerAccessPolicy, )
+    permission_classes = (ResponseFlattenerAccessPolicy,)
 
     def get_queryset(self):
         return ResponseFlattenerAccessPolicy.scope_queryset(
