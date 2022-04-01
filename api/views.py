@@ -599,8 +599,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                     row = response_flattener.flatten_response(task)
                     [columns.add(k) for k in row.keys()]
                     items.append(row)
-
-                columns = response_flattener.order_columns(columns)
+                columns = response_flattener.order_columns(list(columns))
 
                 writer = csv.DictWriter(response, fieldnames=columns)
                 writer.writeheader()
