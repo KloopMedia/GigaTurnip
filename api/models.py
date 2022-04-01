@@ -597,10 +597,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
                 if value:
                     result[path] = value
         elif self.flatten_all and task.responses:
-            for key, value in task.responses.items():
-                col_name, value = self._get_the_value(key, value)
-                if value:
-                    result[col_name] = value
+            result = self.flatten_all_response(task, result)
         if self.copy_system_fields:
             # todo: maybe I have to add prefix 'sys_' for system keys
             result.update(self.__dict__)
@@ -608,23 +605,29 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
         return result
 
-    def _get_the_value(self, k, v):
-        # sub_dicts = []
+    def flatten_all_response(self, task, result):
+        all_keyses = []
+        for key, value in task.responses.items():
+            all_keyses += self.get_all_pathes(key, value)
 
-        if not isinstance(v, dict):  # and not isinstance(v, list)
-            return k, str(v)
-        # elif isinstance(v, list):
-        #     print("FFF")
-        # if self.is_list_of_strings(v) or self.is_list_of_ints(v):
-        #     return k, str(v), False
-        # else:
-        #     for i, dictionary in enumerate(v):
-        #         for sub_key, sub_val in dictionary.items():
-        #             sub_dicts.append(self._get_the_value(f"{k}__{i}__{sub_key}", sub_val))
-        else:
-            for sub_key, sub_val in v.items():
-                return self._get_the_value(k + "__" + sub_key, sub_val)
+        for path in all_keyses:
+            value = self.follow_path(task.responses, path)
+            if value:
+                result[path] = value
+        return result
 
+    def get_all_pathes(self, k, value):
+        keys = []
+        if isinstance(value, dict):
+            for key, values in value.items():
+                keys += self.get_all_pathes(k + "__" + key, values)
+        # elif isinstance(value, list):
+            # for i, item in value:
+            #     keys += self.get_all_pathes(k + f"__" + i, item)
+        elif isinstance(value, str) or isinstance(value, int) or isinstance(value, list):
+            keys.append(k)
+
+        return keys
 
     def is_list_of_ints(self, arr):
         res = []
