@@ -1141,6 +1141,23 @@ class GigaTurnipTest(APITestCase):
         result = {'id': task.id, 'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': [322, 123, 23]}
         self.assertEqual(response_flattener.flatten_response(task), result)
 
+
+    def test_get_response_flattener_order_columns(self):
+
+        task = self.create_task(self.initial_stage)
+        self.initial_stage.ui_schema = {"ui:order":  ["BBB", "DDD", "AAA"]}
+        self.initial_stage.save()
+
+        responses = {"BBB": "First", "AAA": "SecondColumnt", "DDD": {"d": {"d": 122}}}
+        task.responses = responses
+        task.save()
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
+
+        cols = ["DDD__d__d", "AAA", "BBB"]
+        cols.sort()
+        ordered_columns = response_flattener.order_columns(cols)
+        self.assertEqual(ordered_columns, ["BBB", "DDD__d__d", "AAA"])
+
     def test_get_response_flattener_fail(self):
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
