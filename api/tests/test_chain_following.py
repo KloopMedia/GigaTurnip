@@ -18,7 +18,6 @@ class GigaTurnipTest(APITestCase):
         client.force_authenticate(u)
         return client
 
-
     def prepare_client(self, stage, user=None, rank_limit=None):
         u = user
         if u is None:
@@ -60,8 +59,8 @@ class GigaTurnipTest(APITestCase):
                                                    password='test')
 
         self.user_empl = CustomUser.objects.create_user(username="employee",
-                                                   email='employee@email.com',
-                                                   password='employee')
+                                                        email='employee@email.com',
+                                                        password='employee')
         self.client = self.prepare_client(
             self.initial_stage,
             self.user,
@@ -1032,6 +1031,18 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(response_flattener_dict, result)
 
+    def test_response_flattener_flatten_all(self):
+        task = self.create_initial_task()
+
+        answers = {"opening": {"15_c": "secured", "16_c": "no", "17_c": "no"}}
+        task.responses = answers
+        task.save()
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage,
+                                                              flatten_all=True)
+
+        result = response_flattener.flatten_response(task)
+        self.assertEqual({"id":task.id, "opening__15_c": "secured", "opening__16_c": "no", "opening__17_c": "no"}, result)
+
     def test_response_flattener_regex_happy(self):
         task = self.create_initial_task()
 
@@ -1122,12 +1133,12 @@ class GigaTurnipTest(APITestCase):
     def test_get_response_flattener_copy_whole_response_success(self):
         task = self.create_task(self.initial_stage)
 
-        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": {"uik1": [322,123,23]}}}
+        responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": {"uik1": [322, 123, 23]}}}
         task.responses = responses
         task.save()
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
 
-        result = {'id':task.id, 'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': "[322, 123, 23]"}
+        result = {'id': task.id, 'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': [322, 123, 23]}
         self.assertEqual(response_flattener.flatten_response(task), result)
 
     def test_get_response_flattener_fail(self):
