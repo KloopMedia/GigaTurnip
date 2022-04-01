@@ -437,11 +437,14 @@ class LogAdmin(admin.ModelAdmin):
 
 class ResponseFlattenerAdmin(admin.ModelAdmin):
     model = ResponseFlattener
-    list_display = ('task_stage', 'copy_first_level', 'copy_system_fields')
-    list_filter = ('task_stage', 'copy_first_level', 'copy_system_fields')
+    list_display = ('task_stage', 'id', 'copy_first_level', 'copy_system_fields')
+    list_filter = ('task_stage', 'id', 'copy_first_level', 'copy_system_fields')
     search_fields = ('task_stage',)
     autocomplete_fields = ('task_stage',)
 
+    def get_queryset(self, request):
+        queryset = super(ResponseFlattenerAdmin, self).get_queryset(request)
+        return queryset.filter(task_stage__chain__campaign__campaign_managements__user=request.user)
 
 # class AdminPreferenceForm(forms.ModelForm):
 #     def clean(self):
