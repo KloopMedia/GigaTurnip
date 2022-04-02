@@ -698,6 +698,9 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
                     if column[:len(item)] == item and column not in ordered_columns:
                         ordered_columns.append(column)
         if ordered_columns:
+            for i in columns:
+                if i not in ordered_columns:
+                    ordered_columns.append(i)
             return ordered_columns
         return columns
 
