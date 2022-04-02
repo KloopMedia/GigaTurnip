@@ -689,8 +689,11 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
     def order_columns(self, columns):
         columns.sort()
         ordered_columns = []
-        if self.task_stage.ui_schema and self.task_stage.ui_schema.get("ui:order"):
-            for item in self.task_stage.ui_schema.get("ui:order"):
+        ui_schema = self.task_stage.ui_schema
+        if isinstance(ui_schema, str):
+            ui_schema = json.loads(ui_schema)
+        if ui_schema and ui_schema.get("ui:order"):
+            for item in ui_schema.get("ui:order"):
                 for column in columns:
                     if column[:len(item)] == item and column not in ordered_columns:
                         ordered_columns.append(column)
