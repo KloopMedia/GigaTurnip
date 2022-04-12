@@ -793,8 +793,8 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         system_keys = []
         if self.copy_system_fields:
             system_keys = self.__dict__.keys()
-            system_keys.delete("id")
-            system_keys.delete("_state")
+            system_keys.remove("id")
+            system_keys.remove("_state")
 
         return ["id"]+system_keys+[i.split("__", 1)[1] for i in ordered_columns]
 
