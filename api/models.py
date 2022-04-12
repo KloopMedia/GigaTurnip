@@ -686,7 +686,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
         return None
 
-    def get_all_columns_and_priority(self, properties, dependencies, key, js):
+    def get_all_columns_and_priority(self, properties, dependencies, key, js, extra_dependencies={}):
         last_key = key.split("__")[-1]
 
         ui = json.loads(self.task_stage.ui_schema)
@@ -702,12 +702,12 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
                 if last_key in sub_columns.keys():
                     del sub_columns[last_key]
                 for k, v in sub_columns.items():
-                    d = self.get_all_columns_and_priority(v, i.get("dependencies"), f"{key}__{k}", js[last_key])
-                    js[last_key].update(d)
+                    d = self.get_all_columns_and_priority(v, extra_dependencies.get(k), f"{key}__{k}", js)
+                    js.update(d)
                     if v.get("properties"):
                         for sub_k, sub_v in v.get("properties").items():
                             c = self.get_all_columns_and_priority(sub_v, v.get("dependencies").get(sub_k),
-                                                                    f"{key}__{k}__{sub_k}", {})
+                                                                  f"{key}__{k}__{sub_k}", {})
                             for j in c[sub_k].items():
                                 if j[0] != 'priority':
                                     js[last_key][k][j[0]] = j[1]
@@ -716,7 +716,13 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             sup_props = properties.get("properties")
             if sup_props:
                 for k, v in sup_props.items():
-                    d = self.get_all_columns_and_priority(v, v.get("dependencies"), f"{key}__{k}", js[last_key])
+                    all_dependencies = properties.get("dependencies")
+                    if all_dependencies and all_dependencies.get(k):
+                        current_deps = all_dependencies.get(k)
+                    else:
+                        current_deps = None
+                    d = self.get_all_columns_and_priority(v, current_deps, f"{key}__{k}", js[last_key],
+                                                          extra_dependencies=all_dependencies)
                     js[last_key].update(d)
 
         return js
@@ -729,7 +735,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             property = schema['properties'].get(section_name)
             if property:
                 js = self.get_all_columns_and_priority(property, schema['dependencies'].get(section_name),
-                                                       section_name, ordered)
+                                                       section_name, ordered, extra_dependencies=schema['dependencies'])
                 ordered.update(js)
         return ordered
 
@@ -784,9 +790,13 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         ordered_columns = []
         self.make1Darr(pre_order_columns, ordered_columns)
 
-        for i, col in enumerate(ordered_columns):
-            ordered_columns[i] = "__".join(col.split("__")[2:])
-        return ordered_columns
+        system_keys = []
+        if self.copy_system_fields:
+            system_keys = self.__dict__.keys()
+            system_keys.delete("id")
+            system_keys.delete("_state")
+
+        return ["id"]+system_keys+[i.split("__", 1)[1] for i in ordered_columns]
 
     def make1Darr(self, arr, end_arr):
         for i in arr:
