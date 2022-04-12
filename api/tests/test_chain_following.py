@@ -1155,7 +1155,7 @@ class GigaTurnipTest(APITestCase):
 
         cols = ["DDD__d__d", "AAA", "BBB"]
         cols.sort()
-        ordered_columns = response_flattener.order_columns(cols)
+        ordered_columns = response_flattener.get_columns_from_js_schema(cols)
         self.assertEqual(ordered_columns, ["BBB", "DDD__d__d", "AAA"])
 
     def test_get_response_flattener_fail(self):
