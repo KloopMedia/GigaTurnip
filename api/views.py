@@ -594,14 +594,12 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'Content-Disposition': f'attachment; filename="{filename}.csv"'
                     },
                 )
-                columns = set()
                 for task in tasks:
                     row = response_flattener.flatten_response(task)
-                    [columns.add(k) for k in row.keys()]
                     items.append(row)
-                columns = response_flattener.order_columns(list(columns))
+                ordered_columns = response_flattener.make_columns_ordered()
 
-                writer = csv.DictWriter(response, fieldnames=columns)
+                writer = csv.DictWriter(response, fieldnames=ordered_columns)
                 writer.writeheader()
                 writer.writerows(items)
                 return response
