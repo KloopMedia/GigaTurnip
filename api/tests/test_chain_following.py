@@ -535,8 +535,10 @@ class GigaTurnipTest(APITestCase):
         task_21 = self.create_initial_task()
         task_21 = self.complete_task(task_21, {"check": "go"})
         task_22 = task_21.out_tasks.all()[0]
+        task_22.responses = {"check": "new"}
+        task_22.save()
 
-        resp = {"stage": self.initial_stage.id, "responses": {"check": "ga"}}
+        resp = {"check": "new"}
         resp = json.dumps(resp)
         responses_filter = {"task_responses": resp}
         # responses_filter = "task_responses=check"
@@ -544,7 +546,7 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects("task-user-selectable", params=responses_filter)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["id"], task_12.id)
+        self.assertEqual(response.data["results"][0]["id"], task_22.id)
 
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
@@ -1205,3 +1207,26 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(old_count, 0)
         self.assertEqual(Log.objects.count(), 1)
+
+    def test_task_search_filter(self):
+        self.user.managed_campaigns.add(self.campaign)
+        task1 = self.create_initial_task()
+        task2 = self.create_initial_task()
+        task3 = self.create_initial_task()
+        responses1 = {"field1": 'a', "field2": "Hello World!", "deepField": {"name": "Artem"}}
+        responses2 = {"field1": 'b', "field2": "How are you?", "deepField": {"name": "Kirill"}}
+        responses3 = {"field1": 'c', "field2": "Good bye!", "deepField": {"name": "Atai"}}
+        task1.responses = responses1
+        task2.responses = responses2
+        task3.responses = responses3
+        task1.save()
+        task2.save()
+        task3.save()
+
+        filtered_tasks = self.get_objects('task-list', {"task_responses": '{"deepField": {"name": "Artem"}}'})
+        self.assertEqual(len(json.loads(filtered_tasks.content)['results']), 1)
+        filtered_tasks = self.get_objects('task-list', {"task_responses": '{"field1": "b"}'})
+        self.assertEqual(len(json.loads(filtered_tasks.content)['results']), 1)
+        filtered_tasks = self.get_objects('task-list', {"task_responses": '{"name": "Kirill"}'})
+        self.assertEqual(len(json.loads(filtered_tasks.content)['results']), 0)
+

@@ -247,7 +247,7 @@ class ResponsesFilter(filters.SearchFilter):
 
     def get_search_terms(self, request):
         """
-        Search term is set by a ?search=... query parameter.
+        Search term is set by a ?task_responses=... query parameter. Value must be a dictionary like '{"field1": "b"}'
         """
         params = request.query_params.get(self.search_param, '')
         if not params:
@@ -263,11 +263,8 @@ class ResponsesFilter(filters.SearchFilter):
         if not search_fields or not search_term:
             return queryset
 
-        tasks = Task.objects.filter(stage__id=search_term["stage"])
-        tasks = tasks.filter(**search_term["responses"])
-        cases = Case.objects.filter(tasks__in=tasks).distinct()
-        response = queryset.filter(case__in=cases)
-        return response
+        tasks = queryset.filter(**search_term["responses"])
+        return tasks
 
 
 # class ResponsesContainFilter(filters.SearchFilter):

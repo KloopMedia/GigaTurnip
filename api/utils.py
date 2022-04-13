@@ -161,16 +161,17 @@ def flatten(d, parent_key='', sep='__'):
 
 
 def str_to_responses_dict(params):
-    result = {"stage": "", "responses": {}}
+    # result = {"stage": "", "responses": {}}
+    result = {"responses": {}}
     try:
         data = json.loads(params)
     except JSONDecodeError:
         return None
-    if not data.get("stage", None) or \
-            not isinstance(data.get("responses", None), dict):
-        return None
-    result["stage"] = data["stage"]
-    result["responses"] = flatten(data["responses"], "responses", "__")
+    # if not data.get("stage", None) or \
+    #         not isinstance(data.get("responses", None), dict):
+    #     return None
+    # result["stage"] = data["stage"]
+    result["responses"] = flatten(data, "responses", "__")
     return result
 
 
