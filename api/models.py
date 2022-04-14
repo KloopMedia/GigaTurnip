@@ -622,8 +622,8 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             for key, values in value.items():
                 keys += self.get_all_pathes(k + "__" + key, values)
         # elif isinstance(value, list):
-            # for i, item in value:
-            #     keys += self.get_all_pathes(k + f"__" + i, item)
+        # for i, item in value:
+        #     keys += self.get_all_pathes(k + f"__" + i, item)
         elif isinstance(value, str) or isinstance(value, int) or isinstance(value, list):
             keys.append(k)
 
@@ -734,8 +734,14 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         for i, section_name in enumerate(ui.get("ui:order")):
             property = schema['properties'].get(section_name)
             if property:
-                js = self.get_all_columns_and_priority(property, schema['dependencies'].get(section_name),
-                                                       section_name, ordered, extra_dependencies=schema['dependencies'])
+                root_dependencies = schema.get('dependencies')
+                if root_dependencies is not None and section_name in list(root_dependencies.keys()):
+                    section_dependencies = root_dependencies.get(section_name)
+                else:
+                    section_dependencies = None
+                js = self.get_all_columns_and_priority(property, section_dependencies,
+                                                       section_name, ordered,
+                                                       extra_dependencies=root_dependencies)
                 ordered.update(js)
         return ordered
 
@@ -759,7 +765,10 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             while len(arr) < int(path[0]):
                 arr.append([])
             i = int(path[0])
-            arr[i - 1] = self.order_columns(path[1:], key, arr[i - 1])
+            if i == -1:
+                arr = self.order_columns(path[1:], key, arr)
+            else:
+                arr[i - 1] = self.order_columns(path[1:], key, arr[i - 1])
             return arr
         else:
             if isinstance(arr, str):
@@ -779,7 +788,6 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         all_columns = []
         self.parse(prioritized_js, '', all_columns)
 
-
         pre_order_columns = []
         for i in all_columns:
             if i is not None and i.split("__")[-1] != 'priority':
@@ -790,13 +798,18 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         ordered_columns = []
         self.make1Darr(pre_order_columns, ordered_columns)
 
-        system_keys = []
+        system_columns = []
         if self.copy_system_fields:
-            system_keys = list(self.__dict__.keys())
-            system_keys.remove("id")
-            system_keys.remove("_state")
+            system_columns = list(Task().__dict__.keys())
+            list_of_unnecessary_keys = ['id', '_state', 'responses']
+            for i in list_of_unnecessary_keys:
+                system_columns.remove(i)
 
-        return ["id"]+system_keys+[i.split("__", 1)[1] for i in ordered_columns]
+        finally_columns = ["id"] + system_columns + [i.split("__", 1)[1] for i in ordered_columns]
+        for i, col in enumerate(self.columns):
+            position = i + 1 + len(system_columns)
+            finally_columns.insert(position, col)
+        return finally_columns
 
     def make1Darr(self, arr, end_arr):
         for i in arr:
@@ -805,9 +818,9 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             else:
                 end_arr.append(i)
 
-
     def get_campaign(self) -> Campaign:
         return self.task_stage.get_campaign()
+
 
 class Quiz(BaseDatesModel):
     task_stage = models.OneToOneField(
