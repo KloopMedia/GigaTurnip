@@ -134,6 +134,7 @@ class GigaTurnipTest(APITestCase):
         response = c.patch(task_update_url, args, format='json')
         return Task.objects.get(id=response.data["id"])
 
+
     def check_task_manual_creation(self, task, stage):
         self.assertEqual(task.stage, stage)
         self.assertFalse(task.complete)
@@ -1076,9 +1077,13 @@ class GigaTurnipTest(APITestCase):
     def test_get_response_flattener_success(self):
         task = self.create_initial_task()
 
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik__uik"]}'
+        self.initial_stage.save()
+
         responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
-                                                              columns=["oik__(i)uik"])
+                                                              columns=["oik__(i)uik", "dfasdf", "dfasdfasd"])
 
         task = self.complete_task(task, responses, self.client)
 
@@ -1092,6 +1097,10 @@ class GigaTurnipTest(APITestCase):
 
     def test_response_flattener_unique_success(self):
         task = self.create_initial_task()
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
@@ -1111,6 +1120,10 @@ class GigaTurnipTest(APITestCase):
 
     def test_response_flattener_get_tasks_success(self):
         tasks = self.create_initial_tasks(5)
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
 
         responses = {"column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
@@ -1141,11 +1154,11 @@ class GigaTurnipTest(APITestCase):
         result = {'id': task.id, 'column1': 'First', 'column2': 'SecondColumnt', 'oik__uik1__uik1': [322, 123, 23]}
         self.assertEqual(response_flattener.flatten_response(task), result)
 
-
     def test_get_response_flattener_order_columns(self):
 
         task = self.create_task(self.initial_stage)
-        self.initial_stage.ui_schema = {"ui:order":  ["BBB", "DDD", "AAA"]}
+        self.initial_stage.ui_schema = '{"ui:order": ["BBB", "DDD", "AAA"]}'
+        self.initial_stage.json_schema = '{"properties":{"AAA": {"AAA":{}}, "BBB": {"AAA":{}}, "DDD": {"properties": {"d": {"properties": {"d": {}}}}}}}'
         self.initial_stage.save()
 
         responses = {"BBB": "First", "AAA": "SecondColumnt", "DDD": {"d": {"d": 122}}}
@@ -1153,10 +1166,17 @@ class GigaTurnipTest(APITestCase):
         task.save()
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
 
-        cols = ["DDD__d__d", "AAA", "BBB"]
-        cols.sort()
-        ordered_columns = response_flattener.get_columns_from_js_schema(cols)
-        self.assertEqual(ordered_columns, ["BBB", "DDD__d__d", "AAA"])
+        ordered_columns = response_flattener.make_columns_ordered()
+        self.assertEqual(ordered_columns, ["id", "BBB", "DDD__d__d", "AAA"])
+
+        # Testing system fields
+        response_flattener.copy_system_fields = True
+        response_flattener.save()
+        ordered_columns = response_flattener.make_columns_ordered()
+        all_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
+                       'integrator_group', 'complete', 'force_complete', 'reopened', "BBB", "DDD__d__d", "AAA"]
+        self.assertEqual(ordered_columns, all_columns)
+
 
     def test_get_response_flattener_fail(self):
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
