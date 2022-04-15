@@ -600,8 +600,10 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             result = self.flatten_all_response(task, result)
         if self.copy_system_fields:
             # todo: maybe I have to add prefix 'sys_' for system keys
-            result.update(self.__dict__)
-            del result['_state']
+            result.update(task.__dict__)
+            list_of_unnecessary_keys = ['id', '_state', 'responses']
+            for unnecessary_key in list_of_unnecessary_keys:
+                del result[unnecessary_key]
 
         return result
 
