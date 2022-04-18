@@ -594,10 +594,22 @@ class TaskViewSet(viewsets.ModelViewSet):
                         'Content-Disposition': f'attachment; filename="{filename}.csv"'
                     },
                 )
+                columns = set()
                 for task in tasks:
                     row = response_flattener.flatten_response(task)
                     items.append(row)
-                ordered_columns = response_flattener.make_columns_ordered()
+                    [columns.add(i) for i in row.keys()]
+                ordered_columns = response_flattener.ordered_columns()
+
+                columns_not_in_main_schema = utils.array_difference(columns, ordered_columns+response_flattener.columns)
+                if columns_not_in_main_schema:
+                    for i in items:
+                        for column in columns_not_in_main_schema:
+                            if column in i.keys():
+                                del i[column]
+                    col = ["description"]
+                    ordered_columns += col
+                    items[0][col[0]] = ", ".join(columns_not_in_main_schema)
 
                 writer = csv.DictWriter(response, fieldnames=ordered_columns)
                 writer.writeheader()
