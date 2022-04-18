@@ -1018,20 +1018,6 @@ class GigaTurnipTest(APITestCase):
         flattener_row = response_flattener.flatten_response(task)
         self.assertEqual(row, flattener_row)
 
-    def test_response_flattener_copy_system_field(self):
-        task = self.create_initial_task()
-
-        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage,
-                                                              copy_system_fields=True)
-
-        task = self.complete_task(task, {}, self.client)
-
-        result = response_flattener.flatten_response(task)
-        response_flattener_dict = response_flattener.__dict__
-        del response_flattener_dict['_state']
-
-        self.assertEqual(response_flattener_dict, result)
-
     def test_response_flattener_flatten_all(self):
         task = self.create_initial_task()
 
@@ -1176,6 +1162,41 @@ class GigaTurnipTest(APITestCase):
         all_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
                        'integrator_group', 'complete', 'force_complete', 'reopened', "BBB", "DDD__d__d", "AAA"]
         self.assertEqual(ordered_columns, all_columns)
+
+
+    def test_response_flattener_with_previous_names(self):
+        tasks = self.create_initial_tasks(5)
+        self.user_empl.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.user_empl)
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        responses = {"column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
+
+        for i,t in enumerate(tasks[:3]):
+            task = self.complete_task(t, responses, self.client)
+            tasks[i] = task
+
+        for i, t in enumerate(tasks[3:]):
+            responses['another'] = "field not in schema"
+            task = self.complete_task(t, responses, self.client)
+            tasks[i+3] = task
+
+        params = {"response_flattener": response_flattener.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        columns = response.content.decode().split("\r\n", 1)[0].split(',')
+        self.assertEqual(columns, ['id', 'column2', 'column1', 'oik__uik1', 'description'])
+
+        response_flattener.columns = ['another']
+        response_flattener.save()
+
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        columns = response.content.decode().split("\r\n", 1)[0].split(',')
+        self.assertEqual(columns, ['id', 'another','column2', 'column1', 'oik__uik1'])
+
 
 
     def test_get_response_flattener_fail(self):
