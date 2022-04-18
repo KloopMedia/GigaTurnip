@@ -1238,6 +1238,41 @@ class GigaTurnipTest(APITestCase):
         columns = response.content.decode().split("\r\n", 1)[0].split(',')
         self.assertEqual(columns, ['id', 'another','column2', 'column1', 'oik__uik1'])
 
+    def test_response_flattener_with_previous_names(self):
+        tasks = self.create_initial_tasks(5)
+        self.user_empl.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.user_empl)
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        responses = {"column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
+
+        for i,t in enumerate(tasks[:3]):
+            task = self.complete_task(t, responses, self.client)
+            tasks[i] = task
+
+        for i, t in enumerate(tasks[3:]):
+            responses['another'] = "field not in schema"
+            task = self.complete_task(t, responses, self.client)
+            tasks[i+3] = task
+
+        params = {"response_flattener": response_flattener.id}
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        columns = response.content.decode().split("\r\n", 1)[0].split(',')
+        self.assertEqual(columns, ['id', 'column2', 'column1', 'oik__uik1', 'description'])
+
+        response_flattener.columns = ['another']
+        response_flattener.save()
+
+        response = self.get_objects("task-csv", params=params, client=new_client)
+        columns = response.content.decode().split("\r\n", 1)[0].split(',')
+        self.assertEqual(columns, ['id', 'another','column2', 'column1', 'oik__uik1'])
+
+
+
     def test_get_response_flattener_fail(self):
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
