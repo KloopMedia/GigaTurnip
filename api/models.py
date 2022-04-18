@@ -340,6 +340,134 @@ class TaskStage(Stage, SchemaProvider):
             return self.quiz
         return None
 
+    def get_columns_from_js_schema(self):
+        ordered = {}
+        ui = json.loads(self.ui_schema)
+        schema = json.loads(self.json_schema)
+        for i, section_name in enumerate(ui.get("ui:order")):
+            property = schema['properties'].get(section_name)
+            if property:
+                root_dependencies = schema.get('dependencies')
+                if root_dependencies is not None and section_name in list(root_dependencies.keys()):
+                    section_dependencies = root_dependencies.get(section_name)
+                else:
+                    section_dependencies = None
+                js = self.__get_all_columns_and_priority(property, section_dependencies,
+                                                         section_name, ordered,
+                                                         extra_dependencies=root_dependencies)
+                ordered.update(js)
+        return ordered
+
+    def __get_all_columns_and_priority(self, properties, dependencies, key, js, extra_dependencies={}):
+        last_key = key.split("__")[-1]
+
+        ui = json.loads(self.ui_schema)
+        if last_key in ui.get("ui:order"):
+            priority = ui.get("ui:order").index(last_key) + 1
+        else:
+            priority = -1
+        js[last_key] = {"priority": priority}
+
+        if dependencies and dependencies.get("oneOf"):
+            for i in dependencies.get("oneOf"):
+                js = self.__parse_dependencies(key, i, extra_dependencies, js)
+        elif dependencies:
+            js = self.__parse_dependencies(key, dependencies, extra_dependencies, js)
+        if properties:
+            sup_props = properties.get("properties")
+            if sup_props:
+                for k, v in sup_props.items():
+                    all_dependencies = properties.get("dependencies")
+                    if all_dependencies and all_dependencies.get(k):
+                        current_deps = all_dependencies.get(k)
+                    else:
+                        current_deps = None
+                    d = self.__get_all_columns_and_priority(v, current_deps, f"{key}__{k}", js[last_key],
+                                                            extra_dependencies=all_dependencies)
+                    js[last_key].update(d)
+
+        return js
+
+    def __parse_dependencies(self, key, dependency, extra_dependencies, js):
+        last_key = key.split("__")[-1]
+        sub_columns = dependency.get("properties")
+        if last_key in sub_columns.keys():
+            del sub_columns[last_key]
+        for k, v in sub_columns.items():
+            d = self.__get_all_columns_and_priority(v, extra_dependencies.get(k), f"{key}__{k}", js)
+            js.update(d)
+            if v.get("properties"):
+                for sub_k, sub_v in v.get("properties").items():
+                    c = self.__get_all_columns_and_priority(sub_v, v.get("dependencies").get(sub_k),
+                                                            f"{key}__{k}__{sub_k}", {})
+                    for j in c[sub_k].items():
+                        if j[0] != 'priority':
+                            js[last_key][k][j[0]] = j[1]
+
+        return js
+
+
+    def parse_section(self, key, section, array):
+        if isinstance(section, dict) and len(section.keys()) > 1:
+            self.parse(section, key, array)
+        else:
+            return key
+
+    def parse(self, to_parse, key, array):
+        for k, v in to_parse.items():
+            path = F"{key}__{k}"
+            if isinstance(v, dict):
+                path = f'{v.get("priority")}.{path}'
+            x = self.parse_section(path, v, array)
+            if x is not None:
+                array.append(x)
+
+    def order_columns(self, path, key, arr):
+        if len(path) > 1:
+            while len(arr) < int(path[0]):
+                arr.append([])
+            i = int(path[0])
+            if i == -1:
+                arr = self.order_columns(path[1:], key, arr)
+            else:
+                arr[i - 1] = self.order_columns(path[1:], key, arr[i - 1])
+            return arr
+        else:
+            if isinstance(arr, str):
+                arr = [arr]
+            position = int(path[0])
+            if position != -1:
+                while len(arr) < position:
+                    arr.append([])
+                arr[position - 1] = key
+            else:
+                arr.append(key)
+            return arr
+
+    def make_columns_ordered(self):
+        prioritized_js = self.get_columns_from_js_schema()
+
+        all_columns = []
+        self.parse(prioritized_js, '', all_columns)
+
+        pre_order_columns = []
+        for i in all_columns:
+            if i is not None and i.split("__")[-1] != 'priority':
+                prioritet = i.split("__")[0].split('.')[:-1]
+                prioritet.reverse()
+                pre_order_columns = self.order_columns(prioritet, i, pre_order_columns)
+
+        ordered_columns = []
+        self.make_1d_arr(pre_order_columns, ordered_columns)
+
+        return ordered_columns
+
+    def make_1d_arr(self, arr, end_arr):
+        for i in arr:
+            if isinstance(i, list):
+                self.make_1d_arr(i, end_arr)
+            else:
+                end_arr.append(i)
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -585,6 +713,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
     def flatten_response(self, task):
         result = {"id": task.id}
+        ui = json.loads(self.task_stage.ui_schema)
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():
@@ -593,27 +722,27 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
                             not isinstance(value, list):
                         result[key] = value
             for path in list(self.columns):
-                value = self.follow_path(task.responses, path)
+                value = self.follow_path(task.responses, path, ui)
                 if value:
                     result[path] = value
         elif self.flatten_all and task.responses:
-            result = self.flatten_all_response(task, result)
+            result = self.flatten_all_response(task, result, ui)
         if self.copy_system_fields:
             # todo: maybe I have to add prefix 'sys_' for system keys
             result.update(task.__dict__)
-            list_of_unnecessary_keys = ['id', '_state', 'responses']
+            list_of_unnecessary_keys = ['_state', 'responses']
             for unnecessary_key in list_of_unnecessary_keys:
                 del result[unnecessary_key]
 
         return result
 
-    def flatten_all_response(self, task, result):
+    def flatten_all_response(self, task, result, ui):
         all_keyses = []
         for key, value in task.responses.items():
             all_keyses += self.get_all_pathes(key, value)
 
         for path in all_keyses:
-            value = self.follow_path(task.responses, path)
+            value = self.follow_path(task.responses, path, ui)
             if value:
                 result[path] = value
         return result
@@ -648,10 +777,11 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
     def __str__(self):
         return f"ID: {self.id}; TaskStage ID: {self.task_stage.id}"
 
-    def follow_path(self, responses, path):
+    def follow_path(self, responses, path, ui=None):
         paths = path.split("__", 1)
         current_key = paths[0]
         next_key = paths[1] if len(paths) > 1 else None
+        current_ui = ui.get(current_key) if ui else None
 
         if "(i)" in current_key or "(r)" in current_key:
             if not path.startswith("("):
@@ -663,8 +793,18 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
                 return self.find_partial_key(responses, path)
         result = responses.get(current_key, None)
         if isinstance(result, dict):
-            return self.follow_path(result, next_key)
+            return self.follow_path(result, next_key, current_ui)
         elif not isinstance(result, dict):
+            if current_ui and current_ui.get("ui:widget") == 'customfile':
+                try:
+                    file_path = json.loads(result)
+                    files = []
+                    for key, val in file_path.items():
+                        result = "https://storage.cloud.google.com/gigaturnip-b6b5b.appspot.com/" + val + '?authuser=1'
+                        files.append(result)
+                    result = ", \n".join(files)
+                except:
+                    result = "CAN'T_PARSE_JSON_ERROR"+result
             return result
         return None
 
@@ -688,124 +828,8 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
         return None
 
-    def parse_dependencies(self, key, dependency, extra_dependencies, js):
-        last_key = key.split("__")[-1]
-        sub_columns = dependency.get("properties")
-        if last_key in sub_columns.keys():
-            del sub_columns[last_key]
-        for k, v in sub_columns.items():
-            d = self.get_all_columns_and_priority(v, extra_dependencies.get(k), f"{key}__{k}", js)
-            js.update(d)
-            if v.get("properties"):
-                for sub_k, sub_v in v.get("properties").items():
-                    c = self.get_all_columns_and_priority(sub_v, v.get("dependencies").get(sub_k),
-                                                            f"{key}__{k}__{sub_k}", {})
-                    for j in c[sub_k].items():
-                        if j[0] != 'priority':
-                            js[last_key][k][j[0]] = j[1]
-
-        return js
-
-    def get_all_columns_and_priority(self, properties, dependencies, key, js, extra_dependencies={}):
-        last_key = key.split("__")[-1]
-
-        ui = json.loads(self.task_stage.ui_schema)
-        if last_key in ui.get("ui:order"):
-            priority = ui.get("ui:order").index(last_key) + 1
-        else:
-            priority = -1
-        js[last_key] = {"priority": priority}
-
-        if dependencies and dependencies.get("oneOf"):
-            for i in dependencies.get("oneOf"):
-                js = self.parse_dependencies(key, i, extra_dependencies, js)
-        elif dependencies:
-            js = self.parse_dependencies(key, dependencies, extra_dependencies, js)
-        if properties:
-            sup_props = properties.get("properties")
-            if sup_props:
-                for k, v in sup_props.items():
-                    all_dependencies = properties.get("dependencies")
-                    if all_dependencies and all_dependencies.get(k):
-                        current_deps = all_dependencies.get(k)
-                    else:
-                        current_deps = None
-                    d = self.get_all_columns_and_priority(v, current_deps, f"{key}__{k}", js[last_key],
-                                                          extra_dependencies=all_dependencies)
-                    js[last_key].update(d)
-
-        return js
-
-    def get_columns_from_js_schema(self):
-        ordered = {}
-        ui = json.loads(self.task_stage.ui_schema)
-        schema = json.loads(self.task_stage.json_schema)
-        for i, section_name in enumerate(ui.get("ui:order")):
-            property = schema['properties'].get(section_name)
-            if property:
-                root_dependencies = schema.get('dependencies')
-                if root_dependencies is not None and section_name in list(root_dependencies.keys()):
-                    section_dependencies = root_dependencies.get(section_name)
-                else:
-                    section_dependencies = None
-                js = self.get_all_columns_and_priority(property, section_dependencies,
-                                                       section_name, ordered,
-                                                       extra_dependencies=root_dependencies)
-                ordered.update(js)
-        return ordered
-
-    def parse_section(self, key, section, array):
-        if isinstance(section, dict) and len(section.keys()) > 1:
-            self.parse(section, key, array)
-        else:
-            return key
-
-    def parse(self, to_parse, key, array):
-        for k, v in to_parse.items():
-            path = F"{key}__{k}"
-            if isinstance(v, dict):
-                path = f'{v.get("priority")}.{path}'
-            x = self.parse_section(path, v, array)
-            if x is not None:
-                array.append(x)
-
-    def order_columns(self, path, key, arr):
-        if len(path) > 1:
-            while len(arr) < int(path[0]):
-                arr.append([])
-            i = int(path[0])
-            if i == -1:
-                arr = self.order_columns(path[1:], key, arr)
-            else:
-                arr[i - 1] = self.order_columns(path[1:], key, arr[i - 1])
-            return arr
-        else:
-            if isinstance(arr, str):
-                arr = [arr]
-            position = int(path[0])
-            if position != -1:
-                while len(arr) < position:
-                    arr.append([])
-                arr[position - 1] = key
-            else:
-                arr.append(key)
-            return arr
-
-    def make_columns_ordered(self):
-        prioritized_js = self.get_columns_from_js_schema()
-
-        all_columns = []
-        self.parse(prioritized_js, '', all_columns)
-
-        pre_order_columns = []
-        for i in all_columns:
-            if i is not None and i.split("__")[-1] != 'priority':
-                prioritet = i.split("__")[0].split('.')[:-1]
-                prioritet.reverse()
-                pre_order_columns = self.order_columns(prioritet, i, pre_order_columns)
-
-        ordered_columns = []
-        self.make1Darr(pre_order_columns, ordered_columns)
+    def ordered_columns(self):
+        ordered_columns = self.task_stage.make_columns_ordered()
 
         system_columns = []
         if self.copy_system_fields:
@@ -814,18 +838,11 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             for i in list_of_unnecessary_keys:
                 system_columns.remove(i)
 
-        finally_columns = ["id"] + system_columns + [i.split("__", 1)[1] for i in ordered_columns]
+        finally_columns = ['id'] + system_columns + [i.split("__", 1)[1] for i in ordered_columns]
         for i, col in enumerate(self.columns):
             position = i + 1 + len(system_columns)
             finally_columns.insert(position, col)
         return finally_columns
-
-    def make1Darr(self, arr, end_arr):
-        for i in arr:
-            if isinstance(i, list):
-                self.make1Darr(i, end_arr)
-            else:
-                end_arr.append(i)
 
     def get_campaign(self) -> Campaign:
         return self.task_stage.get_campaign()
