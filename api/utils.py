@@ -182,3 +182,8 @@ def can_complete(task, user):
     if rank_limits:
         return False
     return True
+
+
+def array_difference(source, target):
+
+    return [i for i in source if i not in target]

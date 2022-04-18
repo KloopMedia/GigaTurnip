@@ -688,6 +688,24 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
         return None
 
+    def parse_dependencies(self, key, dependency, extra_dependencies, js):
+        last_key = key.split("__")[-1]
+        sub_columns = dependency.get("properties")
+        if last_key in sub_columns.keys():
+            del sub_columns[last_key]
+        for k, v in sub_columns.items():
+            d = self.get_all_columns_and_priority(v, extra_dependencies.get(k), f"{key}__{k}", js)
+            js.update(d)
+            if v.get("properties"):
+                for sub_k, sub_v in v.get("properties").items():
+                    c = self.get_all_columns_and_priority(sub_v, v.get("dependencies").get(sub_k),
+                                                            f"{key}__{k}__{sub_k}", {})
+                    for j in c[sub_k].items():
+                        if j[0] != 'priority':
+                            js[last_key][k][j[0]] = j[1]
+
+        return js
+
     def get_all_columns_and_priority(self, properties, dependencies, key, js, extra_dependencies={}):
         last_key = key.split("__")[-1]
 
@@ -698,22 +716,11 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
             priority = -1
         js[last_key] = {"priority": priority}
 
-        if dependencies:
+        if dependencies and dependencies.get("oneOf"):
             for i in dependencies.get("oneOf"):
-                sub_columns = i.get("properties")
-                if last_key in sub_columns.keys():
-                    del sub_columns[last_key]
-                for k, v in sub_columns.items():
-                    d = self.get_all_columns_and_priority(v, extra_dependencies.get(k), f"{key}__{k}", js)
-                    js.update(d)
-                    if v.get("properties"):
-                        for sub_k, sub_v in v.get("properties").items():
-                            c = self.get_all_columns_and_priority(sub_v, v.get("dependencies").get(sub_k),
-                                                                  f"{key}__{k}__{sub_k}", {})
-                            for j in c[sub_k].items():
-                                if j[0] != 'priority':
-                                    js[last_key][k][j[0]] = j[1]
-                            # js[last_key][k].update(c)
+                js = self.parse_dependencies(key, i, extra_dependencies, js)
+        elif dependencies:
+            js = self.parse_dependencies(key, dependencies, extra_dependencies, js)
         if properties:
             sup_props = properties.get("properties")
             if sup_props:
