@@ -193,6 +193,12 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
+    @action(detail=True, methods=['get'])
+    def schema_fields(self, request, pk=None):
+        stage = self.get_object()
+        fields = [i.split('__', 1)[1] for i in stage.make_columns_ordered()]
+        return Response({'fields': fields})
+
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """

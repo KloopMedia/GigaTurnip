@@ -1320,3 +1320,12 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(old_count, 0)
         self.assertEqual(Log.objects.count(), 1)
+
+    def test_task_stage_get_schema_fields(self):
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        response = self.get_objects('taskstage-schema-fields', pk=self.initial_stage.id)
+        print(reverse('taskstage-schema-fields', kwargs={"pk" : self.initial_stage.id}))
+        self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
