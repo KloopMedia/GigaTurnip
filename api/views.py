@@ -599,7 +599,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                     row = response_flattener.flatten_response(task)
                     items.append(row)
                     [columns.add(i) for i in row.keys()]
-                ordered_columns = response_flattener.make_columns_ordered()
+                ordered_columns = response_flattener.ordered_columns()
 
                 columns_not_in_main_schema = utils.array_difference(columns, ordered_columns+response_flattener.columns)
                 if columns_not_in_main_schema:
