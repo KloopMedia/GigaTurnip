@@ -1329,3 +1329,12 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-schema-fields', pk=self.initial_stage.id)
         print(reverse('taskstage-schema-fields', kwargs={"pk" : self.initial_stage.id}))
         self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
+
+    def test_search_by_responses(self):
+        conditions = {
+            "assets_category":{
+                        "operator": "==",
+                        "value": "123"
+            }
+        }
+        response = self.client.post(reverse('task-search-by-responses'), conditions, format='json')

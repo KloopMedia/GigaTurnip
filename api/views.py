@@ -740,6 +740,11 @@ class TaskViewSet(viewsets.ModelViewSet):
         # )
         return
 
+    @action(detail=False, methods=['post'])
+    def search_by_responses(self, request):
+        print(request.data)
+        return Response(request.data)
+
 
 class RankViewSet(viewsets.ModelViewSet):
     """

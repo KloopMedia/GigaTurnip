@@ -183,7 +183,7 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "deny",
         },
         {
-            "action": ["list"],
+            "action": ["list", "search_by_responses"],
             "principal": "authenticated",
             "effect": "allow"
         },
