@@ -189,12 +189,13 @@ def array_difference(source, target):
 
 def conditions_to_dj_filters(filterest_fields):
     filters = {}
-    for field in filterest_fields:
+    responses_conditions = 'all_conditions'
+    for field in filterest_fields.get(responses_conditions):
         key = field.get('field')
         if field.get('conditions'):
             for i in field.get('conditions'):
                 condition = i.get('operator')
-                key_for_filter = "responses__"+key
+                key_for_filter = "responses__" + key
                 if condition == '==':
                     key_for_filter += ''
                 elif condition == '<=':
@@ -205,6 +206,9 @@ def conditions_to_dj_filters(filterest_fields):
                     key_for_filter += '__gte'
                 elif condition == '>':
                     key_for_filter += '__gt'
-        #     todo: add not equal filter
+                #     todo: add not equal filter
                 filters[key_for_filter] = i.get('value')
+    for attr, val in filterest_fields.items():
+        if attr != responses_conditions:
+            filters[attr] = val
     return filters

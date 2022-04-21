@@ -32,6 +32,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy
 from . import utils
 from .utils import paginate
+import json
 
 from datetime import datetime
 
@@ -258,8 +259,11 @@ class ResponsesFilter(filters.SearchFilter):
         params = request.query_params.get(self.search_param, '')
         if not params:
             return None
-        params = utils.str_to_responses_dict(params)
-        return params
+
+        params = json.loads(params)
+        filterest_fields = utils.conditions_to_dj_filters(params)
+
+        return filterest_fields
 
     def filter_queryset(self, request, queryset, view):
 
@@ -269,11 +273,8 @@ class ResponsesFilter(filters.SearchFilter):
         if not search_fields or not search_term:
             return queryset
 
-        tasks = Task.objects.filter(stage__id=search_term["stage"])
-        tasks = tasks.filter(**search_term["responses"])
-        cases = Case.objects.filter(tasks__in=tasks).distinct()
-        response = queryset.filter(case__in=cases)
-        return response
+        tasks = queryset.filter(**search_term)
+        return tasks
 
 
 # class ResponsesContainFilter(filters.SearchFilter):
@@ -740,14 +741,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         # )
         return
 
-    @action(detail=False, methods=['post'])
-    def search_by_responses(self, request):
-        filters = utils.conditions_to_dj_filters(request.data['all_conditions'])
-        queryset = self.filter_queryset(self.get_queryset())
-        #todo: add filter by stage
-        queryset = queryset.filter(**filters)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
 
 
 class RankViewSet(viewsets.ModelViewSet):

@@ -525,28 +525,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
 
-    def test_get_tasks_selectable_responses_filter(self):
-        second_stage = self.initial_stage.add_stage(TaskStage())
-        self.client = self.prepare_client(second_stage, self.user)
-
-        task_11 = self.create_initial_task()
-        task_11 = self.complete_task(task_11, {"check": "ga"})
-        task_12 = task_11.out_tasks.all()[0]
-
-        task_21 = self.create_initial_task()
-        task_21 = self.complete_task(task_21, {"check": "go"})
-        task_22 = task_21.out_tasks.all()[0]
-
-        resp = {"stage": self.initial_stage.id, "responses": {"check": "ga"}}
-        resp = json.dumps(resp)
-        responses_filter = {"task_responses": resp}
-        # responses_filter = "task_responses=check"
-
-        response = self.get_objects("task-user-selectable", params=responses_filter)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["id"], task_12.id)
-
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -1342,6 +1320,12 @@ class GigaTurnipTest(APITestCase):
         task.responses = responses
         task.save()
 
+        second_task = self.create_initial_task()
+        new_resp = responses
+        new_resp['column1'] = '1234'
+        second_task.responses = new_resp
+        second_task.save()
+
         conditions = {
             "all_conditions":
                 [
@@ -1366,6 +1350,9 @@ class GigaTurnipTest(APITestCase):
                 ],
             "stage": self.initial_stage.id
         }
-        response = self.client.post(reverse('task-search-by-responses'), conditions, format='json')
+
+        responses_conditions = {'task_responses': json.dumps(conditions)}
+        response = self.get_objects('task-list', params=responses_conditions)
         response_data = json.loads(response.content)
-        self.assertEqual(len(response_data), 1)
+
+        self.assertEqual(len(response_data['results']), 1)
