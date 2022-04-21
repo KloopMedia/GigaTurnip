@@ -397,7 +397,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
-        if self.action in ['list', 'csv', 'user_activity_csv']:
+        if self.action in ['list', 'csv', 'user_activity_csv', 'search_by_responses']:
             return TaskAccessPolicy.scope_queryset(
                 self.request, Task.objects.all()
             )
@@ -742,8 +742,12 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def search_by_responses(self, request):
-        print(request.data)
-        return Response(request.data)
+        filters = utils.conditions_to_dj_filters(request.data['all_conditions'])
+        queryset = self.filter_queryset(self.get_queryset())
+        #todo: add filter by stage
+        queryset = queryset.filter(**filters)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class RankViewSet(viewsets.ModelViewSet):

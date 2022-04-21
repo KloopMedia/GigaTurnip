@@ -185,3 +185,26 @@ def can_complete(task, user):
 
 def array_difference(source, target):
     return [i for i in source if i not in target]
+
+
+def conditions_to_dj_filters(filterest_fields):
+    filters = {}
+    for field in filterest_fields:
+        key = field.get('field')
+        if field.get('conditions'):
+            for i in field.get('conditions'):
+                condition = i.get('operator')
+                key_for_filter = "responses__"+key
+                if condition == '==':
+                    key_for_filter += ''
+                elif condition == '<=':
+                    key_for_filter += '__lte'
+                elif condition == '<':
+                    key_for_filter += '__lt'
+                elif condition == '>=':
+                    key_for_filter += '__gte'
+                elif condition == '>':
+                    key_for_filter += '__gt'
+        #     todo: add not equal filter
+                filters[key_for_filter] = i.get('value')
+    return filters

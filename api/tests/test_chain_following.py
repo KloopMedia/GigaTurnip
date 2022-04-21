@@ -1331,10 +1331,41 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
 
     def test_search_by_responses(self):
+        self.user.managed_campaigns.add(self.campaign)
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        responses = {"column1": "123", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        task.responses = responses
+        task.save()
+
         conditions = {
-            "assets_category":{
-                        "operator": "==",
-                        "value": "123"
-            }
+            "all_conditions":
+                [
+                    {
+                        "conditions": [
+                            {
+                                "operator": "==",
+                                "value": "SecondLayer"
+                            }
+                        ],
+                        "field": "oik__uik1"
+                    },
+                    {
+                        "conditions": [
+                            {
+                                "operator": "<=",
+                                "value": "123"
+                            }
+                        ],
+                        "field": "column1"
+                    }
+                ],
+            "stage": self.initial_stage.id
         }
         response = self.client.post(reverse('task-search-by-responses'), conditions, format='json')
+        response_data = json.loads(response.content)
+        self.assertEqual(len(response_data), 1)
