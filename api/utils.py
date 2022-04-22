@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference
 from django.contrib import messages
 from django.utils.translation import ngettext
-
+from datetime import datetime
 
 def is_user_campaign_manager(user, campaign_id):
     campaigns = Campaign.objects \
@@ -193,8 +193,8 @@ def convert_value_by_type(type, value):
         value = int(value)
     elif type == 'float':
         value = float(value)
-    elif type == 'time':
-        value = str(value)
+    elif type == 'datetime':
+        value = datetime.strptime(value, ['%m.%d.%Y', '%m.%d.%Y  %H:%M:%S'])
     return value
 
 def conditions_to_dj_filters(filterest_fields):
@@ -220,7 +220,6 @@ def conditions_to_dj_filters(filterest_fields):
                     key_for_filter += '__gt'
                 elif condition == '!=':
                     key_for_filter += '__ne'
-                #     todo: add not equal filter
                 filters[key_for_filter] = value
     for attr, val in filterest_fields.items():
         if attr != responses_conditions:
