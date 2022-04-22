@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference
 from django.contrib import messages
 from django.utils.translation import ngettext
-
+from datetime import datetime
 
 def is_user_campaign_manager(user, campaign_id):
     campaigns = Campaign.objects \
@@ -185,3 +185,41 @@ def can_complete(task, user):
 
 def array_difference(source, target):
     return [i for i in source if i not in target]
+
+def convert_value_by_type(type, value):
+    if type == 'string':
+        value = str(value)
+    elif type == 'int':
+        value = int(value)
+    elif type == 'float':
+        value = float(value)
+    return value
+
+def conditions_to_dj_filters(filterest_fields):
+    filters = {}
+    responses_conditions = 'all_conditions'
+    for field in filterest_fields.get(responses_conditions):
+        key = field.get('field')
+        field_type = field.get('type')
+        if field.get('conditions'):
+            for i in field.get('conditions'):
+                value = convert_value_by_type(field_type, i.get('value'))
+                condition = i.get('operator')
+                key_for_filter = "responses__" + key
+                if condition == '==':
+                    key_for_filter += ''
+                elif condition == '<=':
+                    key_for_filter += '__lte'
+                elif condition == '<':
+                    key_for_filter += '__lt'
+                elif condition == '>=':
+                    key_for_filter += '__gte'
+                elif condition == '>':
+                    key_for_filter += '__gt'
+                elif condition == '!=':
+                    key_for_filter += '__ne'
+                filters[key_for_filter] = value
+    for attr, val in filterest_fields.items():
+        if attr != responses_conditions:
+            filters[attr] = val
+    return filters

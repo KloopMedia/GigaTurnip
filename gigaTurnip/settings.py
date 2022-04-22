@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'polymorphic',
     'drf_firebase_auth',
+    'rest_framework.authtoken',
     'django_filters',
     'django_q'
 ]
@@ -159,6 +160,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'drf_firebase_auth.authentication.FirebaseAuthentication',
+        'rest_framework.authentication.BasicAuthentication'
     ],
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
