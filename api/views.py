@@ -32,6 +32,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy
 from . import utils
 from .utils import paginate
+import json
 
 from datetime import datetime
 
@@ -193,6 +194,12 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
+    @action(detail=True, methods=['get'])
+    def schema_fields(self, request, pk=None):
+        stage = self.get_object()
+        fields = [i.split('__', 1)[1] for i in stage.make_columns_ordered()]
+        return Response({'fields': fields})
+
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -252,8 +259,11 @@ class ResponsesFilter(filters.SearchFilter):
         params = request.query_params.get(self.search_param, '')
         if not params:
             return None
-        params = utils.str_to_responses_dict(params)
-        return params
+
+        params = json.loads(params)
+        filterest_fields = utils.conditions_to_dj_filters(params)
+
+        return filterest_fields
 
     def filter_queryset(self, request, queryset, view):
 
@@ -263,11 +273,8 @@ class ResponsesFilter(filters.SearchFilter):
         if not search_fields or not search_term:
             return queryset
 
-        tasks = Task.objects.filter(stage__id=search_term["stage"])
-        tasks = tasks.filter(**search_term["responses"])
-        cases = Case.objects.filter(tasks__in=tasks).distinct()
-        response = queryset.filter(case__in=cases)
-        return response
+        tasks = queryset.filter(**search_term)
+        return tasks
 
 
 # class ResponsesContainFilter(filters.SearchFilter):
@@ -391,7 +398,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
-        if self.action in ['list', 'csv', 'user_activity_csv']:
+        if self.action in ['list', 'csv', 'user_activity_csv', 'search_by_responses']:
             return TaskAccessPolicy.scope_queryset(
                 self.request, Task.objects.all()
             )
@@ -733,6 +740,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         #     content_type=response.headers['Content-Type']
         # )
         return
+
 
 
 class RankViewSet(viewsets.ModelViewSet):

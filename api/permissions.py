@@ -123,7 +123,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "effect": "allow",
         },
         {
-            "action": ["retrieve"],
+            "action": ["retrieve", "schema_fields"],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_manager or is_stage_user_creatable",

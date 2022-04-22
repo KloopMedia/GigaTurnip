@@ -525,28 +525,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
 
-    def test_get_tasks_selectable_responses_filter(self):
-        second_stage = self.initial_stage.add_stage(TaskStage())
-        self.client = self.prepare_client(second_stage, self.user)
-
-        task_11 = self.create_initial_task()
-        task_11 = self.complete_task(task_11, {"check": "ga"})
-        task_12 = task_11.out_tasks.all()[0]
-
-        task_21 = self.create_initial_task()
-        task_21 = self.complete_task(task_21, {"check": "go"})
-        task_22 = task_21.out_tasks.all()[0]
-
-        resp = {"stage": self.initial_stage.id, "responses": {"check": "ga"}}
-        resp = json.dumps(resp)
-        responses_filter = {"task_responses": resp}
-        # responses_filter = "task_responses=check"
-
-        response = self.get_objects("task-user-selectable", params=responses_filter)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["id"], task_12.id)
-
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -1320,3 +1298,52 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(old_count, 0)
         self.assertEqual(Log.objects.count(), 1)
+
+    def test_task_stage_get_schema_fields(self):
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        response = self.get_objects('taskstage-schema-fields', pk=self.initial_stage.id)
+        print(reverse('taskstage-schema-fields', kwargs={"pk" : self.initial_stage.id}))
+        self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
+
+    def test_search_by_responses(self):
+        self.user.managed_campaigns.add(self.campaign)
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        responses = {"column1": "2022-04-03T03:20:00.974Z", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        task.responses = responses
+        task.save()
+
+        second_task = self.create_initial_task()
+        new_resp = responses
+        new_resp['column1'] = '1234'
+        second_task.responses = new_resp
+        second_task.save()
+
+        conditions = {
+            "all_conditions":
+                [
+                    {
+                        "conditions": [
+                            {
+                                "operator": "<=",
+                                "value": "2022-04-03"
+                            }
+                        ],
+                        "field": "column1"
+                    }
+                ],
+            "stage": self.initial_stage.id
+        }
+
+        responses_conditions = {'task_responses': json.dumps(conditions)}
+        response = self.get_objects('task-list', params=responses_conditions)
+        response_data = json.loads(response.content)
+
+        self.assertEqual(len(response_data['results']), 1)
