@@ -193,8 +193,6 @@ def convert_value_by_type(type, value):
         value = int(value)
     elif type == 'float':
         value = float(value)
-    elif type == 'datetime':
-        value = datetime.strptime(value, ['%m-%d-%Y', '%m-%d-%Y  %H:%M:%S'])
     return value
 
 def conditions_to_dj_filters(filterest_fields):

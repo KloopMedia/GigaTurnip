@@ -1333,17 +1333,7 @@ class GigaTurnipTest(APITestCase):
                         "conditions": [
                             {
                                 "operator": "<=",
-                                "value": "2022-04-03T03:20:00.974Z"
-                            }
-                        ],
-                        "type": "datetime",
-                        "field": "oik__uik1"
-                    },
-                    {
-                        "conditions": [
-                            {
-                                "operator": "<=",
-                                "value": "123"
+                                "value": "2022-04-03"
                             }
                         ],
                         "field": "column1"
