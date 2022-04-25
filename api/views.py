@@ -254,7 +254,7 @@ class ResponsesFilter(filters.SearchFilter):
 
     def get_search_terms(self, request):
         """
-        Search term is set by a ?search=... query parameter.
+        Search term is set by a ?task_responses=... query parameter.
         """
         params = request.query_params.get(self.search_param, '')
         if not params:
@@ -313,6 +313,19 @@ class ResponsesFilter(filters.SearchFilter):
 
 
 class ResponsesContainFilter(filters.SearchFilter):
+    search_param = "responses_contain"
+    search_title = _('Responses Contain Filter')
+
+    def get_search_terms(self, request):
+        """
+        Search term is set by a ?responses_contain=... query parameter.
+        """
+        params = request.query_params.get(self.search_param, '')
+        if not params:
+            return None
+
+        return params
+
     def filter_queryset(self, request, queryset, view):
         search_fields = self.get_search_fields(view, request)
         search_term = self.get_search_terms(request)
