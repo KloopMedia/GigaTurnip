@@ -195,6 +195,7 @@ def convert_value_by_type(type, value):
         value = float(value)
     return value
 
+
 def conditions_to_dj_filters(filterest_fields):
     filters = {}
     responses_conditions = 'all_conditions'

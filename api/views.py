@@ -273,7 +273,13 @@ class ResponsesFilter(filters.SearchFilter):
         if not search_fields or not search_term:
             return queryset
 
-        tasks = queryset.filter(**search_term)
+        if search_term.get("search_stage"):
+            search_stage = search_term["search_stage"]
+            del search_term["search_stage"]
+            tasks = queryset.filter(**search_term)
+            tasks = queryset.filter(in_tasks__in=tasks, stage=search_stage)
+        else:
+            tasks = queryset.filter(**search_term)
         return tasks
 
 

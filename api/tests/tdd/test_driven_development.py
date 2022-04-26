@@ -291,3 +291,43 @@ class NotificationTest(APITestCase):
 
         response = self.client.get(self.url + f"{notification_with_target.id}/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_search_by_responses(self):
+        self.user.managed_campaigns.add(self.campaign)
+
+        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        responses = {"column1": "2022-04-03T03:20:00.974Z", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        task.responses = responses
+        task.save()
+
+        second_task = self.create_initial_task()
+        new_resp = responses
+        new_resp['column1'] = '2022-04-05T03:20:00.974Z'
+        second_task.responses = new_resp
+        second_task.save()
+
+        conditions = {
+            "all_conditions":
+                [
+                    {
+                        "conditions": [
+                            {
+                                "operator": "<=",
+                                "value": "2022-04-03"
+                            }
+                        ],
+                        "field": "column1"
+                    }
+                ],
+            "stage": self.initial_stage.id
+        }
+
+        responses_conditions = {'task_responses': json.dumps(conditions)}
+        response = self.get_objects('task-list', params=responses_conditions)
+        response_data = json.loads(response.content)
+
+        self.assertEqual(len(response_data['results']), 1)
