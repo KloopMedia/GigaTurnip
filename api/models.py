@@ -249,10 +249,11 @@ class TaskStage(Stage, SchemaProvider):
     RANK = 'RA'
     STAGE = 'ST'
     INTEGRATOR = 'IN'
+    AUTO_COMPLETE = 'AU'
     ASSIGN_BY_CHOICES = [
         (RANK, 'Rank'),
         (STAGE, 'Stage'),
-        (INTEGRATOR, 'Integrator')
+        (AUTO_COMPLETE, 'Auto-complete')
     ]
     assign_user_by = models.CharField(
         max_length=2,
@@ -1233,6 +1234,79 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     #                " " +
     #                self.stage.__str__())
 
+
+class TaskAward(BaseDatesModel, CampaignInterface):
+    task_stage_completion = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="task_stage_completion",
+        help_text="Task Stage completion. Usually, it is the stage that the user completes.")
+    task_stage_verified = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="task_stage_verified",
+        help_text="Task Stage verified. It is the stage that is checked by the verifier.")
+    rank = models.ForeignKey(
+        Rank,
+        on_delete=models.CASCADE,
+        help_text="Rank to create the record with a user. It is a rank that will be given user, as an award who "
+                  "have completed a defined count of tasks")
+    count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
+    title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
+    message = models.TextField(help_text="Message for users who achieve award.")
+    message_before_achieve = models.TextField(help_text="Message for users about coming award.")
+
+    def get_campaign(self) -> Campaign:
+        return self.task_stage_completion.chain.campaign
+
+    def connect_user_with_rank(self, task):
+        """
+        The method gives an award to the user if the user completed a defined count of tasks.
+        In the beginning, we find all his tasks by cases and get all that haven't been force completed by the verifier.
+        If the count is equal - we will create RankRecord with prize rank with the user.
+        :param task:
+        :return:
+        """
+        # Get user from task which stage is stage of completion
+        user = Task.objects.filter(
+            stage=self.task_stage_completion,
+            case=task.case,
+            complete=True,
+            force_complete=False)[0].assignee
+
+        # Get tasks which was completed by user to get cases id
+        user_completed_tasks = Task.objects.filter(
+            stage=self.task_stage_completion,
+            assignee=user,
+            complete=True,
+            force_complete=False)
+        # Collect all cases where user have completing tasks
+        cases_of_tasks = [i[0] for i in user_completed_tasks.values_list('case')]
+
+        # Get all tasks with our needing cases
+        all_tasks_by_cases = Task.objects.filter(case__in=cases_of_tasks)
+
+        # Get verified tasks for compare with min. count of tasks to give achievement
+        verified = all_tasks_by_cases.filter(
+            stage=self.task_stage_verified,
+            force_complete=False)
+        # if count is equal -> create notification and give rank
+        if verified.count() == self.count:
+            rank_record = RankRecord.objects.create(user=user, rank=self.rank)  # todo:make get_or_create()
+            Notification.objects.create(
+                target_user=user,
+                campaign=self.get_campaign(),
+                title=self.title,
+                text=self.message,
+            )
+            return rank_record
+        else:
+            return None
+
+    def __str__(self):
+        return f"Completion: {self.task_stage_completion.id} " \
+               f"Verified: {self.task_stage_verified.id} " \
+               f"Rank: {self.rank.id}"
 
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
