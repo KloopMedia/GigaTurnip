@@ -183,8 +183,10 @@ def can_complete(task, user):
         return False
     return True
 
+
 def array_difference(source, target):
     return [i for i in source if i not in target]
+
 
 def convert_value_by_type(type, value):
     if type == 'string':
@@ -219,6 +221,8 @@ def conditions_to_dj_filters(filterest_fields):
                     key_for_filter += '__gt'
                 elif condition == '!=':
                     key_for_filter += '__ne'
+                elif condition == 'in':
+                    key_for_filter += '__icontains'
                 filters[key_for_filter] = value
     for attr, val in filterest_fields.items():
         if attr != responses_conditions:

@@ -1356,3 +1356,75 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response_data['results']), 1)
         expected_task = Task.objects.filter(in_tasks__in=[task.id], stage=second_stage)[0]
         self.assertEqual(response_data['results'][0]['id'], expected_task.id)
+
+    def test_search_by_responses_gte_lte(self):
+        self.user.managed_campaigns.add(self.campaign)
+
+        responses = {"column1": "3000", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, responses)
+
+        task1 = self.create_initial_task()
+        responses_1 = responses
+        responses_1['column1'] = '2990'
+        task1 = self.complete_task(task1, responses_1)
+
+        task2 = self.create_initial_task()
+        responses_2 = responses
+        responses_2['column1'] = '3001'
+        task2 = self.complete_task(task2, responses_2)
+
+        conditions = {
+            "all_conditions":
+                [
+                    {
+                        "conditions": [
+                            {
+                                "operator": "<=",
+                                "value": "3000"
+                            }
+                        ],
+                        "field": "column1"
+                    }
+                ],
+            "stage": self.initial_stage.id
+        }
+
+        responses_conditions = {'task_responses': json.dumps(conditions)}
+        response = self.get_objects('task-list', params=responses_conditions)
+        response_data = json.loads(response.content)
+
+        self.assertEqual(len(response_data['results']), 2)
+        for i in response_data['results']:
+            self.assertIn(i['id'], [task.id, task1.id])
+
+    def test_search_by_responses_contains(self):
+        self.user.managed_campaigns.add(self.campaign)
+
+        task = self.create_initial_task()
+        responses = {"column1": "3000", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        task = self.complete_task(task, responses)
+
+        conditions = {
+            "all_conditions":
+                [
+                    {
+                        "conditions": [
+                            {
+                                "operator": "in",
+                                "value": "Columnt"
+                            }
+                        ],
+                        "field": "column2"
+                    }
+                ],
+            "stage": self.initial_stage.id
+        }
+
+        responses_conditions = {'task_responses': json.dumps(conditions)}
+        response = self.get_objects('task-list', params=responses_conditions)
+        response_data = json.loads(response.content)
+
+        self.assertEqual(len(response_data['results']), 1)
+        self.assertEqual(response_data['results'][0]['id'], task.id)
