@@ -58,13 +58,10 @@ class GigaTurnipTest(APITestCase):
                                                    email='test@email.com',
                                                    password='test')
 
-        self.user_empl = CustomUser.objects.create_user(username="employee",
+        self.employee = CustomUser.objects.create_user(username="employee",
                                                         email='employee@email.com',
                                                         password='employee')
-        self.employee = CustomUser.objects.create_user(username="employee",
-                                                  email='employee@email.com',
-                                                  password='employee')
-        self.employee_client = self._create_client(self.employee)
+        self.employee_client = self.create_client(self.employee)
 
         self.client = self.prepare_client(
             self.initial_stage,
@@ -529,28 +526,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
 
-    def test_get_tasks_selectable_responses_filter(self):
-        second_stage = self.initial_stage.add_stage(TaskStage())
-        self.client = self.prepare_client(second_stage, self.user)
-
-        task_11 = self.create_initial_task()
-        task_11 = self.complete_task(task_11, {"check": "ga"})
-        task_12 = task_11.out_tasks.all()[0]
-
-        task_21 = self.create_initial_task()
-        task_21 = self.complete_task(task_21, {"check": "go"})
-        task_22 = task_21.out_tasks.all()[0]
-
-        resp = {"stage": self.initial_stage.id, "responses": {"check": "ga"}}
-        resp = json.dumps(resp)
-        responses_filter = {"task_responses": resp}
-        # responses_filter = "task_responses=check"
-
-        response = self.get_objects("task-user-selectable", params=responses_filter)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["id"], task_12.id)
-
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -945,8 +920,8 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_response_flattener_retrieve_wrong_not_my_flattener(self):
-        self.user_empl.managed_campaigns.add(self.campaign)
-        AdminPreference.objects.create(user=self.user_empl, campaign=self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
+        AdminPreference.objects.create(user=self.employee, campaign=self.campaign)
 
         new_campaign = Campaign.objects.create(name="Another")
 
@@ -1056,7 +1031,7 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses, self.client)
 
         result = response_flattener.flatten_response(task)
-        self.user_empl.managed_campaigns.add(self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
         answer = {"id": task.id, "column1": "First", "column2": "SecondColumnt", "oik__(r)uik[\d]{1,2}": "SecondLayer"}
 
         self.assertEqual(answer, result)
@@ -1075,7 +1050,7 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses, self.client)
 
         result = response_flattener.flatten_response(task)
-        self.user_empl.managed_campaigns.add(self.campaign)
+        self.employee.managed_campaigns.add(self.campaign)
         answer = {"id":task.id, "column1": "First", "column2": "SecondColumnt"}
 
         self.assertEqual(answer, result)
@@ -1093,8 +1068,8 @@ class GigaTurnipTest(APITestCase):
 
         task = self.complete_task(task, responses, self.client)
 
-        self.user_empl.managed_campaigns.add(self.campaign)
-        new_client = self.create_client(self.user_empl)
+        self.employee.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.employee)
 
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
         response = self.get_objects("task-csv", params=params, client=new_client)
@@ -1117,8 +1092,8 @@ class GigaTurnipTest(APITestCase):
 
         task = self.complete_task(task, responses, self.client)
 
-        self.user_empl.managed_campaigns.add(self.campaign)
-        new_client = self.create_client(self.user_empl)
+        self.employee.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.employee)
 
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
         response = self.get_objects("task-csv", params=params, client=new_client)
@@ -1138,8 +1113,8 @@ class GigaTurnipTest(APITestCase):
             task = self.complete_task(t, responses, self.client)
             tasks[i] = task
 
-        self.user_empl.managed_campaigns.add(self.campaign)
-        new_client = self.create_client(self.user_empl)
+        self.employee.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.employee)
 
         params = {"response_flattener": response_flattener.id}
         response = self.get_objects("task-csv", params=params, client=new_client)
@@ -1211,8 +1186,8 @@ class GigaTurnipTest(APITestCase):
 
     def test_response_flattener_with_previous_names(self):
         tasks = self.create_initial_tasks(5)
-        self.user_empl.managed_campaigns.add(self.campaign)
-        new_client = self.create_client(self.user_empl)
+        self.employee.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.employee)
 
         self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
         self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
@@ -1244,8 +1219,8 @@ class GigaTurnipTest(APITestCase):
 
     def test_response_flattener_with_previous_names(self):
         tasks = self.create_initial_tasks(5)
-        self.user_empl.managed_campaigns.add(self.campaign)
-        new_client = self.create_client(self.user_empl)
+        self.employee.managed_campaigns.add(self.campaign)
+        new_client = self.create_client(self.employee)
 
         self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
         self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
@@ -1281,7 +1256,7 @@ class GigaTurnipTest(APITestCase):
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
 
-        new_client = self.create_client(self.user_empl)
+        new_client = self.create_client(self.employee)
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
         response = self.get_objects("task-csv", params=params, client=new_client)
 
