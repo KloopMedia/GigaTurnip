@@ -75,7 +75,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
-                  'displayed_prev_stages', 'assign_user_by',
+                  'displayed_prev_stages', 'assign_user_by', 'ranks',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
