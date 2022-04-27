@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener
+    Notification, NotificationStatus, ResponseFlattener, TaskAward
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -23,13 +23,13 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy
 from . import utils
 from .utils import paginate
 import json
@@ -1046,3 +1046,25 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
             return ResponseFlattenerCreateSerializer
         if self.action in ['retrieve', 'list']:
             return ResponseFlattenerReadSerializer
+
+
+class TaskAwardViewSet(viewsets.ModelViewSet):
+
+    filterset_fields = {
+        'task_stage_completion': ['exact'],
+        'task_stage_verified': ['exact'],
+        'rank': ['exact'],
+        'count': ['lte', 'gte', 'lt', 'gt'],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+        'updated_at': ['lte', 'gte', 'lt', 'gt']
+    }
+
+    permission_classes = (TaskAwardAccessPolicy,)
+
+    def get_queryset(self):
+        return TaskAwardAccessPolicy.scope_queryset(
+            self.request, TaskAward.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return TaskAwardSerializer

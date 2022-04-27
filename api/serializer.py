@@ -4,7 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
+    TaskAward
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -292,6 +293,13 @@ class RankLimitSerializer(serializers.ModelSerializer,
             return value
         raise serializers.ValidationError("User may not add rank limit "
                                           "to this campaign")
+
+
+class TaskAwardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TaskAward
+        fields = '__all__'
 
 
 class TrackSerializer(serializers.ModelSerializer,
