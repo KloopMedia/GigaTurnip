@@ -248,9 +248,7 @@ class CaseViewSet(viewsets.ModelViewSet):
 class ResponsesFilter(filters.SearchFilter):
     search_param = "task_responses"
     search_title = _('Task Responses Filter')
-
-    def to_html(self, request, queryset, view):
-        return ""
+    search_description = _("Find tasks by their responses")
 
     def get_search_terms(self, request):
         """
