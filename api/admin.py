@@ -226,7 +226,7 @@ class GeneralStageAdmin(admin.ModelAdmin):
 
 
 class StageAdmin(admin.ModelAdmin):
-    list_display = ('name', 'chain',)
+    list_display = ('name', 'id', 'chain',)
     list_filter = ('chain__campaign', 'chain')
     search_fields = ('name',
                      'chain__name',
