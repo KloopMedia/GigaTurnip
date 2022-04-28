@@ -2,6 +2,7 @@ import csv
 
 from django.db.models import Count, Q
 from django.http import HttpResponse, Http404
+from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -247,8 +248,12 @@ class CaseViewSet(viewsets.ModelViewSet):
 
 class ResponsesFilter(filters.SearchFilter):
     search_param = "task_responses"
+    template = 'rest_framework/filters/search.html'
     search_title = _('Task Responses Filter')
     search_description = _("Find tasks by their responses")
+
+    def get_search_fields(self, view, request):
+        return getattr(view, 'search_fields', None)
 
     def get_search_terms(self, request):
         """
@@ -279,6 +284,18 @@ class ResponsesFilter(filters.SearchFilter):
         else:
             tasks = queryset.filter(**search_term)
         return tasks
+
+    def to_html(self, request, queryset, view):
+        if not getattr(view, 'search_fields', None):
+            return ''
+
+        term = self.get_search_terms(request)
+        context = {
+            'param': self.search_param,
+            'term': term
+        }
+        template = loader.get_template(self.template)
+        return template.render(context)
 
 
 # class ResponsesContainFilter(filters.SearchFilter):
