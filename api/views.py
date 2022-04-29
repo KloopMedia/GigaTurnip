@@ -563,6 +563,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         return tasks
 
     @action(detail=False)
+    def user_activity(self, request):
+        tasks = self.get_queryset()
+        groups = tasks.values('stage', 'complete').annotate(Count('pk'))
+
+        return Response(groups)
+
+    @action(detail=False)
     def user_activity_csv(self, request):
         """
         Get:
