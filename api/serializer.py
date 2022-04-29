@@ -21,9 +21,14 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 
 
 class CampaignSerializer(serializers.ModelSerializer):
+    managers = serializers.SerializerMethodField()
+
     class Meta:
         model = Campaign
         fields = '__all__'
+
+    def get_managers(self, obj):
+        return obj.managers.values_list(flat=True)
 
 
 class UserDeleteSerializer(serializers.Serializer):
@@ -65,6 +70,12 @@ class ChainSerializer(serializers.ModelSerializer,
 
 class ConditionalStageSerializer(serializers.ModelSerializer,
                                  CampaignValidationCheck):
+    queryset = ConditionalStage.objects.all() \
+        .select_related("chain").prefetch_related("in_stages")
+    in_stages = serializers.SerializerMethodField()
+    out_stages = serializers.SerializerMethodField()
+
+
     class Meta:
         model = ConditionalStage
         fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
@@ -142,6 +153,12 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                 else:
                     msg = f"Invalid data in {cond_id + 1} index. " + exc.message
                 raise CustomApiException(400, msg)
+
+    def get_in_stages(self, obj):
+        return obj.in_stages.values_list(flat=True)
+
+    def get_out_stages(self, obj):
+        return obj.out_stages.values_list(flat=True)
 
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
