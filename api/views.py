@@ -565,7 +565,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.get_queryset()
-        groups = tasks.values('stage', 'complete').annotate(Count('pk'))
+        groups = tasks.values('stage', 'complete').annotate(count=Count('pk'))
 
         return Response(groups)
 
