@@ -1525,7 +1525,6 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         response = self.get_objects('taskstage-schema-fields', pk=self.initial_stage.id)
-        print(reverse('taskstage-schema-fields', kwargs={"pk" : self.initial_stage.id}))
         self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
 
     def test_search_by_responses_by_previous_stage(self):
