@@ -1575,3 +1575,22 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response_data['results']), 1)
         expected_task = Task.objects.filter(in_tasks__in=[task.id], stage=second_stage)[0]
         self.assertEqual(response_data['results'][0]['id'], expected_task.id)
+
+    def test_user_activity_on_stages(self):
+        tasks = self.create_initial_tasks(5)
+
+        expected_activity = {
+            'stage': self.initial_stage.id,
+            'stage__name': self.initial_stage.name,
+            'complete_true': 3,
+            'complete_false': 2,
+            'force_complete_false': 5,
+            'force_complete_true': 0
+        }
+
+        for t in tasks[:3]:
+            t.complete = True
+            t.save()
+        response = self.get_objects('task-user-activity')
+
+        self.assertEqual(list(response.data), [expected_activity])
