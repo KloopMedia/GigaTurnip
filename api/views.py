@@ -566,14 +566,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset())
-        groups = tasks.values('stage','stage__name').annotate(
+        groups = tasks.values('stage', 'stage__name').annotate(
             ranks=ArrayAgg('stage__ranks', distinct=True),
             in_stages=ArrayAgg('stage__in_stages', distinct=True),
             out_stages=ArrayAgg('stage__out_stages', distinct=True),
-            complete_true=Count('pk', Q(complete=True)),
-            complete_false=Count('pk', Q(complete=False)),
-            force_complete_false=Count('pk', Q(force_complete=False)),
-            force_complete_true=Count('pk', Q(force_complete=True)),
+            **utils.task_stage_queries()
         )
 
         return Response(groups)
@@ -591,7 +588,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         groups = []
         if request.query_params.get("csv", None):
             tasks = self.filter_queryset(self.get_queryset())
-            groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
+            groups = tasks.values('stage', 'stage__name', 'assignee').annotate(
+                chain_id=F('stage__chain'),
+                chain=F('stage__chain__name'),
+                email=F("assignee__email"),
+                case=ArrayAgg('stage__out_stages', distinct=True),
+                **utils.task_stage_queries()
+            )
             filename = "results"  # utils.request_to_name(request)
             response = HttpResponse(
                 content_type='text/csv',
@@ -599,9 +602,12 @@ class TaskViewSet(viewsets.ModelViewSet):
                     'Content-Disposition': f'attachment; filename="{filename}.csv"'
                 },
             )
-            fieldnames = ["assignee",
-                          "stage__name",
-                          "pk__count"]
+
+            fieldnames = ["stage", "stage__name", "chain_id", "chain",
+                          "case", "assignee", "email", "complete_true",
+                          "complete_false", "force_complete_false",
+                          "force_complete_true", "count_tasks", ]
+
             writer = csv.DictWriter(response, fieldnames=fieldnames)
             writer.writeheader()
             for group in groups:

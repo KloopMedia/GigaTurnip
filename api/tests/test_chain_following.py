@@ -1272,18 +1272,6 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_get_user_activity_csv_success(self):
-        self.user.managed_campaigns.add(self.campaign)
-        tasks = self.create_initial_tasks(5)
-        response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        expected_annotation = Task.objects.filter(pk__in=[x.pk for x in tasks])\
-            .values('stage__name', 'assignee').annotate(Count('pk'))
-        # b'assignee,stage__name,pk__count\r\n31,Initial,5\r\n'
-        cols = 'assignee,stage__name,pk__count\r\n'
-        cont = "".join([f"{x['assignee']},{x['stage__name']},{x['pk__count']}\r\n" for x in expected_annotation])
-        self.assertEqual(response.content, str.encode(cols+cont))
-
     def test_get_user_activity_csv_fail(self):
         self.create_initial_tasks(5)
         response = self.client.get(reverse('task-user-activity-csv')+"?csv=22")
@@ -1588,7 +1576,8 @@ class GigaTurnipTest(APITestCase):
             'complete_true': 3,
             'complete_false': 2,
             'force_complete_false': 5,
-            'force_complete_true': 0
+            'force_complete_true': 0,
+            'count_tasks': 5
         }
 
         if not expected_activity['in_stages']:

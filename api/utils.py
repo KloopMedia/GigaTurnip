@@ -2,7 +2,7 @@ import json
 from functools import wraps
 from json import JSONDecodeError
 
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Count, Q
 from rest_framework.response import Response
 
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference
@@ -224,3 +224,13 @@ def conditions_to_dj_filters(filterest_fields):
         if attr != responses_conditions:
             filters[attr] = val
     return filters
+
+
+def task_stage_queries():
+    return {
+            "complete_true": Count('pk', Q(complete=True)),
+            "complete_false": Count('pk', Q(complete=False)),
+            "force_complete_false": Count('pk', Q(force_complete=False)),
+            "force_complete_true": Count('pk', Q(force_complete=True)),
+            "count_tasks": Count('pk')
+        }
