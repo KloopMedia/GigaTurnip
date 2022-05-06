@@ -1,6 +1,7 @@
 import csv
 
-from django.db.models import Count, Q
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import Count, Q, Subquery, F
 from django.http import HttpResponse, Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
@@ -564,8 +565,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def user_activity(self, request):
-        tasks = self.get_queryset()
+        tasks = self.filter_queryset(self.get_queryset())
         groups = tasks.values('stage','stage__name').annotate(
+            ranks=ArrayAgg('stage__ranks', distinct=True),
+            in_stages=ArrayAgg('stage__in_stages', distinct=True),
+            out_stages=ArrayAgg('stage__out_stages', distinct=True),
             complete_true=Count('pk', Q(complete=True)),
             complete_false=Count('pk', Q(complete=False)),
             force_complete_false=Count('pk', Q(force_complete=False)),
