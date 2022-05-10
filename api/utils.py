@@ -220,6 +220,7 @@ def conditions_to_dj_filters(filterest_fields):
                 key_for_filter = "responses__" + key
                 if filter_conditions.get(condition):
                     key_for_filter += filter_conditions.get(condition)
+
                 filters[key_for_filter] = value
 
     for attr, val in filterest_fields.items():
