@@ -1,5 +1,6 @@
 import csv
 
+from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Count, Q, Subquery, F
 from django.http import HttpResponse, Http404
@@ -585,27 +586,28 @@ class TaskViewSet(viewsets.ModelViewSet):
         Params for example:
         ?csv=true&task_responses={"a":"b"}
         """
-        groups = []
-        if request.query_params.get("csv", None):
-            tasks = self.filter_queryset(self.get_queryset())
-            groups = tasks.values('stage', 'stage__name', 'assignee').annotate(
-                chain_id=F('stage__chain'),
-                chain=F('stage__chain__name'),
-                email=F("assignee__email"),
-                case=ArrayAgg('stage__out_stages', distinct=True),
-                **utils.task_stage_queries()
-            )
-            filename = "results"  # utils.request_to_name(request)
-            response = HttpResponse(
-                content_type='text/csv',
-                headers={
-                    'Content-Disposition': f'attachment; filename="{filename}.csv"'
-                },
-            )
+        tasks = self.filter_queryset(self.get_queryset())
+        groups = tasks.values('stage', 'stage__name', 'assignee').annotate(
+            chain_id=F('stage__chain'),
+            chain=F('stage__chain__name'),
+            email=F("assignee__email"),
+            rank_ids=ArrayAgg('assignee__ranks__id', distinct=True),
+            rank_names=ArrayAgg('assignee__ranks__name', distinct=True),
+            **utils.task_stage_queries()
+        ).order_by("count_tasks")
 
+        filename = "results"  # utils.request_to_name(request)
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}.csv"'
+            },
+        )
+
+        if request.query_params.get("csv", None):
             fieldnames = ["stage", "stage__name", "chain_id", "chain",
-                          "case", "assignee", "email", "complete_true",
-                          "complete_false", "force_complete_false",
+                          "case", "assignee", "email", "rank_ids", "rank_names",
+                          "complete_true", "complete_false", "force_complete_false",
                           "force_complete_true", "count_tasks", ]
 
             writer = csv.DictWriter(response, fieldnames=fieldnames)
@@ -613,6 +615,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             for group in groups:
                 writer.writerow(group)
             return response
+
         return Response(groups)
 
     @action(detail=False, )  # pk is stage id
