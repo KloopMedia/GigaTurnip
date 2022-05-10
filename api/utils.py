@@ -2,7 +2,7 @@ import json
 from functools import wraps
 from json import JSONDecodeError
 
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Count, Q
 from rest_framework.response import Response
 
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference
@@ -204,27 +204,36 @@ def conditions_to_dj_filters(filterest_fields):
     for field in filterest_fields.get(responses_conditions):
         key = field.get('field')
         field_type = field.get('type')
+        filter_conditions = {
+            "==": "",
+            "<=": "__lte",
+            "<": "__lt",
+            ">=": "__gte",
+            ">": "__gt",
+            "!=": "__ne",
+        }
         if field.get('conditions'):
             for i in field.get('conditions'):
-                value = convert_value_by_type(field_type, i.get('value'))
+                # value = convert_value_by_type(field_type, i.get('value'))
+                value = i.get('value')
                 condition = i.get('operator')
                 key_for_filter = "responses__" + key
-                if condition == '==':
-                    key_for_filter += ''
-                elif condition == '<=':
-                    key_for_filter += '__lte'
-                elif condition == '<':
-                    key_for_filter += '__lt'
-                elif condition == '>=':
-                    key_for_filter += '__gte'
-                elif condition == '>':
-                    key_for_filter += '__gt'
-                elif condition == '!=':
-                    key_for_filter += '__ne'
-                elif condition == 'in':
-                    key_for_filter += '__icontains'
+                if filter_conditions.get(condition):
+                    key_for_filter += filter_conditions.get(condition)
+
                 filters[key_for_filter] = value
+
     for attr, val in filterest_fields.items():
         if attr != responses_conditions:
             filters[attr] = val
     return filters
+
+
+def task_stage_queries():
+    return {
+            "complete_true": Count('pk', Q(complete=True)),
+            "complete_false": Count('pk', Q(complete=False)),
+            "force_complete_false": Count('pk', Q(force_complete=False)),
+            "force_complete_true": Count('pk', Q(force_complete=True)),
+            "count_tasks": Count('pk')
+        }

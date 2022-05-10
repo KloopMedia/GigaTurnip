@@ -183,7 +183,7 @@ class TaskAccessPolicy(AccessPolicy):
             "effect": "deny",
         },
         {
-            "action": ["list"],
+            "action": ["list", "user_activity"],
             "principal": "authenticated",
             "effect": "allow"
         },
@@ -428,3 +428,10 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
             user=request.user
         )
         return bool(preferences)
+
+
+class TaskAwardAccessPolicy(ManagersOnlyAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset.\
+            filter(rank__track__campaign__campaign_managements__user=request.user)
