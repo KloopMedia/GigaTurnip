@@ -146,12 +146,10 @@ def create_new_task(stage, in_task):
             webhook.trigger(new_task)
         for copy_field in stage.copy_fields.all():
             new_task = copy_field.copy_response(new_task)
-        new_task.save()
-        if stage.assign_user_by == "IN":
-            process_completed_task(new_task)
         if stage.assign_user_by == "AU":
             new_task.complete = True
-            new_task.save()
+        new_task.save()
+        if stage.assign_user_by in ["IN", "AU"]:
             process_completed_task(new_task)
 
 
@@ -175,7 +173,9 @@ def process_conditional(stage, in_task):
                         out_task.reopened = True
                         # # todo: test if there isn't working
                         # if stage.copy_input:
-                        #     out_task.responses = in_task.responses
+                        #     new_task.responses = in_task.responses
+                        # for copy_field in stage.copy_fields.all():
+                        #     new_task = copy_field.copy_response(new_task)
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
