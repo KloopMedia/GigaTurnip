@@ -156,13 +156,12 @@ def create_new_task(stage, in_task):
 
 
 def process_conditional(stage, in_task):
-    if evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
+    if not stage.pingpong and evaluate_conditional_stage(stage, in_task):
         process_out_stages(stage, in_task)
     elif stage.pingpong:
-        out_task_stages = TaskStage.objects \
-            .filter(in_stages=stage)
+        out_task_stages = stage.out_stages.all()
         for stage in out_task_stages:
-            out_tasks = Task.objects.filter(in_tasks=in_task).filter(stage=stage)
+            out_tasks = Task.objects.filter(in_tasks=in_task, stage=stage)
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
                     if out_task.stage.webhook_address:
@@ -174,9 +173,9 @@ def process_conditional(stage, in_task):
                     else:
                         out_task.complete = False
                         out_task.reopened = True
-                        # todo: test if there isn't working
-                        if stage.copy_input:
-                            out_task.responses = in_task.responses
+                        # # todo: test if there isn't working
+                        # if stage.copy_input:
+                        #     out_task.responses = in_task.responses
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
