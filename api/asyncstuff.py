@@ -173,9 +173,9 @@ def process_conditional(stage, in_task):
                         out_task.reopened = True
                         # # todo: test if there isn't working
                         # if stage.copy_input:
-                        #     new_task.responses = in_task.responses
+                        #     out_task.responses = in_task.responses
                         # for copy_field in stage.copy_fields.all():
-                        #     new_task = copy_field.copy_response(new_task)
+                        #     new_task = copy_field.copy_response(in_task)
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
