@@ -1,4 +1,5 @@
 import json
+from operator import eq, ne, gt, lt, ge, le, contains
 
 import requests
 from django.db.models import Q
@@ -186,11 +187,26 @@ def evaluate_conditional_stage(stage, task):
        Returns True if all responses exist and fit to the conditions
     """
     rules = stage.conditions
+    rules = rules if rules and rules != [{}] else False
     responses = task.responses
     results = list()
 
-    if responses is None:
+    if not responses or not rules:
         return False
+
+    def contains_not(a, b):
+        return not contains(a, b)
+
+    conditions = {
+        "==": eq,
+        "!=": ne,
+        ">": gt,
+        "<": lt,
+        ">=": ge,
+        "<=": le,
+        "ARRAY-CONTAINS": contains,
+        "ARRAY-CONTAINS-NOT": contains_not,
+    }
 
     for rule in rules:
 
@@ -198,22 +214,9 @@ def evaluate_conditional_stage(stage, task):
         condition = rule["condition"]
         actual_value = get_value_from_dotted(rule["field"], responses)
 
-        if condition == "==":
-            results.append(control_value == actual_value)
-        elif condition == "!=":
-            results.append(control_value != actual_value)
-        elif condition == ">":
-            results.append(control_value > actual_value)
-        elif condition == "<":
-            results.append(control_value < actual_value)
-        elif condition == ">=":
-            results.append(control_value >= actual_value)
-        elif condition == "<=":
-            results.append(control_value <= actual_value)
-        elif condition == "ARRAY-CONTAINS":
-            results.append(control_value in actual_value)
-        elif condition == "ARRAY-CONTAINS-NOT":
-            results.append(control_value not in actual_value)
+        if condition in list(conditions.keys()):
+            func = conditions.get(condition)
+            results.append(func(control_value, actual_value))
 
     return all(results)
 

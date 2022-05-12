@@ -900,6 +900,7 @@ class Quiz(BaseDatesModel):
 
 class ConditionalStage(Stage):
     conditions = models.JSONField(null=True,
+                                  default=[{}],
                                   help_text="JSON logic conditions")
     pingpong = models.BooleanField(default=False,
                                    help_text="If True, makes 'in stages' "
