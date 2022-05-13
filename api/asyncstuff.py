@@ -183,6 +183,7 @@ def evaluate_conditional_stage(stage, task):
        Returns True if all responses exist and fit to the conditions
     """
     rules = stage.conditions
+    rules = rules if rules else []
     responses = task.responses
     results = list()
 
