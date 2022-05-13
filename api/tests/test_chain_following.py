@@ -678,25 +678,6 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(task_2.responses, task.responses)
 
-    def test_copy_input_through_cond_stage(self):
-        conditional_stage = self.initial_stage.add_stage(
-            ConditionalStage(
-                conditions=[{"field": "name", "value": "kloop", "condition": "=="}]
-            )
-        )
-        final_stage = conditional_stage.add_stage(TaskStage(
-            name="Final stage",
-            assign_user_by="ST",
-            copy_input=True
-            # assign_user_from_stage=
-        ))
-        task = self.create_initial_task()
-        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
-        task = self.complete_task(task, responses=correct_responses)
-        task_2 = task.out_tasks.all()[0]
-
-        self.assertEqual(task_2.responses, task.responses)
-
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
