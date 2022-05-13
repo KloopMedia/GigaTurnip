@@ -1,5 +1,4 @@
 import json
-from operator import eq, ne, gt, lt, ge, le, contains
 
 import requests
 from django.db.models import Q
@@ -146,20 +145,23 @@ def create_new_task(stage, in_task):
             webhook.trigger(new_task)
         for copy_field in stage.copy_fields.all():
             new_task = copy_field.copy_response(new_task)
+        new_task.save()
+        if stage.assign_user_by == "IN":
+            process_completed_task(new_task)
         if stage.assign_user_by == "AU":
             new_task.complete = True
-        new_task.save()
-        if stage.assign_user_by in ["IN", "AU"]:
+            new_task.save()
             process_completed_task(new_task)
 
 
 def process_conditional(stage, in_task):
-    if not stage.pingpong and evaluate_conditional_stage(stage, in_task):
+    if evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
         process_out_stages(stage, in_task)
     elif stage.pingpong:
-        out_task_stages = stage.out_stages.all()
+        out_task_stages = TaskStage.objects \
+            .filter(in_stages=stage)
         for stage in out_task_stages:
-            out_tasks = Task.objects.filter(in_tasks=in_task, stage=stage)
+            out_tasks = Task.objects.filter(in_tasks=in_task).filter(stage=stage)
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
                     if out_task.stage.webhook_address:
@@ -171,11 +173,6 @@ def process_conditional(stage, in_task):
                     else:
                         out_task.complete = False
                         out_task.reopened = True
-                        # # todo: test if there isn't working
-                        # if stage.copy_input:
-                        #     out_task.responses = in_task.responses
-                        # for copy_field in stage.copy_fields.all():
-                        #     new_task = copy_field.copy_response(in_task)
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
@@ -186,26 +183,11 @@ def evaluate_conditional_stage(stage, task):
        Returns True if all responses exist and fit to the conditions
     """
     rules = stage.conditions
-    rules = rules if rules and rules != [{}] else False
     responses = task.responses
     results = list()
 
-    if not responses or not rules:
+    if responses is None:
         return False
-
-    def contains_not(a, b):
-        return not contains(a, b)
-
-    conditions = {
-        "==": eq,
-        "!=": ne,
-        ">": gt,
-        "<": lt,
-        ">=": ge,
-        "<=": le,
-        "ARRAY-CONTAINS": contains,
-        "ARRAY-CONTAINS-NOT": contains_not,
-    }
 
     for rule in rules:
 
@@ -213,9 +195,22 @@ def evaluate_conditional_stage(stage, task):
         condition = rule["condition"]
         actual_value = get_value_from_dotted(rule["field"], responses)
 
-        if condition in list(conditions.keys()):
-            func = conditions.get(condition)
-            results.append(func(control_value, actual_value))
+        if condition == "==":
+            results.append(control_value == actual_value)
+        elif condition == "!=":
+            results.append(control_value != actual_value)
+        elif condition == ">":
+            results.append(control_value > actual_value)
+        elif condition == "<":
+            results.append(control_value < actual_value)
+        elif condition == ">=":
+            results.append(control_value >= actual_value)
+        elif condition == "<=":
+            results.append(control_value <= actual_value)
+        elif condition == "ARRAY-CONTAINS":
+            results.append(control_value in actual_value)
+        elif condition == "ARRAY-CONTAINS-NOT":
+            results.append(control_value not in actual_value)
 
     return all(results)
 
