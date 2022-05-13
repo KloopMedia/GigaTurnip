@@ -173,6 +173,10 @@ def process_conditional(stage, in_task):
                     else:
                         out_task.complete = False
                         out_task.reopened = True
+                        if stage.copy_input:
+                            out_task.responses = update_responses(out_task.responses,
+                                                                  in_task.responses)
+
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
@@ -229,3 +233,7 @@ def get_value_from_dotted(dotted_path, source_dict):
     return result
 
 
+def update_responses(responses_to_update, responses):
+    for k in responses.keys():
+        responses_to_update[k] = responses.get(k)
+    return responses_to_update
