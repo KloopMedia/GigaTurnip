@@ -678,6 +678,134 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(task_2.responses, task.responses)
 
+    def test_conditional_ping_pong_pass(self):
+        conditions = [
+            {"field": "verified", "value": "no", "condition": "=="}
+        ]
+        conditional_stage = self.initial_stage.add_stage(
+            ConditionalStage(
+            conditions=conditions,
+            pingpong=True
+            )
+        )
+
+        verification_task_stage = conditional_stage.add_stage(TaskStage(
+            name="Verification task stage"
+        ))
+
+        final_task_stage = verification_task_stage.add_stage(TaskStage(
+            name="Final task stage",
+            assign_user_from_stage=self.initial_stage,
+            assign_user_by="ST"
+        ))
+
+        verification_client = self.prepare_client(verification_task_stage)
+
+        initial_task = self.create_initial_task()
+        responses = {"answer": "something"}
+        initial_task = self.update_task_responses(initial_task, responses)
+        initial_task = self.complete_task(initial_task)
+
+        verification_task = Task.objects \
+            .get(stage=verification_task_stage, case=initial_task.case)
+
+        verification_task = self.request_assignment(verification_task, verification_client)
+
+        verification_task_responses = {"verified": "yes"}
+
+        verification_task = self.complete_task(
+            verification_task,
+            verification_task_responses,
+            verification_client)
+
+        initial_task = Task.objects.get(id=initial_task.id)
+
+        self.assertTrue(initial_task.complete)
+        self.assertFalse(initial_task.reopened)
+
+        self.assertTrue(verification_task.complete)
+
+        self.assertEqual(Task.objects.count(), 3)
+
+        final_task = Task.objects.get(case=initial_task.case, stage=final_task_stage)
+
+        self.assertEqual(final_task.assignee, self.user)
+
+    def test_conditional_ping_pong_doesnt_pass(self):
+        conditions = [
+            {"field": "verified", "value": "no", "condition": "=="}
+        ]
+        conditional_stage = self.initial_stage.add_stage(
+            ConditionalStage(
+                conditions=conditions,
+                pingpong=True
+            )
+        )
+
+        verification_task_stage = conditional_stage.add_stage(TaskStage(
+            name="Verification task stage"
+        ))
+
+        final_task_stage = verification_task_stage.add_stage(TaskStage(
+            name="Final task stage",
+            assign_user_from_stage=self.initial_stage,
+            assign_user_by="ST"
+        ))
+
+        verification_client = self.prepare_client(verification_task_stage)
+
+        initial_task = self.create_initial_task()
+        responses = {"answer": "something"}
+        initial_task = self.complete_task(initial_task, responses=responses)
+
+        verification_task = Task.objects \
+            .get(stage=verification_task_stage, case=initial_task.case)
+
+        verification_task = self.request_assignment(verification_task, verification_client)
+
+        verification_task_responses = {"verified": "no"}
+
+        verification_task = self.complete_task(
+            verification_task,
+            verification_task_responses,
+            verification_client)
+
+        initial_task = Task.objects.get(id=initial_task.id)
+
+        self.assertTrue(initial_task.reopened)
+        self.assertFalse(initial_task.complete)
+
+        self.assertTrue(verification_task.complete)
+
+        self.assertEqual(Task.objects.count(), 2)
+
+        responses = {"answer": "something new"}
+        initial_task = self.complete_task(initial_task, responses=responses)
+
+        verification_task = Task.objects \
+            .get(stage=verification_task_stage, case=initial_task.case)
+
+        verification_task_responses = {"verified": "yes"}
+
+        verification_task = self.complete_task(
+            verification_task,
+            verification_task_responses,
+            verification_client)
+
+        initial_task = Task.objects.get(id=initial_task.id)
+
+        self.assertTrue(initial_task.complete)
+        self.assertTrue(initial_task.reopened)
+
+        self.assertTrue(verification_task.complete)
+
+        self.assertEqual(Task.objects.count(), 3)
+
+        final_task = Task.objects.get(case=initial_task.case, stage=final_task_stage)
+
+        self.assertEqual(final_task.assignee, self.user)
+
+
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
         correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
