@@ -193,7 +193,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         stage = self.get_object()
         task = Task(stage=stage, assignee=request.user, case=case)
         for copy_field in stage.copy_fields.all():
-            task = copy_field.copy_response(task)
+            task.responses = copy_field.copy_response(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
