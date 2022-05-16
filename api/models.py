@@ -612,12 +612,11 @@ class CopyField(BaseDatesModel):
     )
 
     def copy_response(self, task):
-        if task.reopened or \
-                self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
-            return task
+        if self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
+            return task.responses
         if self.copy_by == self.USER:
             if task.assignee is None:
-                return task
+                return task.responses
             original_task = Task.objects.filter(
                 assignee=task.assignee,
                 stage=self.copy_from_stage,
@@ -630,7 +629,7 @@ class CopyField(BaseDatesModel):
         if original_task:
             original_task = original_task.latest("updated_at")
         else:
-            return task
+            return task.responses
         if self.copy_all:
             responses = original_task.responses
         else:
@@ -645,7 +644,7 @@ class CopyField(BaseDatesModel):
                         responses[pair[1]] = response
         if responses:
             task.responses = responses
-        return task
+        return task.responses
 
 
 class StagePublisher(BaseDatesModel, SchemaProvider):
