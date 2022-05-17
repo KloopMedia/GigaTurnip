@@ -17,7 +17,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -26,13 +26,15 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
+    DynamicJsonReadSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
+    DynamicJsonAccessPolicy
 from . import utils
 from .utils import paginate
 import json
@@ -1108,3 +1110,25 @@ class TaskAwardViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return TaskAwardSerializer
+
+
+class DynamicJsonViewSet(viewsets.ModelViewSet):
+    filterset_fields = {
+        'task_stage': ['exact'],
+    }
+
+    permission_classes = (DynamicJsonAccessPolicy,)
+
+    def get_queryset(self):
+        return DynamicJsonAccessPolicy.scope_queryset(
+            self.request, DynamicJson.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return DynamicJsonReadSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        print(instance.available_answers_for_schema())
+        return Response(instance.available_answers_for_schema())
+

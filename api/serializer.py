@@ -5,7 +5,7 @@ from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
-    TaskAward
+    TaskAward, DynamicJson
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -363,3 +363,10 @@ class ResponseFlattenerReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResponseFlattener
         fields = '__all__'
+
+
+class DynamicJsonReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DynamicJson
+        fields = '__all__'
+        editable = False

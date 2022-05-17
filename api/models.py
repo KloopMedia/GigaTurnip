@@ -1496,3 +1496,46 @@ class AdminPreference(BaseDates):
 
     def __str__(self):
         return self.id.__str__()
+
+
+class DynamicJson(BaseDatesModel, CampaignInterface):
+    task_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,  # TODO Change deletion method
+        null=False,
+        help_text="Stage where we want set answers dynamicly"
+    )
+    dynamic_fields = models.JSONField(
+        default=None,
+        null=False,
+        help_text=(
+            "Get top level fields with dynamic answers"
+        )
+    )
+    webhook_address = models.URLField(
+        null=True,
+        blank=True,
+        max_length=1000,
+        help_text=(
+            "Webhook URL address. If not empty, field indicates that "
+            "task should be given not to a user in the system, but to a "
+            "webhook. Only data from task directly preceding webhook is "
+            "sent. All fields related to user assignment are ignored,"
+            "if this field is not empty."
+        )
+    )
+
+    class Meta:
+        ordering = ['created_at', 'updated_at', ]
+
+    def available_answers_for_schema(self):
+        if self.task_stage.json_schema:
+            return json.loads(self.task_stage.json_schema)
+        else:
+            return {}
+
+    def get_campaign(self):
+        return self.task_stage.get_campaign()
+
+    def __str__(self):
+        return self.task_stage.name

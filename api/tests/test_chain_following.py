@@ -8,7 +8,8 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification
+    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
+    DynamicJson
 
 
 class GigaTurnipTest(APITestCase):
@@ -1885,3 +1886,45 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response_data['results']), 2)
         for i in response_data['results']:
             self.assertIn(i['id'], [task.id, task1.id])
+
+    def test_dynamic_json_schema_permissions(self):
+        js_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "column1":{
+                "count":1
+            }
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=[dynamic_fields_json]
+        )
+
+        response = self.get_objects('dynamicjson-detail', pk=dynamic_json.id)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_dynamic_json_schema_mocking(self):
+        js_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
+        ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+
+        dynamic_fields_json = {
+            "column1":{
+                "count":1
+            }
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=[dynamic_fields_json]
+        )
+
+        response = self.get_objects('dynamicjson-detail', pk=dynamic_json.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
