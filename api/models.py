@@ -10,6 +10,7 @@ from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
+from jsonschema import validate
 
 
 class BaseDatesModel(models.Model):
@@ -982,6 +983,9 @@ class Task(BaseDatesModel, CampaignInterface):
     class CompletionInProgress(Exception):
         pass
 
+    class InvalidResponses(Exception):
+        pass
+
     def set_complete(self, responses=None, force=False, complete=True):
         if self.complete:
             raise Task.AlreadyCompleted
@@ -997,7 +1001,17 @@ class Task(BaseDatesModel, CampaignInterface):
                 raise Task.AlreadyCompleted
 
             if responses:
-                task.responses = responses
+                is_valid = True
+                if complete:
+                    try:
+                        validate(instance=responses, schema=json.loads(self.stage.json_schema))
+                        is_valid = True
+                    except:
+                        is_valid = False
+                if is_valid:
+                    task.responses = responses
+                else:
+                    raise Task.InvalidResponses
             if force:
                 task.force_complete = True
             if complete:
