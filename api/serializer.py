@@ -142,8 +142,10 @@ class TaskEditSerializer(serializers.ModelSerializer):
                 validate(instance=old_responses, schema=schema)
                 return attrs
             except Exception as exc:
-                print(exc)
-                raise serializers.ValidationError("Your answers are non-compliance with the standard")
+                raise serializers.ValidationError({
+                    "message": "Your answers are non-compliance with the standard",
+                    "pass": list(exc.schema_path)
+                })
         return attrs
 
     class Meta:

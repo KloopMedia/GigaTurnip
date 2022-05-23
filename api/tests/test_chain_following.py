@@ -126,7 +126,10 @@ class GigaTurnipTest(APITestCase):
         else:
             args = {"complete": True}
         response = c.patch(task_update_url, args, format='json')
-        return Task.objects.get(id=response.data["id"])
+        if response.data.get('id'):
+            return Task.objects.get(id=response.data["id"])
+        else:
+            return response
 
     def update_task_responses(self, task, responses, client=None):
         c = client
@@ -2077,24 +2080,22 @@ class GigaTurnipTest(APITestCase):
             self.assertIn(i['id'], [task.id, task1.id])
 
     def test_answers_validation(self):
-        schema = {
+        self.initial_stage.json_schema = json.dumps({
             "type": "object",
             "properties": {
                 "price": {"type": "number"},
+                "year": {"type": "number"},
                 "name": {"type": "string"},
             },
-        }
+            "required":['price', 'name']
+        })
+        self.initial_stage.save()
 
-        try:
-            validate(instance={"name": "Eggs", "price": '34.99'}, schema=schema)
-            is_valid = True
-        except:
-            is_valid = False
-        self.assertFalse(is_valid)
+        task = self.create_initial_task()
+        response = self.complete_task(task, {'price': 'there must be digit',
+                                             'year': 'there must be digit',
+                                             'name': 'Kloop'}
+                                      )
 
-        try:
-            validate(instance={"name": "Eggs", "price": 34.99}, schema=schema)
-            is_valid = True
-        except:
-            is_valid = False
-        self.assertTrue(is_valid)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content)['pass'], ["properties", "price", "type"])
