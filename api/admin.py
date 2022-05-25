@@ -337,7 +337,11 @@ class TaskAwardAdmin(admin.ModelAdmin):
         "rank",
         "count"
     )
+    autocomplete_fields = ('task_stage_completion', 'task_stage_verified', 'rank')
 
+    def get_queryset(self, request):
+        queryset = super(TaskAwardAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, 'task_stage_completion__chain__')
 
 class CopyFieldAdmin(admin.ModelAdmin):
     list_display = ('id',
