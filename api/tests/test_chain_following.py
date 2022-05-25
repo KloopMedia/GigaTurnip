@@ -1,4 +1,5 @@
 import json
+import random
 from uuid import uuid4
 
 from django.db import IntegrityError
@@ -1887,44 +1888,56 @@ class GigaTurnipTest(APITestCase):
         for i in response_data['results']:
             self.assertIn(i['id'], [task.id, task1.id])
 
-    def test_dynamic_json_schema_permissions(self):
-        js_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
-        self.initial_stage.json_schema = js_schema
-        self.initial_stage.ui_schema = ui_schema
-        self.initial_stage.save()
-
-        dynamic_fields_json = {
-            "column1":{
-                "count":1
-            }
-        }
-        dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
-            dynamic_fields=[dynamic_fields_json]
-        )
-
-        response = self.get_objects('dynamicjson-detail', pk=dynamic_json.id)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
     def test_dynamic_json_schema_mocking(self):
-        js_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                },
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": time_slots
+                }
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
 
-        task = self.create_initial_task()
-
         dynamic_fields_json = {
-            "column1":{
-                "count":1
-            }
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 2
         }
         dynamic_json = DynamicJson.objects.create(
             task_stage=self.initial_stage,
-            dynamic_fields=[dynamic_fields_json]
+            dynamic_fields=dynamic_fields_json
         )
 
-        response = self.get_objects('dynamicjson-detail', pk=dynamic_json.id)
+        task1 = self.create_initial_task()
+        responses1 = {'weekday': weekdays[0], 'time': time_slots[0]}
+        task1 = self.complete_task(task1, responses1)
+
+        task2 = self.create_initial_task()
+        task2 = self.complete_task(task2, responses1)
+
+        task3 = self.create_initial_task()
+        responses3 = {'weekday': weekdays[0]}
+
+        response = self.get_objects('dynamicjson-schema', pk=dynamic_json.id, params={'responses': json.dumps(responses3)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        del updated_schema['properties']['time']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        responses3['weekday'] = weekdays[1]
+        response = self.get_objects('dynamicjson-schema', pk=dynamic_json.id, params={'responses': json.dumps(responses3)})
+        updated_schema = json.loads(js_schema)
+        self.assertEqual(response.data['schema'], updated_schema)

@@ -1,7 +1,7 @@
 import json
 
 import requests
-from django.db.models import Q
+from django.db.models import Q, F, Count
 
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
 
@@ -238,3 +238,40 @@ def update_responses(responses_to_update, responses):
     for k in responses.keys():
         responses_to_update[k] = responses.get(k)
     return responses_to_update
+
+
+def update_schema_dynamic_answers(dynamic_json, responses):
+    new_schema = json.loads(dynamic_json.task_stage.json_schema)
+    tasks = dynamic_json.task_stage.tasks.all()
+    tasks = tasks.filter(
+                complete=True,
+                force_complete=False).order_by('updated_at')
+
+    parsing_fields = dynamic_json.dynamic_fields['foreign']
+    parsing_fields = ['responses__' + i for i in parsing_fields]
+
+    main_key = dynamic_json.dynamic_fields['main']
+    filter = {'responses__' + main_key: responses[main_key]}
+
+    taken_values_info = tasks.filter(**filter).values(
+            *parsing_fields
+        ).annotate(count=Count('pk')).order_by()
+    unavailable = taken_values_info.filter(
+        count__gte=dynamic_json.dynamic_fields['count']
+    )
+
+    new_schema = remove_unavailable_items_from_answers(new_schema, dynamic_json.dynamic_fields, unavailable)
+
+    return new_schema
+
+
+def remove_unavailable_items_from_answers(schema, dynamic_fields, unavailable):
+    for i in dynamic_fields['foreign']:
+        key = 'responses__' + i
+        for answer in unavailable:
+            idx = schema['properties'][i]['enum'].index(answer[key])
+            del schema['properties'][i]['enum'][idx]
+            if schema['properties'][i].get('enumNames'):
+                del schema['properties'][i]['enumNames'][idx]
+
+    return schema

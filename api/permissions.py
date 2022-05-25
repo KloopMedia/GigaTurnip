@@ -442,7 +442,7 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
 
     statements = [
         {
-            "action": ["retrieve"],
+            "action": ["schema"],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_available_stage or is_manager"

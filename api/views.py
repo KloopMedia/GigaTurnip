@@ -28,7 +28,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer
-from api.asyncstuff import process_completed_task
+from api.asyncstuff import process_completed_task, update_schema_dynamic_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
@@ -1127,8 +1127,22 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         return DynamicJsonReadSerializer
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        print(instance.available_answers_for_schema())
-        return Response(instance.available_answers_for_schema())
+    @action(detail=True, methods=['get'])
+    def schema(self, request, pk=None):
+        """
+        We must pass responses for the schema to get primary key and update sub field's answers
+        Otherwise we would return response with 400 status code
 
+        :param GET: responses (responses for the task of stage)
+        :param pk: stage id (to update schema)
+        :return:
+        """
+        dynamic_json = self.get_object()
+        responses = request.query_params.get('responses')
+
+        if dynamic_json.dynamic_fields and dynamic_json.task_stage.json_schema and responses:
+            updated_schema = update_schema_dynamic_answers(dynamic_json, json.loads(responses))
+            return Response({'status': status.HTTP_200_OK,
+                             'schema': updated_schema})
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)

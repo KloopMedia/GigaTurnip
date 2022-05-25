@@ -465,7 +465,7 @@ class TaskStage(Stage, SchemaProvider):
 
     def make_1d_arr(self, arr, end_arr):
         for i in arr:
-            if isinstance(i, list):
+            if isinstance(i, list) or isinstance(i, tuple):
                 self.make_1d_arr(i, end_arr)
             else:
                 end_arr.append(i)
@@ -1527,12 +1527,6 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]
-
-    def available_answers_for_schema(self):
-        if self.task_stage.json_schema:
-            return json.loads(self.task_stage.json_schema)
-        else:
-            return {}
 
     def get_campaign(self):
         return self.task_stage.get_campaign()
