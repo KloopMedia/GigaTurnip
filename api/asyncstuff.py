@@ -253,9 +253,11 @@ def update_schema_dynamic_answers(dynamic_json, responses):
     main_key = dynamic_json.dynamic_fields['main']
     filter = {'responses__' + main_key: responses[main_key]}
 
+    parsing_fields = parsing_fields if parsing_fields else ['responses__'+main_key]
+
     taken_values_info = tasks.filter(**filter).values(
-            *parsing_fields
-        ).annotate(count=Count('pk')).order_by()
+                    *parsing_fields
+                ).annotate(count=Count('pk')).order_by()
     unavailable = taken_values_info.filter(
         count__gte=dynamic_json.dynamic_fields['count']
     )
@@ -266,7 +268,12 @@ def update_schema_dynamic_answers(dynamic_json, responses):
 
 
 def remove_unavailable_items_from_answers(schema, dynamic_fields, unavailable):
-    for i in dynamic_fields['foreign']:
+    if dynamic_fields['foreign']:
+        answers = dynamic_fields['foreign']
+    else:
+        answers = [dynamic_fields['main']]
+
+    for i in answers:
         key = 'responses__' + i
         for answer in unavailable:
             idx = schema['properties'][i]['enum'].index(answer[key])

@@ -1888,7 +1888,7 @@ class GigaTurnipTest(APITestCase):
         for i in response_data['results']:
             self.assertIn(i['id'], [task.id, task1.id])
 
-    def test_dynamic_json_schema_mocking(self):
+    def test_dynamic_json_schema_related_fields(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
         js_schema = json.dumps({
@@ -1935,6 +1935,55 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         updated_schema = json.loads(js_schema)
         del updated_schema['properties']['time']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        responses3['weekday'] = weekdays[1]
+        response = self.get_objects('dynamicjson-schema', pk=dynamic_json.id, params={'responses': json.dumps(responses3)})
+        updated_schema = json.loads(js_schema)
+        self.assertEqual(response.data['schema'], updated_schema)
+
+    def test_dynamic_json_schema_single_field(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                }
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": [],
+            "count": 2
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json
+        )
+
+        responses1 = {'weekday': weekdays[0]}
+
+        task1 = self.create_initial_task()
+        task1 = self.complete_task(task1, responses1)
+
+        task2 = self.create_initial_task()
+        task2 = self.complete_task(task2, responses1)
+
+        task3 = self.create_initial_task()
+        responses3 = {'weekday': weekdays[0]}
+
+        response = self.get_objects('dynamicjson-schema', pk=dynamic_json.id, params={'responses': json.dumps(responses3)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        del updated_schema['properties']['weekday']['enum'][0]
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses3['weekday'] = weekdays[1]
