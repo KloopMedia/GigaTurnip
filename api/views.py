@@ -205,6 +205,31 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         fields = [i.split('__', 1)[1] for i in stage.make_columns_ordered()]
         return Response({'fields': fields})
 
+    @action(detail=True, methods=['get'])
+    def load_schema_answers(self, request, pk=None):
+        """
+        We must pass responses for the schema to get primary key and update sub field's answers
+        Otherwise we would return response with 400 status code
+
+        :param GET: responses (responses for the task of stage)
+        :param pk: stage id (to update schema)
+        :return:
+        """
+
+        task_stage = self.get_object()
+        responses = request.query_params.get('responses')
+
+        dynamic_properties = DynamicJson.objects.filter(task_stage=task_stage)
+
+        if dynamic_properties and task_stage.json_schema and responses:
+            schema = json.loads(task_stage.json_schema)
+            for dynamic_json in dynamic_properties:
+                schema = update_schema_dynamic_answers(dynamic_json, json.loads(responses), schema)
+            return Response({'status': status.HTTP_200_OK,
+                             'schema': schema})
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -1127,22 +1152,4 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         return DynamicJsonReadSerializer
 
-    @action(detail=True, methods=['get'])
-    def schema(self, request, pk=None):
-        """
-        We must pass responses for the schema to get primary key and update sub field's answers
-        Otherwise we would return response with 400 status code
 
-        :param GET: responses (responses for the task of stage)
-        :param pk: stage id (to update schema)
-        :return:
-        """
-        dynamic_json = self.get_object()
-        responses = request.query_params.get('responses')
-
-        if dynamic_json.dynamic_fields and dynamic_json.task_stage.json_schema and responses:
-            updated_schema = update_schema_dynamic_answers(dynamic_json, json.loads(responses))
-            return Response({'status': status.HTTP_200_OK,
-                             'schema': updated_schema})
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)

@@ -240,29 +240,35 @@ def update_responses(responses_to_update, responses):
     return responses_to_update
 
 
-def update_schema_dynamic_answers(dynamic_json, responses):
-    new_schema = json.loads(dynamic_json.task_stage.json_schema)
+def update_schema_dynamic_answers(dynamic_json, responses, schema):
     tasks = dynamic_json.task_stage.tasks.all()
-    tasks = tasks.filter(
-                complete=True,
-                force_complete=False).order_by('updated_at')
-
-    parsing_fields = dynamic_json.dynamic_fields['foreign']
-    parsing_fields = ['responses__' + i for i in parsing_fields]
+    tasks = tasks.filter( complete=True, force_complete=False).order_by('updated_at')
+    # только main, без foreign
+    # main и foreign
 
     main_key = dynamic_json.dynamic_fields['main']
     filter = {'responses__' + main_key: responses[main_key]}
 
-    parsing_fields = parsing_fields if parsing_fields else ['responses__'+main_key]
+    foreign_fields = dynamic_json.dynamic_fields['foreign']
+    foreign_fields = ['responses__' + i for i in foreign_fields]
+    if not foreign_fields:
+        parsing_fields = ['responses__' + main_key]
+    else:
+        parsing_fields = foreign_fields
 
-    taken_values_info = tasks.filter(**filter).values(
+    if foreign_fields:
+        taken_values_info = tasks.filter(**filter)
+    else:
+        taken_values_info = tasks
+
+    taken_values_info = taken_values_info.values(
                     *parsing_fields
                 ).annotate(count=Count('pk')).order_by()
     unavailable = taken_values_info.filter(
         count__gte=dynamic_json.dynamic_fields['count']
     )
 
-    new_schema = remove_unavailable_items_from_answers(new_schema, dynamic_json.dynamic_fields, unavailable)
+    new_schema = remove_unavailable_items_from_answers(schema, dynamic_json.dynamic_fields, unavailable)
 
     return new_schema
 
