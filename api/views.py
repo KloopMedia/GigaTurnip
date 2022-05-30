@@ -219,10 +219,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task_stage = self.get_object()
         responses = request.query_params.get('responses')
 
-        dynamic_properties = DynamicJson.objects.filter(task_stage=task_stage)
-
-        if dynamic_properties and task_stage.json_schema and responses:
-            schema = process_updating_schema_answers(dynamic_properties, task_stage, json.loads(responses))
+        if task_stage.json_schema and responses:
+            schema = process_updating_schema_answers(task_stage, json.loads(responses))
             return Response({'status': status.HTTP_200_OK,
                              'schema': schema})
         else:
