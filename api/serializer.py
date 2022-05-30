@@ -1,6 +1,8 @@
+import json
 from abc import ABCMeta
 
 from django.core.exceptions import ObjectDoesNotExist
+from jsonschema import validate
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
@@ -119,6 +121,33 @@ class CaseSerializer(serializers.ModelSerializer):
 
 
 class TaskEditSerializer(serializers.ModelSerializer):
+
+    def validate(self, attrs):
+        if attrs.get('complete') == True:
+            instance = self.root.instance
+            stage = instance.stage
+            schema = stage.json_schema if stage.json_schema else '{}'
+            schema = json.loads(schema)
+            try:
+                old_responses = instance.responses
+                if not old_responses:
+                    old_responses = {}
+
+                update_responses = attrs.get('responses')
+                if not update_responses:
+                    update_responses = {}
+
+                old_responses.update(update_responses)
+
+                validate(instance=old_responses, schema=schema)
+                return attrs
+            except Exception as exc:
+                raise serializers.ValidationError({
+                    "message": "Your answers are non-compliance with the standard",
+                    "pass": list(exc.schema_path)
+                })
+        return attrs
+
     class Meta:
         model = Task
         fields = ['complete', 'responses']

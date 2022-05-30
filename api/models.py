@@ -10,6 +10,7 @@ from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
+from jsonschema import validate
 
 
 class BaseDatesModel(models.Model):
