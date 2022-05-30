@@ -218,9 +218,13 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
         task_stage = self.get_object()
         responses = request.query_params.get('responses')
+        if responses:
+            responses = json.loads(responses)
+        else:
+            responses = {}
 
-        if task_stage.json_schema and responses:
-            schema = process_updating_schema_answers(task_stage, json.loads(responses))
+        if task_stage.json_schema:
+            schema = process_updating_schema_answers(task_stage, responses)
             return Response({'status': status.HTTP_200_OK,
                              'schema': schema})
         else:
