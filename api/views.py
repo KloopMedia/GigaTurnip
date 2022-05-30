@@ -28,7 +28,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer
-from api.asyncstuff import process_completed_task, update_schema_dynamic_answers
+from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
@@ -222,9 +222,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         dynamic_properties = DynamicJson.objects.filter(task_stage=task_stage)
 
         if dynamic_properties and task_stage.json_schema and responses:
-            schema = json.loads(task_stage.json_schema)
-            for dynamic_json in dynamic_properties:
-                schema = update_schema_dynamic_answers(dynamic_json, json.loads(responses), schema)
+            schema = process_updating_schema_answers(dynamic_properties, task_stage, json.loads(responses))
             return Response({'status': status.HTTP_200_OK,
                              'schema': schema})
         else:

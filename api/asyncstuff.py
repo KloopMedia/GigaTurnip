@@ -240,14 +240,22 @@ def update_responses(responses_to_update, responses):
     return responses_to_update
 
 
+def process_updating_schema_answers(dynamic_properties, task_stage, responses):
+    schema = json.loads(task_stage.json_schema)
+    if dynamic_properties and task_stage.json_schema and responses:
+        for dynamic_json in dynamic_properties:
+            schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+        return schema
+    else:
+        return schema
+
+
 def update_schema_dynamic_answers(dynamic_json, responses, schema):
     tasks = dynamic_json.task_stage.tasks.all()
-    tasks = tasks.filter( complete=True, force_complete=False).order_by('updated_at')
-    # только main, без foreign
-    # main и foreign
+    tasks = tasks.filter(complete=True, force_complete=False).order_by('updated_at')
 
     main_key = dynamic_json.dynamic_fields['main']
-    filter = {'responses__' + main_key: responses[main_key]}
+    main_filter = {'responses__' + main_key: responses[main_key]}
 
     foreign_fields = dynamic_json.dynamic_fields['foreign']
     foreign_fields = ['responses__' + i for i in foreign_fields]
@@ -257,7 +265,7 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
         parsing_fields = foreign_fields
 
     if foreign_fields:
-        taken_values_info = tasks.filter(**filter)
+        taken_values_info = tasks.filter(**main_filter)
     else:
         taken_values_info = tasks
 
