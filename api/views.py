@@ -1,6 +1,8 @@
 import csv
 
-from django.db.models import Count, Q
+from django.core.paginator import Paginator
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import Count, Q, Subquery, F
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -15,7 +17,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener
+    Notification, NotificationStatus, ResponseFlattener, TaskAward
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -24,13 +26,13 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer
 from api.asyncstuff import process_completed_task
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy
 from . import utils
 from .utils import paginate
 import json
@@ -191,7 +193,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         stage = self.get_object()
         task = Task(stage=stage, assignee=request.user, case=case)
         for copy_field in stage.copy_fields.all():
-            task = copy_field.copy_response(task)
+            task.responses = copy_field.copy_response(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
@@ -578,6 +580,18 @@ class TaskViewSet(viewsets.ModelViewSet):
         return tasks
 
     @action(detail=False)
+    def user_activity(self, request):
+        tasks = self.filter_queryset(self.get_queryset())
+        groups = tasks.values('stage', 'stage__name').annotate(
+            ranks=ArrayAgg('stage__ranks', distinct=True),
+            in_stages=ArrayAgg('stage__in_stages', distinct=True),
+            out_stages=ArrayAgg('stage__out_stages', distinct=True),
+            **utils.task_stage_queries()
+        )
+
+        return Response(groups)
+
+    @action(detail=False)
     def user_activity_csv(self, request):
         """
         Get:
@@ -587,25 +601,36 @@ class TaskViewSet(viewsets.ModelViewSet):
         Params for example:
         ?csv=true&task_responses={"a":"b"}
         """
-        groups = []
+        tasks = self.filter_queryset(self.get_queryset())
+        groups = tasks.values('stage', 'stage__name', 'assignee').annotate(
+            chain_id=F('stage__chain'),
+            chain=F('stage__chain__name'),
+            email=F("assignee__email"),
+            rank_ids=ArrayAgg('assignee__ranks__id', distinct=True),
+            rank_names=ArrayAgg('assignee__ranks__name', distinct=True),
+            **utils.task_stage_queries()
+        ).order_by("count_tasks")
+
+        filename = "results"  # utils.request_to_name(request)
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}.csv"'
+            },
+        )
+
         if request.query_params.get("csv", None):
-            tasks = self.filter_queryset(self.get_queryset())
-            groups = tasks.values('stage__name', 'assignee').annotate(Count('pk'))
-            filename = "results"  # utils.request_to_name(request)
-            response = HttpResponse(
-                content_type='text/csv',
-                headers={
-                    'Content-Disposition': f'attachment; filename="{filename}.csv"'
-                },
-            )
-            fieldnames = ["assignee",
-                          "stage__name",
-                          "pk__count"]
+            fieldnames = ["stage", "stage__name", "chain_id", "chain",
+                          "case", "assignee", "email", "rank_ids", "rank_names",
+                          "complete_true", "complete_false", "force_complete_false",
+                          "force_complete_true", "count_tasks", ]
+
             writer = csv.DictWriter(response, fieldnames=fieldnames)
             writer.writeheader()
             for group in groups:
                 writer.writerow(group)
             return response
+
         return Response(groups)
 
     @action(detail=False, )  # pk is stage id
@@ -1061,3 +1086,25 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
             return ResponseFlattenerCreateSerializer
         if self.action in ['retrieve', 'list']:
             return ResponseFlattenerReadSerializer
+
+
+class TaskAwardViewSet(viewsets.ModelViewSet):
+
+    filterset_fields = {
+        'task_stage_completion': ['exact'],
+        'task_stage_verified': ['exact'],
+        'rank': ['exact'],
+        'count': ['lte', 'gte', 'lt', 'gt'],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+        'updated_at': ['lte', 'gte', 'lt', 'gt']
+    }
+
+    permission_classes = (TaskAwardAccessPolicy,)
+
+    def get_queryset(self):
+        return TaskAwardAccessPolicy.scope_queryset(
+            self.request, TaskAward.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return TaskAwardSerializer

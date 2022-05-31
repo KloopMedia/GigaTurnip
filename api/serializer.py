@@ -4,7 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
+    TaskAward
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -74,7 +75,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
-                  'displayed_prev_stages', 'assign_user_by',
+                  'displayed_prev_stages', 'assign_user_by', 'ranks',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
@@ -292,6 +293,13 @@ class RankLimitSerializer(serializers.ModelSerializer,
             return value
         raise serializers.ValidationError("User may not add rank limit "
                                           "to this campaign")
+
+
+class TaskAwardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TaskAward
+        fields = '__all__'
 
 
 class TrackSerializer(serializers.ModelSerializer,

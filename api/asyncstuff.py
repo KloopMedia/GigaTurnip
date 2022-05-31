@@ -3,7 +3,7 @@ import json
 import requests
 from django.db.models import Q
 
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
 
 
 def process_completed_task(task):
@@ -50,11 +50,15 @@ def process_completed_task(task):
     else:
         process_out_stages(current_stage, task)
     next_direct_task = task.get_direct_next()
+    task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
     if next_direct_task is not None:
         if next_direct_task.assignee == task.assignee:
             return next_direct_task
         else:
             return None
+    elif (next_direct_task is None) and task_awards:
+        for task_award in task_awards:
+            rank_record = task_award.connect_user_with_rank(task)
     return None
 
 
@@ -140,9 +144,13 @@ def create_new_task(stage, in_task):
         if webhook:
             webhook.trigger(new_task)
         for copy_field in stage.copy_fields.all():
-            new_task = copy_field.copy_response(new_task)
+            new_task.responses = copy_field.copy_response(new_task)
         new_task.save()
         if stage.assign_user_by == "IN":
+            process_completed_task(new_task)
+        if stage.assign_user_by == "AU":
+            new_task.complete = True
+            new_task.save()
             process_completed_task(new_task)
 
 
@@ -165,6 +173,11 @@ def process_conditional(stage, in_task):
                     else:
                         out_task.complete = False
                         out_task.reopened = True
+                        if stage.copy_input:
+                            out_task.responses = update_responses(out_task.responses,
+                                                                  in_task.responses)
+                        for copy_field in stage.copy_fields.all():
+                            out_task.responses = copy_field.copy_response(out_task)
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
@@ -175,6 +188,7 @@ def evaluate_conditional_stage(stage, task):
        Returns True if all responses exist and fit to the conditions
     """
     rules = stage.conditions
+    rules = rules if rules else []
     responses = task.responses
     results = list()
 
@@ -220,3 +234,7 @@ def get_value_from_dotted(dotted_path, source_dict):
     return result
 
 
+def update_responses(responses_to_update, responses):
+    for k in responses.keys():
+        responses_to_update[k] = responses.get(k)
+    return responses_to_update
