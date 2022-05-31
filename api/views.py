@@ -17,7 +17,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -26,13 +26,15 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer
-from api.asyncstuff import process_completed_task
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
+    DynamicJsonReadSerializer
+from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy
+    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
+    DynamicJsonAccessPolicy
 from . import utils
 from .utils import paginate
 import json
@@ -202,6 +204,31 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         stage = self.get_object()
         fields = [i.split('__', 1)[1] for i in stage.make_columns_ordered()]
         return Response({'fields': fields})
+
+    @action(detail=True, methods=['get'])
+    def load_schema_answers(self, request, pk=None):
+        """
+        We must pass responses for the schema to get primary key and update sub field's answers
+        Otherwise we would return response with 400 status code
+
+        :param GET: responses (responses for the task of stage)
+        :param pk: stage id (to update schema)
+        :return:
+        """
+
+        task_stage = self.get_object()
+        responses = request.query_params.get('responses')
+        if responses:
+            responses = json.loads(responses)
+        else:
+            responses = {}
+
+        if task_stage.json_schema:
+            schema = process_updating_schema_answers(task_stage, responses)
+            return Response({'status': status.HTTP_200_OK,
+                             'schema': schema})
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
@@ -1108,3 +1135,21 @@ class TaskAwardViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return TaskAwardSerializer
+
+
+class DynamicJsonViewSet(viewsets.ModelViewSet):
+    filterset_fields = {
+        'task_stage': ['exact'],
+    }
+
+    permission_classes = (DynamicJsonAccessPolicy,)
+
+    def get_queryset(self):
+        return DynamicJsonAccessPolicy.scope_queryset(
+            self.request, DynamicJson.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return DynamicJsonReadSerializer
+
+

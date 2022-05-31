@@ -9,7 +9,7 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward
+    ResponseFlattener, TaskAward, DynamicJson
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -523,6 +523,18 @@ class CampaignManagementAdmin(admin.ModelAdmin):
     autocomplete_fields = ("user",)
 
 
+class DynamicJsonAdmin(admin.ModelAdmin):
+    model = DynamicJson
+    list_display = ('task_stage', 'webhook_address', 'id', 'created_at', 'updated_at', )
+    search_fields = ('task_stage', 'webhook_address', )
+
+    def get_queryset(self, request):
+        queryset = super(DynamicJsonAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            task_stage__chain__campaign__campaign_managements__user=request.user
+        )
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign)
 admin.site.register(Chain, ChainAdmin)
@@ -531,6 +543,7 @@ admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
 admin.site.register(Webhook, IntegrationAdmin)
+admin.site.register(DynamicJson, DynamicJsonAdmin)
 admin.site.register(StagePublisher, IntegrationAdmin)
 admin.site.register(CopyField, CopyFieldAdmin)
 admin.site.register(Quiz, QuizAdmin)

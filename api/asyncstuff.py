@@ -1,7 +1,7 @@
 import json
 
 import requests
-from django.db.models import Q
+from django.db.models import Q, F, Count
 
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
 
@@ -238,3 +238,63 @@ def update_responses(responses_to_update, responses):
     for k in responses.keys():
         responses_to_update[k] = responses.get(k)
     return responses_to_update
+
+
+def process_updating_schema_answers(task_stage, responses={}):
+    schema = task_stage.json_schema if task_stage.json_schema else '{}'
+    schema = json.loads(schema)
+    dynamic_properties = task_stage.dynamic_jsons.all()
+    if dynamic_properties and task_stage.json_schema:
+        for dynamic_json in dynamic_properties:
+            schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+        return schema
+    else:
+        return schema
+
+
+def update_schema_dynamic_answers(dynamic_json, responses, schema):
+    tasks = dynamic_json.task_stage.tasks.all()
+    tasks = tasks.filter(complete=True, force_complete=False).order_by('updated_at')
+
+    main_key = dynamic_json.dynamic_fields['main']
+
+    foreign_fields = dynamic_json.dynamic_fields['foreign']
+    foreign_fields = ['responses__' + i for i in foreign_fields]
+    if not foreign_fields:
+        parsing_fields = ['responses__' + main_key]
+    else:
+        parsing_fields = foreign_fields
+
+    if foreign_fields and responses:
+        main_filter = {'responses__' + main_key: responses.get(main_key)}
+        taken_values_info = tasks.filter(**main_filter)
+    else:
+        taken_values_info = tasks
+
+    taken_values_info = taken_values_info.values(
+                    *parsing_fields
+                ).annotate(count=Count('pk')).order_by()
+    unavailable = taken_values_info.filter(
+        count__gte=dynamic_json.dynamic_fields['count']
+    )
+
+    new_schema = remove_unavailable_items_from_answers(schema, dynamic_json.dynamic_fields, unavailable)
+
+    return new_schema
+
+
+def remove_unavailable_items_from_answers(schema, dynamic_fields, unavailable):
+    if dynamic_fields['foreign']:
+        answers = dynamic_fields['foreign']
+    else:
+        answers = [dynamic_fields['main']]
+
+    for i in answers:
+        key = 'responses__' + i
+        for answer in unavailable:
+            idx = schema['properties'][i]['enum'].index(answer[key])
+            del schema['properties'][i]['enum'][idx]
+            if schema['properties'][i].get('enumNames'):
+                del schema['properties'][i]['enumNames'][idx]
+
+    return schema

@@ -10,6 +10,7 @@ from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
+from jsonschema import validate
 
 
 class BaseDatesModel(models.Model):
@@ -465,7 +466,7 @@ class TaskStage(Stage, SchemaProvider):
 
     def make_1d_arr(self, arr, end_arr):
         for i in arr:
-            if isinstance(i, list):
+            if isinstance(i, list) or isinstance(i, tuple):
                 self.make_1d_arr(i, end_arr)
             else:
                 end_arr.append(i)
@@ -1496,3 +1497,41 @@ class AdminPreference(BaseDates):
 
     def __str__(self):
         return self.id.__str__()
+
+
+class DynamicJson(BaseDatesModel, CampaignInterface):
+    task_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name='dynamic_jsons',
+        null=False,
+        help_text="Stage where we want set answers dynamicly"
+    )
+    dynamic_fields = models.JSONField(
+        default=None,
+        null=False,
+        help_text=(
+            "Get top level fields with dynamic answers"
+        )
+    )
+    webhook_address = models.URLField(
+        null=True,
+        blank=True,
+        max_length=1000,
+        help_text=(
+            "Webhook URL address. If not empty, field indicates that "
+            "task should be given not to a user in the system, but to a "
+            "webhook. Only data from task directly preceding webhook is "
+            "sent. All fields related to user assignment are ignored,"
+            "if this field is not empty."
+        )
+    )
+
+    class Meta:
+        ordering = ['created_at', 'updated_at', ]
+
+    def get_campaign(self):
+        return self.task_stage.get_campaign()
+
+    def __str__(self):
+        return self.task_stage.name
