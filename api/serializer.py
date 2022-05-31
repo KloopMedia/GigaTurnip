@@ -74,6 +74,11 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
+    dynamic_jsons = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='dynamic_fields'
+    )
 
     class Meta:
         model = TaskStage
@@ -81,7 +86,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
                   'displayed_prev_stages', 'assign_user_by', 'ranks',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params',
+                  'webhook_payload_field', 'webhook_params', 'dynamic_jsons',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
 

@@ -1502,7 +1502,8 @@ class AdminPreference(BaseDates):
 class DynamicJson(BaseDatesModel, CampaignInterface):
     task_stage = models.ForeignKey(
         TaskStage,
-        on_delete=models.CASCADE,  # TODO Change deletion method
+        on_delete=models.CASCADE,
+        related_name='dynamic_jsons',
         null=False,
         help_text="Stage where we want set answers dynamicly"
     )

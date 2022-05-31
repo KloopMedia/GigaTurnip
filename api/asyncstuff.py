@@ -3,7 +3,7 @@ import json
 import requests
 from django.db.models import Q, F, Count
 
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, DynamicJson
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
 
 
 def process_completed_task(task):
@@ -243,7 +243,7 @@ def update_responses(responses_to_update, responses):
 def process_updating_schema_answers(task_stage, responses={}):
     schema = task_stage.json_schema if task_stage.json_schema else '{}'
     schema = json.loads(schema)
-    dynamic_properties = DynamicJson.objects.filter(task_stage=task_stage)
+    dynamic_properties = task_stage.dynamic_jsons.all()
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
             schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
