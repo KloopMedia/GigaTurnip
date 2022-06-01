@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
+from django.db.models import Q
 from rest_access_policy import AccessPolicy
 from api.models import Campaign, TaskStage, Track, Task, AdminPreference
 from . import utils
@@ -162,6 +163,12 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "action": ["public"],
             "principal": "*",
             "effect": "allow",
+        },
+        {
+            "action": ["load_schema_answers"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_available_stage"
         }
     ]
 
@@ -174,6 +181,16 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
         queryset = TaskStage.objects.filter(id=view.get_object().id)
         return bool(utils.filter_for_user_creatable_stages(queryset, request))
 
+    def is_available_stage(self, request, view, action) -> bool:
+
+        all_available_tasks = utils.all_uncompleted_tasks(
+            request.user.tasks
+        )
+        tasks_for_current_stage = all_available_tasks.filter(
+            stage__id=view.get_object().id
+        )
+
+        return tasks_for_current_stage.count() > 0
 
 class TaskAccessPolicy(AccessPolicy):
     statements = [
@@ -435,3 +452,36 @@ class TaskAwardAccessPolicy(ManagersOnlyAccessPolicy):
     def scope_queryset(cls, request, queryset):
         return queryset.\
             filter(rank__track__campaign__campaign_managements__user=request.user)
+
+
+class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
+
+    # statements = [
+    #     {
+    #         "action": ["schema"],
+    #         "principal": "authenticated",
+    #         "effect": "allow",
+    #         "condition_expression": "is_available_stage or is_manager"
+    #     }
+    # ]
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        all_available_tasks = utils.all_uncompleted_tasks(
+            request.user.tasks
+        )
+        return queryset \
+            .filter(
+            task_stage__in=all_available_tasks.values("stage")
+        )
+
+    def is_available_stage(self, request, view, action) -> bool:
+
+        all_available_tasks = utils.all_uncompleted_tasks(
+            request.user.tasks
+        )
+        tasks_for_current_stage = all_available_tasks.filter(
+            stage__id=view.get_object().task_stage.id
+        )
+
+        return tasks_for_current_stage.count() > 0

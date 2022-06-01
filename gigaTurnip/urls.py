@@ -76,6 +76,9 @@ router.register(api_v1 + r'csv',
 router.register(api_v1 + r'responseflatteners',
                 turnip_app.ResponseFlattenerViewSet,
                 basename='responseflattener')
+router.register(api_v1 + r'dynamicjsons',
+                turnip_app.DynamicJsonViewSet,
+                basename='dynamicjson')
 
 
 urlpatterns = [path('admin/', admin.site.urls),

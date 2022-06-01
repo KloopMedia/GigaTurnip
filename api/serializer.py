@@ -1,11 +1,15 @@
+import json
 from abc import ABCMeta
 
 from django.core.exceptions import ObjectDoesNotExist
+from jsonschema import validate
 from rest_framework import serializers
+
+from api.asyncstuff import process_updating_schema_answers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
-    TaskAward
+    TaskAward, DynamicJson
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -70,6 +74,11 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
+    dynamic_jsons = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='dynamic_fields'
+    )
 
     class Meta:
         model = TaskStage
@@ -77,7 +86,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                  ['copy_input', 'allow_multiple_files', 'is_creatable',
                   'displayed_prev_stages', 'assign_user_by', 'ranks',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params',
+                  'webhook_payload_field', 'webhook_params', 'dynamic_jsons',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
 
@@ -119,6 +128,33 @@ class CaseSerializer(serializers.ModelSerializer):
 
 
 class TaskEditSerializer(serializers.ModelSerializer):
+
+    def validate(self, attrs):
+        if attrs.get('complete') == True:
+            instance = self.root.instance
+            stage = instance.stage
+            try:
+                old_responses = instance.responses
+                if not old_responses:
+                    old_responses = {}
+
+                update_responses = attrs.get('responses')
+                if not update_responses:
+                    update_responses = {}
+
+                old_responses.update(update_responses)
+
+                schema = process_updating_schema_answers(stage, update_responses)
+
+                validate(instance=old_responses, schema=schema)
+                return attrs
+            except Exception as exc:
+                raise serializers.ValidationError({
+                    "message": "Your answers are non-compliance with the standard",
+                    "pass": list(exc.schema_path)
+                })
+        return attrs
+
     class Meta:
         model = Task
         fields = ['complete', 'responses']
@@ -363,3 +399,10 @@ class ResponseFlattenerReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResponseFlattener
         fields = '__all__'
+
+
+class DynamicJsonReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DynamicJson
+        fields = '__all__'
+        editable = False

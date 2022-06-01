@@ -237,3 +237,10 @@ def task_stage_queries():
             "force_complete_true": Count('pk', Q(force_complete=True)),
             "count_tasks": Count('pk')
         }
+
+
+def all_uncompleted_tasks(tasks):
+    return tasks.filter(
+        complete=False,
+        force_complete=False
+    )

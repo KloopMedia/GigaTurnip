@@ -1,4 +1,5 @@
 import json
+import random
 from uuid import uuid4
 
 from django.db import IntegrityError
@@ -8,8 +9,9 @@ from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification
-
+    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
+    DynamicJson
+from jsonschema import validate
 
 class GigaTurnipTest(APITestCase):
 
@@ -59,8 +61,8 @@ class GigaTurnipTest(APITestCase):
                                                    password='test')
 
         self.employee = CustomUser.objects.create_user(username="employee",
-                                                        email='employee@email.com',
-                                                        password='employee')
+                                                       email='employee@email.com',
+                                                       password='employee')
         self.employee_client = self.create_client(self.employee)
 
         self.client = self.prepare_client(
@@ -125,7 +127,10 @@ class GigaTurnipTest(APITestCase):
         else:
             args = {"complete": True}
         response = c.patch(task_update_url, args, format='json')
-        return Task.objects.get(id=response.data["id"])
+        if response.data.get('id'):
+            return Task.objects.get(id=response.data["id"])
+        else:
+            return response
 
     def update_task_responses(self, task, responses, client=None):
         c = client
@@ -173,6 +178,14 @@ class GigaTurnipTest(APITestCase):
         self.check_task_manual_creation(task, self.initial_stage)
 
     def test_initial_task_completion(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
         task = self.complete_task(task, responses=responses)
@@ -180,6 +193,14 @@ class GigaTurnipTest(APITestCase):
         self.check_task_completion(task, self.initial_stage, responses)
 
     def test_initial_task_update_and_completion(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
         updated_task = self.update_task_responses(task, responses)
@@ -192,6 +213,14 @@ class GigaTurnipTest(APITestCase):
             new_responses)
 
     def test_initial_task_update_and_completion_no_responses(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
         updated_task = self.update_task_responses(task, responses)
@@ -217,6 +246,15 @@ class GigaTurnipTest(APITestCase):
         self.check_task_auto_creation(second_task, second_stage, initial_task)
 
     def test_simple_update(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "check": {"type": "string"}
+            },
+            "required": ["check"]
+        })
+        self.initial_stage.save()
+
         second_stage = self.initial_stage.add_stage(TaskStage())
         initial_task = self.create_initial_task()
         responses = {"check": "cheese"}
@@ -226,6 +264,17 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(initial_task.responses, responses)
 
     def test_passing_conditional(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "verified": {
+                    "enum": ["yes", "no"],
+                    "type": "string"}
+            },
+            "required": ["verified"]
+        })
+        self.initial_stage.save()
+
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
             {"field": "verified", "value": "yes", "condition": "=="}
@@ -242,6 +291,18 @@ class GigaTurnipTest(APITestCase):
         self.check_task_auto_creation(new_task, last_task_stage, initial_task)
 
     def test_failing_conditional(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "verified": {
+                    "enum": ['yes', 'no'],
+                    "type": "string"
+                }
+            },
+            "required": ["verified"]
+        })
+        self.initial_stage.save()
+
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
             {"field": "verified", "value": "yes", "condition": "=="}
@@ -258,6 +319,15 @@ class GigaTurnipTest(APITestCase):
         self.assertFalse(new_task)
 
     def test_pingpong(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": { "type": "string" }
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
+
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
             {"field": "verified", "value": "no", "condition": "=="}
@@ -343,6 +413,15 @@ class GigaTurnipTest(APITestCase):
         self.assertIsNone(final_task.assignee)
 
     def test_pingpong_first_pass(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
+
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
             {"field": "verified", "value": "no", "condition": "=="}
@@ -351,6 +430,18 @@ class GigaTurnipTest(APITestCase):
         verification_task_stage = self.initial_stage \
             .add_stage(conditional_stage) \
             .add_stage(TaskStage())
+        verification_task_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "verified": {
+                    "enum": ['yes', 'no'],
+                    "type": "string"
+                }
+            },
+            "required": ["verified"]
+        })
+        verification_task_stage.save()
+
         final_task_stage = verification_task_stage.add_stage(TaskStage())
 
         verification_client = self.prepare_client(verification_task_stage)
@@ -369,15 +460,6 @@ class GigaTurnipTest(APITestCase):
         self.request_assignment(verification_task, verification_client)
 
         verification_task_responses = {"verified": "yes"}
-        # verification_task = self.update_task_responses(
-        #     verification_task,
-        #     verification_task_responses,
-        #     verification_client)
-        #
-        # verification_task = self.complete_task(
-        #     verification_task,
-        #     client=verification_client)
-
 
         verification_task = self.complete_task(
             verification_task,
@@ -485,6 +567,7 @@ class GigaTurnipTest(APITestCase):
             name="ID",
             x_pos=1,
             y_pos=1,
+            json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}',
             chain=id_chain,
             is_creatable=True)
         self.client = self.prepare_client(
@@ -495,14 +578,14 @@ class GigaTurnipTest(APITestCase):
         task2 = self.create_task(id_stage)
         task3 = self.create_task(id_stage)
 
-        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        correct_responses = {"name": "kloop", "phone": 3, "address": "kkkk"}
 
         task1 = self.complete_task(
             task1,
-            {"name": "rinat", "phone": 2, "addr": "ssss"})
+            {"name": "rinat", "phone": 2, "address": "ssss"})
         task3 = self.complete_task(
             task3,
-            {"name": "ri", "phone": 5, "addr": "oooo"})
+            {"name": "ri", "phone": 5, "address": "oooo"})
         task2 = self.complete_task(task2, correct_responses)
 
         CopyField.objects.create(
@@ -534,7 +617,7 @@ class GigaTurnipTest(APITestCase):
                 allow_go_back=True
             ))
         initial_task = self.create_initial_task()
-        self.complete_task(initial_task)
+        self.complete_task(initial_task, responses={})
         second_task = Task.objects.get(
             stage=second_stage,
             case=initial_task.case)
@@ -562,6 +645,9 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(second_task.reopened)
 
     def test_integration(self):
+        self.initial_stage.json_schema = '{"type": "object","properties": {"oik": {"type": "integer"},"data": {"type": "string"}}}'
+        self.initial_stage.save()
+
         second_stage = self.initial_stage.add_stage(TaskStage())
         Integration.objects.create(
             task_stage=second_stage,
@@ -598,6 +684,15 @@ class GigaTurnipTest(APITestCase):
                       oik_5_integrator.in_tasks.all().values_list("id", flat=True))
 
     def test_closed_submission(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "dependencies": {},
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
         updated_task = self.update_task_responses(task, responses)
@@ -611,6 +706,9 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_copy_field_by_case(self):
+        self.initial_stage.json_schema = '{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}'
+        self.initial_stage.save()
+
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 assign_user_by="ST",
@@ -619,6 +717,7 @@ class GigaTurnipTest(APITestCase):
         third_stage = second_stage.add_stage(
             TaskStage(
                 assign_user_by="ST",
+                json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone1": {"type": "integer"},"absent": {"type": "string"}}}',
                 assign_user_from_stage=self.initial_stage)
         )
         CopyField.objects.create(
@@ -628,7 +727,7 @@ class GigaTurnipTest(APITestCase):
             fields_to_copy="name->name phone->phone1 absent->absent")
 
         task = self.create_initial_task()
-        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        correct_responses = {"name": "kloop", "phone": 3, "address": "kkkk"}
         task = self.complete_task(task, responses=correct_responses)
         task_2 = task.out_tasks.all()[0]
         self.complete_task(task_2)
@@ -640,6 +739,8 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task_3.responses["phone1"], task.responses["phone"])
 
     def test_copy_field_by_case_copy_all(self):
+        self.initial_stage.json_schema = '{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}'
+        self.initial_stage.save()
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 assign_user_by="ST",
@@ -648,6 +749,7 @@ class GigaTurnipTest(APITestCase):
         third_stage = second_stage.add_stage(
             TaskStage(
                 assign_user_by="ST",
+                json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}',
                 assign_user_from_stage=self.initial_stage)
         )
         CopyField.objects.create(
@@ -665,6 +767,9 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task_3.responses, task.responses)
 
     def test_copy_input(self):
+        self.initial_stage.json_schema = '{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}'
+        self.initial_stage.save()
+
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 assign_user_by="ST",
@@ -672,13 +777,16 @@ class GigaTurnipTest(APITestCase):
                 copy_input=True)
         )
         task = self.create_initial_task()
-        correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        correct_responses = {"name": "kloop", "phone": 3, "address": "kkkk"}
         task = self.complete_task(task, responses=correct_responses)
         task_2 = task.out_tasks.all()[0]
 
         self.assertEqual(task_2.responses, task.responses)
 
     def test_conditional_ping_pong_pass(self):
+        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.save()
+
         conditions = [
             {"field": "verified", "value": "no", "condition": "=="}
         ]
@@ -690,7 +798,9 @@ class GigaTurnipTest(APITestCase):
         )
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
-            name="Verification task stage"
+            name="Verification task stage",
+            json_schema='{"type":"object","properties":{"verified":{"type":"string"}}}'
+
         ))
 
         final_task_stage = verification_task_stage.add_stage(TaskStage(
@@ -732,6 +842,9 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(final_task.assignee, self.user)
 
     def test_conditional_ping_pong_copy_input_if_task_returned_again(self):
+        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.save()
+
         conditions = [
             {"field": "verified", "value": "no", "condition": "=="}
         ]
@@ -744,6 +857,7 @@ class GigaTurnipTest(APITestCase):
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
             name="Verification task stage",
+            json_schema = '{"type":"object","properties":{"answer":{"type":"string"},"verified":{"type":"string"}}}',
             copy_input=True
         ))
 
@@ -810,6 +924,9 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(final_task.assignee, self.user)
 
     def test_conditional_ping_pong_doesnt_pass(self):
+        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.save()
+
         conditions = [
             {"field": "verified", "value": "no", "condition": "=="}
         ]
@@ -821,7 +938,9 @@ class GigaTurnipTest(APITestCase):
         )
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
-            name="Verification task stage"
+            name="Verification task stage",
+            json_schema='{"type":"object","properties":{"answer":{"type":"string"},"verified":{"type":"string"}}}'
+
         ))
 
         final_task_stage = verification_task_stage.add_stage(TaskStage(
@@ -884,6 +1003,9 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(final_task.assignee, self.user)
 
     def test_conditional_ping_pong_copy_field_if_task_returned_again(self):
+        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.save()
+
         conditions = [
             {"field": "verified", "value": "no", "condition": "=="}
         ]
@@ -896,6 +1018,7 @@ class GigaTurnipTest(APITestCase):
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
             name="Verification task stage",
+            json_schema='{"type":"object","properties":{"answerField":{"type":"string"}, "verified":{"enum":["yes", "no"],"type":"string"}}}'
         ))
 
         final_task_stage = verification_task_stage.add_stage(TaskStage(
@@ -991,6 +1114,7 @@ class GigaTurnipTest(APITestCase):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
         self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
@@ -1000,7 +1124,7 @@ class GigaTurnipTest(APITestCase):
             correct_responses_task=task_correct_responses
         )
         task = self.create_initial_task()
-        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
         self.assertEqual(task.responses["meta_quiz_score"], 80)
@@ -1036,6 +1160,7 @@ class GigaTurnipTest(APITestCase):
                 "q_3"
             ]
         }
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
         self.initial_stage.save()
 
         correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
@@ -1080,7 +1205,9 @@ class GigaTurnipTest(APITestCase):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
         self.initial_stage.save()
+
         task_correct_responses = self.complete_task(
             task_correct_responses,
             responses=correct_responses)
@@ -1096,7 +1223,7 @@ class GigaTurnipTest(APITestCase):
             )
         )
         task = self.create_initial_task()
-        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
         self.assertEqual(task.responses["meta_quiz_score"], 80)
@@ -1128,6 +1255,7 @@ class GigaTurnipTest(APITestCase):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
         self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
@@ -1144,7 +1272,7 @@ class GigaTurnipTest(APITestCase):
             )
         )
         task = self.create_initial_task()
-        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "e"}
+        responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
         self.assertEqual(task.responses["meta_quiz_score"], 80)
@@ -1541,10 +1669,38 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Log.objects.count(), 1)
 
     def test_task_awards_count_is_equal(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
         verification_task_stage = self.initial_stage.add_stage(TaskStage(
             name='verification',
             assign_user_by="RA"
         ))
+        verification_task_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "enum": ["reject", "pass"],
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "decision"
+            ]
+        })
+        verification_task_stage.save()
+
         verifier_rank = Rank.objects.create(name="verifier")
         RankRecord.objects.create(
             user=self.employee,
@@ -1593,10 +1749,39 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(user_notifications[0].text, task_awards.message)
 
     def test_task_awards_count_is_lower(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
+
         verification_task_stage = self.initial_stage.add_stage(TaskStage(
             name='verification',
             assign_user_by="RA"
         ))
+        verification_task_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "enum": ["reject", "pass"],
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "decision"
+            ]
+        })
+        verification_task_stage.save()
+
         verifier_rank = Rank.objects.create(name="verifier")
         RankRecord.objects.create(
             user=self.employee,
@@ -1634,7 +1819,7 @@ class GigaTurnipTest(APITestCase):
                                                pk=task.out_tasks.all()[0].id)
             self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
             task_to_check = Task.objects.get(assignee=self.user, case=task.case)
-            task_to_check = self.complete_task(task_to_check, client=self.client)
+            task_to_check = self.complete_task(task_to_check, {"decision": "pass"}, client=self.client)
 
         employee_ranks = [i.rank for i in RankRecord.objects.filter(user=self.employee)]
         self.assertEqual(len(employee_ranks), 1)
@@ -1644,14 +1829,44 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(user_notifications.count(), 0)
 
     def test_task_awards_count_many_task_stages(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
+
         second_task_stage = self.initial_stage.add_stage(TaskStage(
             name='Second stage',
+            json_schema=self.initial_stage.json_schema,
             assign_user_by="ST",
             assign_user_from_stage=self.initial_stage))
         verification_task_stage = second_task_stage.add_stage(TaskStage(
             name='verification',
             assign_user_by="RA"
         ))
+        verification_task_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "enum": ["reject", "pass"],
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "decision"
+            ]
+        })
+        verification_task_stage.save()
+
         verifier_rank = Rank.objects.create(name="verifier")
         RankRecord.objects.create(
             user=self.employee,
@@ -1691,7 +1906,7 @@ class GigaTurnipTest(APITestCase):
                                                pk=task_2.out_tasks.all()[0].id)
             self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
             task_to_check = Task.objects.get(assignee=self.user, case=task.case)
-            task_to_check = self.complete_task(task_to_check, client=self.client)
+            task_to_check = self.complete_task(task_to_check, {"decision": "pass"}, client=self.client)
 
         employee_ranks = [i.rank for i in RankRecord.objects.filter(user=self.employee)]
         self.assertEqual(len(employee_ranks), 2)
@@ -1703,6 +1918,19 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(user_notifications[0].text, task_awards.message)
 
     def test_task_awards_for_giving_ranks(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
             {"field": "answer", "value": "norm", "condition": "=="}
@@ -1712,6 +1940,21 @@ class GigaTurnipTest(APITestCase):
             name='verification',
             assign_user_by="AU"
         ))
+        verification_task_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "enum": ["reject", "pass"],
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "decision"
+            ]
+        })
+        verification_task_stage.save()
+
         verifier_rank = Rank.objects.create(name="verifier")
         RankRecord.objects.create(
             user=self.employee,
@@ -1845,9 +2088,41 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(list(response.data), [expected_activity])
 
     def test_search_by_responses_gte_lte(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "column1": {
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "column2": {
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "oik": {
+                    "type": "object",
+                    "title": "Question 3",
+                    "properties": {
+                        "uik1": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "column1",
+                "column2",
+                "oik"
+            ]
+        })
+        self.initial_stage.save()
         self.user.managed_campaigns.add(self.campaign)
 
-        responses = {"column1": "3000", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
+        responses = {
+            "column1": "3000",
+            "column2": "SecondColumnt",
+            "oik": {"uik1": "SecondLayer"}
+        }
 
         task = self.create_initial_task()
         task = self.complete_task(task, responses)
@@ -1885,3 +2160,343 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response_data['results']), 2)
         for i in response_data['results']:
             self.assertIn(i['id'], [task.id, task1.id])
+
+    def test_answers_validation(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "price": {"type": "number"},
+                "year": {"type": "number"},
+                "name": {"type": "string"},
+            },
+            "required":['price', 'name']
+        })
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        response = self.complete_task(task, {'price': 'there must be digit',
+                                             'year': 'there must be digit',
+                                             'name': 'Kloop'}
+                                      )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content)['pass'], ["properties", "price", "type"])
+
+    def test_dynamic_json_schema_related_fields(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                },
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": time_slots
+                }
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 2
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json
+        )
+
+        task1 = self.create_initial_task()
+        responses1 = {'weekday': weekdays[0], 'time': time_slots[0]}
+        task1 = self.complete_task(task1, responses1)
+
+        task2 = self.create_initial_task()
+        task2 = self.complete_task(task2, responses1)
+
+        task3 = self.create_initial_task()
+        responses3 = {'weekday': weekdays[0]}
+
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        del updated_schema['properties']['time']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        responses3['weekday'] = weekdays[1]
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
+        updated_schema = json.loads(js_schema)
+        self.assertEqual(response.data['schema'], updated_schema)
+
+    def test_dynamic_json_schema_single_field(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                }
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": [],
+            "count": 2
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json
+        )
+
+        responses1 = {'weekday': weekdays[0]}
+
+        task1 = self.create_initial_task()
+        task1 = self.complete_task(task1, responses1)
+
+        task2 = self.create_initial_task()
+        task2 = self.complete_task(task2, responses1)
+
+        task3 = self.create_initial_task()
+        responses3 = {'weekday': weekdays[0]}
+
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        del updated_schema['properties']['weekday']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        responses3['weekday'] = weekdays[1]
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
+        self.assertEqual(response.data['schema'], updated_schema)
+
+    def test_dynamic_json_schema_many(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        day_parts = ['12:00 - 13:00', '13:00 - 14:00',  '14:00 - 15:00']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                },
+                "day_part": {
+                    "type": "string",
+                    "title": "Select part of the day",
+                    "enum": day_parts
+                },
+
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_weekday = {
+            "main": "weekday",
+            "foreign": [],
+            "count": 2
+        }
+        dynamic_json_weekday = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_weekday
+        )
+
+        dynamic_fields_day_parts = {
+            "main": "day_part",
+            "foreign": [],
+            "count": 2
+        }
+        dynamic_json_day_part = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_day_parts
+        )
+
+        responses1 = {'weekday': weekdays[0], 'day_part': day_parts[0]}
+
+        task1 = self.create_initial_task()
+        task1 = self.complete_task(task1, responses1)
+
+        task2 = self.create_initial_task()
+        task2 = self.complete_task(task2, responses1)
+
+        task3 = self.create_initial_task()
+        responses3 = {'weekday': weekdays[0], 'day_part': day_parts[0]}
+
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        del updated_schema['properties']['weekday']['enum'][0]
+        del updated_schema['properties']['day_part']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        responses3['weekday'] = weekdays[1]
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
+        self.assertEqual(response.data['schema'], updated_schema)
+
+    def test_dynamic_json_schema_single_unique_field(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                }
+
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["weekday"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_weekday = {
+            "main": "weekday",
+            "foreign": [],
+            "count": 2
+        }
+        dynamic_json_weekday = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_weekday
+        )
+
+        responses1 = {'weekday': weekdays[0]}
+
+        task1 = self.create_initial_task()
+        task1 = self.complete_task(task1, responses1)
+
+        task2 = self.create_initial_task()
+        task2 = self.complete_task(task2, responses1)
+
+        task3 = self.create_initial_task()
+        responses3 = {'weekday': weekdays[0]}
+
+        updated_schema = json.loads(js_schema)
+        del updated_schema['properties']['weekday']['enum'][0]
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        response = self.complete_task(task3, responses3)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'][0], 'Your answers are non-compliance with the standard')
+        self.assertEqual(response.data['pass'], ['properties', 'weekday', 'enum'])
+
+    def test_dynamic_json_schema_related_unique_fields(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                },
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": time_slots
+                }
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 1
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json
+        )
+
+        for t in time_slots:
+            task = self.create_initial_task()
+            responses = {'weekday': weekdays[0], 'time': t}
+            self.complete_task(task, responses)
+
+        task = self.create_initial_task()
+
+        responses = {'weekday': weekdays[0]}
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        updated_schema['properties']['time']['enum'] = []
+        self.assertEqual(response.data['schema'], updated_schema)
+
+        responses = {'weekday': weekdays[1]}
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_schema = json.loads(js_schema)
+        self.assertEqual(response.data['schema'], updated_schema)
+
+    def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                },
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": time_slots
+                }
+            }
+        })
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 1
+        }
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json
+        )
+
+        task = self.create_initial_task()
+        responses = {'weekday': weekdays[0], 'time': time_slots[0]}
+        self.complete_task(task, responses)
+
+        task = self.create_initial_task()
+
+        responses = {'weekday': weekdays[0], 'time': time_slots[0]}
+        response = self.complete_task(task, responses)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        responses['time'] = time_slots[1]
+        task = self.complete_task(task, responses)
+        self.assertEqual(task.responses, responses)
+
