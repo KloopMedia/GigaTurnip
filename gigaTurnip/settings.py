@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 import json
 import os
 from pathlib import Path
+import ast
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 from drf_firebase_auth.utils import map_firebase_uid_to_username
@@ -111,6 +112,12 @@ DATABASES = {
     #         'PORT': '3306',
     #     }
 }
+
+if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
+    DATABASES = {"default": ast.literal_eval(os.getenv('DB'))}
+
+    DATABASES["default"]["HOST"] = "127.0.0.1"
+    DATABASES["default"]["PORT"] = 3306
 
 
 # Password validation
