@@ -2,6 +2,7 @@ import json
 
 import requests
 from django.db.models import Q, F, Count
+import math
 
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
 
@@ -257,44 +258,54 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
     tasks = tasks.filter(complete=True, force_complete=False).order_by('updated_at')
 
     main_key = dynamic_json.dynamic_fields['main']
-
     foreign_fields = dynamic_json.dynamic_fields['foreign']
-    foreign_fields = ['responses__' + i for i in foreign_fields]
+    count = dynamic_json.dynamic_fields['count']
+
+    to_delete = {'responses__' + main_key: []}
+    available_by_main = [len(schema['properties'][main_key]['enum'])]
+
+    if foreign_fields:
+        for i in foreign_fields:
+            key = 'responses__' + i
+            to_delete[key] = []
+            available_by_main.append(len(schema['properties'][i]['enum']))
+
+    total_available_answers = math.prod(available_by_main)
+
+    filtered_by_main = tasks.values('responses__' + main_key).annotate(count=Count('pk')).order_by()
+    for i in filtered_by_main:
+        if i['count'] > total_available_answers or (not foreign_fields and count >= i['count']):
+            to_delete['responses__' + main_key].append(i['responses__' + main_key])
+
     if not foreign_fields:
-        parsing_fields = ['responses__' + main_key]
-    else:
-        parsing_fields = foreign_fields
+        schema = remove_unavailable_enums_from_answers(schema, to_delete)
+        return schema
 
-    if foreign_fields and responses:
-        main_filter = {'responses__' + main_key: responses.get(main_key)}
-        taken_values_info = tasks.filter(**main_filter)
-    else:
-        taken_values_info = tasks
+    filtered_by_main = filtered_by_main.filter(**{'responses__' + main_key: responses[main_key]})
+    for idx, key in enumerate(foreign_fields):
 
-    taken_values_info = taken_values_info.values(
-                    *parsing_fields
-                ).annotate(count=Count('pk')).order_by()
-    unavailable = taken_values_info.filter(
-        count__gte=dynamic_json.dynamic_fields['count']
-    )
+        responses_key = 'responses__' + key
+        available = filtered_by_main.values(responses_key).annotate(count=Count('pk'))
 
-    new_schema = remove_unavailable_items_from_answers(schema, dynamic_json.dynamic_fields, unavailable)
+        arr_fixed_position = available_by_main[idx + 2:]
+        for i in available:
+            if ((len(foreign_fields) >= idx + 2) and i['count'] > math.prod(arr_fixed_position)) or \
+                    (len(foreign_fields) < idx + 2 and i['count'] >= count):
+                to_delete[responses_key].append(i[responses_key])
+        if len(foreign_fields) >= idx + 2:
+            filtered_by_main = available.filter(**{responses_key: responses[key]}).annotate(count=Count('pk'))
 
-    return new_schema
+    schema = remove_unavailable_enums_from_answers(schema, to_delete)
+    return schema
 
 
-def remove_unavailable_items_from_answers(schema, dynamic_fields, unavailable):
-    if dynamic_fields['foreign']:
-        answers = dynamic_fields['foreign']
-    else:
-        answers = [dynamic_fields['main']]
-
-    for i in answers:
-        key = 'responses__' + i
-        for answer in unavailable:
-            idx = schema['properties'][i]['enum'].index(answer[key])
-            del schema['properties'][i]['enum'][idx]
-            if schema['properties'][i].get('enumNames'):
-                del schema['properties'][i]['enumNames'][idx]
+def remove_unavailable_enums_from_answers(schema, to_delete):
+    for key, answers in to_delete.items():
+        k = key.replace('responses__', '')
+        for a in answers:
+            idx = schema['properties'][k]['enum'].index(a)
+            del schema['properties'][k]['enum'][idx]
+            if schema['properties'][k].get('enumNames'):
+                del schema['properties'][k]['enumNames'][idx]
 
     return schema
