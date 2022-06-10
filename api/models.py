@@ -246,6 +246,13 @@ class TaskStage(Stage, SchemaProvider):
         help_text="List of previous stages (tasks data) "
                   "to be shown in current stage"
     )
+    external_metadata = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "To show slides."
+        )
+    )
 
     RANK = 'RA'
     STAGE = 'ST'

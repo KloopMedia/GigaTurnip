@@ -2350,6 +2350,13 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses3)})
         self.assertEqual(response.data['schema'], updated_schema)
 
+    def test_update_taskstage(self):
+        external_metadata = {"field":"value"}
+        self.initial_stage.external_metadata = external_metadata
+        self.initial_stage.save()
+        response = self.get_objects('taskstage-detail', pk=self.initial_stage.id)
+        self.assertEqual(response.data['external_metadata'], external_metadata)
+
     def test_dynamic_json_schema_single_unique_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         js_schema = json.dumps({
