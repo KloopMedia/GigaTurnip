@@ -282,19 +282,21 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
         schema = remove_unavailable_enums_from_answers(schema, to_delete)
         return schema
 
-    filtered_by_main = filtered_by_main.filter(**{'responses__' + main_key: responses[main_key]})
-    for idx, key in enumerate(foreign_fields):
+    if main_key in responses.keys():
+        filtered_by_main = filtered_by_main.filter(**{'responses__' + main_key: responses[main_key]})
+        for idx, key in enumerate(foreign_fields):
 
-        responses_key = 'responses__' + key
-        available = filtered_by_main.values(responses_key).annotate(count=Count('pk'))
+            if key in responses.keys() or key == all_fields[-1]:
+                responses_key = 'responses__' + key
+                available = filtered_by_main.values(responses_key).annotate(count=Count('pk'))
 
-        arr_fixed_position = available_by_main[idx + 2:]
-        for i in available:
-            if ((len(foreign_fields) >= idx + 2) and i['count'] > math.prod(arr_fixed_position)) or \
-                    (len(foreign_fields) < idx + 2 and i['count'] >= count):
-                to_delete[responses_key].append(i[responses_key])
-        if len(foreign_fields) >= idx + 2:
-            filtered_by_main = available.filter(**{responses_key: responses[key]}).annotate(count=Count('pk'))
+                arr_fixed_position = available_by_main[idx + 2:]
+                for i in available:
+                    if ((len(foreign_fields) >= idx + 2) and i['count'] > math.prod(arr_fixed_position)) or \
+                            (len(foreign_fields) < idx + 2 and i['count'] >= count):
+                        to_delete[responses_key].append(i[responses_key])
+                if len(foreign_fields) >= idx + 2:
+                    filtered_by_main = available.filter(**{responses_key: responses[key]}).annotate(count=Count('pk'))
 
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
     schema = remove_answers_in_turn(schema, all_fields, responses)
