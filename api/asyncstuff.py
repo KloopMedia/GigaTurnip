@@ -263,6 +263,7 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
 
     to_delete = {'responses__' + main_key: []}
     available_by_main = [len(schema['properties'][main_key]['enum'])]
+    all_fields = [main_key] + foreign_fields
 
     if foreign_fields:
         for i in foreign_fields:
@@ -296,6 +297,7 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
             filtered_by_main = available.filter(**{responses_key: responses[key]}).annotate(count=Count('pk'))
 
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
+    schema = remove_answers_in_turn(schema, all_fields, responses)
     return schema
 
 
@@ -308,4 +310,16 @@ def remove_unavailable_enums_from_answers(schema, to_delete):
             if schema['properties'][k].get('enumNames'):
                 del schema['properties'][k]['enumNames'][idx]
 
+    return schema
+
+
+def remove_answers_in_turn(schema, fields, responses):
+    while fields[1:]:
+        field = fields.pop(0)
+        if field not in responses.keys():
+            for i in fields:
+                schema['properties'][i]['enum'] = []
+                if schema['properties'][i].get('enumNames'):
+                    schema['properties'][i]['enumNames'] = []
+            return schema
     return schema
