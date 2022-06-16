@@ -320,8 +320,8 @@ def remove_answers_in_turn(schema, fields, responses):
         field = fields.pop(0)
         if field not in responses.keys():
             for i in fields:
-                schema['properties'][i]['enum'] = []
-                if schema['properties'][i].get('enumNames'):
-                    schema['properties'][i]['enumNames'] = []
+                del schema['properties'][i]
+                # if schema['properties'][i].get('enumNames'):
+                #     schema['properties'][i]['enumNames'] = []
             return schema
     return schema
