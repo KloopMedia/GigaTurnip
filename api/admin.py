@@ -182,10 +182,14 @@ class CustomUserAdmin(UserAdmin):
                                             action.short_description)
         return actions
 
+class CampaignAdmin(admin.ModelAdmin):
+    search_fields = ('id', 'name', )
+    autocomplete_fields = ('default_track', )
 
 class ChainAdmin(admin.ModelAdmin):
     list_display = ('name', 'campaign',)
     list_filter = ('campaign',)
+    autocomplete_fields = ('campaign',)
     search_fields = ('name',)
 
     def get_form(self, request, *args, **kwargs):
@@ -273,6 +277,7 @@ class RankLimitAdmin(admin.ModelAdmin):
                     'stage',
                     'created_at',
                     'updated_at')
+    search_fields = ('pk', 'rank', 'stage', )
     autocomplete_fields = ('stage', 'rank')
 
     def get_queryset(self, request):
@@ -451,6 +456,18 @@ class LogAdmin(admin.ModelAdmin):
                      'stage__name',
                      'task__id'
                      )
+    autocomplete_fields = (
+        'campaign',
+        'chain',
+        'stage',
+        'user',
+        'case',
+        'task',
+        'track',
+        'rank',
+        'rank_limit',
+        'rank_record'
+    )
     raw_id_fields = ('stage', 'user', 'case', 'task')
     readonly_fields = ('created_at', 'updated_at')
 
@@ -480,7 +497,7 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
     # form = AdminPreferenceForm
     list_display = ('user',
                     'campaign')
-
+    autocomplete_fields = ('campaign', )
     exclude = ('user',)
 
     def has_add_permission(self, request, obj=None):
@@ -520,13 +537,14 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
 class CampaignManagementAdmin(admin.ModelAdmin):
     list_display = ("campaign", "user",)
     search_fields = ("user", "campaign", "id",)
-    autocomplete_fields = ("user",)
+    autocomplete_fields = ("user", 'campaign')
 
 
 class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
     list_display = ('task_stage', 'webhook_address', 'id', 'created_at', 'updated_at', )
     search_fields = ('task_stage', 'webhook_address', )
+    autocomplete_fields = ('task_stage', )
 
     def get_queryset(self, request):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
@@ -536,7 +554,7 @@ class DynamicJsonAdmin(admin.ModelAdmin):
         )
 
 admin.site.register(CustomUser, CustomUserAdmin)
-admin.site.register(Campaign)
+admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
 admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
