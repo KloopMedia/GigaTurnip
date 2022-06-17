@@ -2,7 +2,7 @@ import csv
 
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Count, Q, Subquery, F
+from django.db.models import Count, Q, Subquery, F, When
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -119,6 +119,15 @@ class ChainViewSet(viewsets.ModelViewSet):
         return ChainAccessPolicy.scope_queryset(
             self.request, Chain.objects.all()
         )
+
+    @action(detail=True)
+    def get_graph(self, request, pk=None):
+        stages = self.get_object().stages.all()
+        graph = stages.values('pk', 'name').annotate(
+            in_stages=ArrayAgg('in_stages', distinct=True),
+            out_stages=ArrayAgg('out_stages', distinct=True)
+        )
+        return Response(graph)
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
@@ -274,6 +283,26 @@ class CaseViewSet(viewsets.ModelViewSet):
     queryset = Case.objects.all()
     serializer_class = CaseSerializer
 
+    filterset_fields = {
+        'tasks__stage__chain': ['exact'],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+        'updated_at': ['lte', 'gte', 'lt', 'gt']
+    }
+
+    @action(detail=True)
+    def info_by_case(self, request, pk=None):
+        tasks = self.get_object().tasks.all()
+        filters_tasks_info = {
+            "complete": Count('pk', Q(complete=True)),
+            "force_complete": Count('pk', Q(force_complete=True)),
+        }
+        task_info_by_stage = tasks.values('stage', 'stage__name').annotate(
+            **filters_tasks_info
+        )
+        return Response({
+            "status": status.HTTP_200_OK,
+            "info": task_info_by_stage
+        })
 
 class ResponsesFilter(filters.SearchFilter):
     search_param = "task_responses"

@@ -2686,3 +2686,57 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses)
         self.assertEqual(task.responses, responses)
 
+    def test_case_info_for_map(self):
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": ["mon", "tue", "wed", "thu", "fri"]
+                },
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": ["10:00", "11:00", "12:00", "13:00", "14:00"]
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(json_schema)
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second Task Stage',
+                json_schema=self.initial_stage.json_schema,
+                assign_user_by='ST',
+                assign_user_from_stage=self.initial_stage,
+            )
+        )
+
+        responses = {"weekday": "mon", "time": "10:00"}
+        task = self.create_initial_task()
+        self.complete_task(task, responses)
+
+        response = self.get_objects("case-info-by-case", pk=task.case.id)
+        maps_info = [
+            {'stage': 1, 'stage__name': 'Initial', 'complete': 1, 'force_complete': 0},
+            {'stage': 2, 'stage__name': 'Second Task Stage', 'complete': 0, 'force_complete': 0}
+        ]
+
+        self.assertEqual(status.HTTP_200_OK, response.data['status'])
+        for i in maps_info:
+            self.assertIn(i, response.data['info'])
+
+    def test_chain_get_graph(self):
+        self.user.managed_campaigns.add(self.campaign)
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second Task Stage',
+                assign_user_by='ST',
+                assign_user_from_stage=self.initial_stage,
+            )
+        )
+
+        # Todo: continue developing endopint for graph
+        response = self.get_objects("chain-get-graph", pk=self.chain.id)
+        print(response.data)
+
