@@ -2389,53 +2389,6 @@ class GigaTurnipTest(APITestCase):
         updated_schema = json.loads(js_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
-    def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
-        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
-        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-        js_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "weekday": {
-                    "type": "string",
-                    "title": "Select Weekday",
-                    "enum": weekdays
-                },
-                "time": {
-                    "type": "string",
-                    "title": "What time",
-                    "enum": time_slots
-                }
-            }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
-        self.initial_stage.json_schema = js_schema
-        self.initial_stage.ui_schema = ui_schema
-        self.initial_stage.save()
-
-        dynamic_fields_json = {
-            "main": "weekday",
-            "foreign": ['time'],
-            "count": 1
-        }
-        dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
-            dynamic_fields=dynamic_fields_json
-        )
-
-        task = self.create_initial_task()
-        responses = {'weekday': weekdays[0], 'time': time_slots[0]}
-        self.complete_task(task, responses)
-
-        task = self.create_initial_task()
-
-        responses = {'weekday': weekdays[0], 'time': time_slots[0]}
-        response = self.complete_task(task, responses)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-        responses['time'] = time_slots[1]
-        task = self.complete_task(task, responses)
-        self.assertEqual(task.responses, responses)
-
     def test_dynamic_json_schema_three_foreign(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
@@ -2586,59 +2539,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-detail', pk=self.initial_stage.id)
         self.assertEqual(response.data['external_metadata'], external_metadata)
 
-    def test_dynamic_json_schema_related_unique_fields(self):
-        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
-        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-        js_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "weekday": {
-                    "type": "string",
-                    "title": "Select Weekday",
-                    "enum": weekdays
-                },
-                "time": {
-                    "type": "string",
-                    "title": "What time",
-                    "enum": time_slots
-                }
-            }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
-        self.initial_stage.json_schema = js_schema
-        self.initial_stage.ui_schema = ui_schema
-        self.initial_stage.save()
-
-        dynamic_fields_json = {
-            "main": "weekday",
-            "foreign": ['time'],
-            "count": 1
-        }
-        dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
-            dynamic_fields=dynamic_fields_json
-        )
-
-        for t in time_slots:
-            task = self.create_initial_task()
-            responses = {'weekday': weekdays[0], 'time': t}
-            self.complete_task(task, responses)
-
-        task = self.create_initial_task()
-
-        responses = {'weekday': weekdays[0]}
-        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses)})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
-        updated_schema['properties']['time']['enum'] = []
-        self.assertEqual(response.data['schema'], updated_schema)
-
-        responses = {'weekday': weekdays[1]}
-        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id, params={'responses': json.dumps(responses)})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
-        self.assertEqual(response.data['schema'], updated_schema)
-
     def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
@@ -2774,7 +2674,7 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(new_task.assignee, CustomUser.objects.get(email='employee@email.com'))
 
-    def test_assign_by_previous_manual_user_with_rank_of_campaign(self):
+    def test_assign_by_previous_manual_conditional_previous(self):
         js_schema = {
                 "type": "object",
                 "properties": {
