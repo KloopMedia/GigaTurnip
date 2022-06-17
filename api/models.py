@@ -1339,6 +1339,8 @@ class PreviousManual(BaseDatesModel):
         help_text='Point to find previous task stage'
     )
 
+    def __str__(self):
+        return f'ID {self.id}; {self.field.split()[-1]}'
 
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
