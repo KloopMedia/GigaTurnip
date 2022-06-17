@@ -10,7 +10,7 @@ from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson
+    DynamicJson, PreviousManual
 from jsonschema import validate
 
 class GigaTurnipTest(APITestCase):
@@ -2686,3 +2686,91 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses)
         self.assertEqual(task.responses, responses)
 
+
+    def test_assign_by_previous_manual_user_without_rank(self):
+        js_schema = {
+                "type": "object",
+                "properties": {
+                    "email_field": {
+                        "type": "string",
+                        "title": "email to assign",
+                    }
+                }
+            }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        second_stage_schema = {
+                "type": "object",
+                "properties": {
+                    "foo": {
+                        "type": "string",
+                        "title": "what is ur name",
+                    }
+                }
+            }
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second stage',
+                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                json_schema=json.dumps(second_stage_schema)
+            )
+        )
+
+        PreviousManual.objects.create(
+            field="email_field",
+            task_stage=second_stage
+        )
+
+        responses = {"email_field": "employee@email.com"}
+        task = self.create_initial_task()
+        bad_response = self.complete_task(task, responses)
+
+        self.assertEqual(bad_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(bad_response.data['message'], 'User is not in the campaign.')
+
+    def test_assign_by_previous_manual_user_with_rank_of_campaign(self):
+        js_schema = {
+                "type": "object",
+                "properties": {
+                    "email_field": {
+                        "type": "string",
+                        "title": "email to assign",
+                    }
+                }
+            }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        second_stage_schema = {
+                "type": "object",
+                "properties": {
+                    "foo": {
+                        "type": "string",
+                        "title": "what is ur name",
+                    }
+                }
+            }
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second stage',
+                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                json_schema=json.dumps(second_stage_schema)
+            )
+        )
+
+        PreviousManual.objects.create(
+            field="email_field",
+            task_stage=second_stage
+        )
+
+        campaign_rank = RankLimit.objects.filter(stage__chain__campaign_id=self.campaign)[0].rank
+        self.employee.ranks.add(campaign_rank)
+
+        responses = {"email_field": "employee@email.com"}
+        task = self.create_initial_task()
+        task = self.complete_task(task, responses)
+
+        new_task = Task.objects.get(stage=second_stage, case=task.case)
+
+        self.assertEqual(new_task.assignee, CustomUser.objects.get(email='employee@email.com'))

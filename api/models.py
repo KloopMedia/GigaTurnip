@@ -258,10 +258,12 @@ class TaskStage(Stage, SchemaProvider):
     STAGE = 'ST'
     INTEGRATOR = 'IN'
     AUTO_COMPLETE = 'AU'
+    PREVIOUS_MANUAL = 'PA'
     ASSIGN_BY_CHOICES = [
         (RANK, 'Rank'),
         (STAGE, 'Stage'),
-        (AUTO_COMPLETE, 'Auto-complete')
+        (AUTO_COMPLETE, 'Auto-complete'),
+        (PREVIOUS_MANUAL, 'Previous manual')
     ]
     assign_user_by = models.CharField(
         max_length=2,
@@ -337,6 +339,11 @@ class TaskStage(Stage, SchemaProvider):
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
+        return None
+
+    def get_previous_manual(self):
+        if hasattr(self, 'previous_manual'):
+            return self.previous_manual
         return None
 
     def get_webhook(self):
@@ -1314,6 +1321,24 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         return f"Completion: {self.task_stage_completion.id} " \
                f"Verified: {self.task_stage_verified.id} " \
                f"Rank: {self.rank.id}"
+
+
+class PreviousManual(BaseDatesModel):
+    field = models.CharField(
+        null=False,
+        blank=False,
+        max_length=200,
+        help_text='Field from previous Task Stage where placed email or id of user to assign'
+    )
+    is_id = models.BooleanField(default=False,
+                               help_text='If True, user have to pass id. Otherwise, use have to pass email')
+    task_stage = models.OneToOneField(
+        TaskStage,
+        related_name='previous_manual',
+        on_delete=models.CASCADE,
+        help_text='Point to find previous task stage'
+    )
+
 
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
