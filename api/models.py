@@ -270,10 +270,14 @@ class TaskStage(Stage, SchemaProvider):
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
         default=RANK,
-        help_text='User assignment method.'
+        help_text='User assignment method.\n'
                   'Rank means that all task assignments will be based on ranks. If the user has this rank.\n'
                   'Stage means that created task will be assign automatically based on assign_user_from_stage. '
-                  'So you must pass assign_user_from_stage if you choose assign_user_by',
+                  'So you must pass assign_user_from_stage if you choose assign_user_by.\n'
+                  'Auto-complete means that this task will complete automatically without any condition.\n'
+                  'Previous manual means that task will assign manually by user. '
+                  'For this feature You must create new instance in '
+                  'Previous Manual model and pass this stage in field task_stage_to_assign.',
     )
 
     assign_user_from_stage = models.ForeignKey(
