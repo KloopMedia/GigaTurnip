@@ -8,8 +8,7 @@ from django.http import HttpResponseBadRequest
 
 from api.api_exceptions import CustomApiException
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit
-from api.utils import find_user, value_from_json
-from django.core.exceptions import BadRequest, SuspiciousOperation
+from api.utils import find_user, value_from_json, reopen_task
 
 
 def process_completed_task(task):
@@ -159,7 +158,7 @@ def create_new_task(stage, in_task):
             new_task.save()
             process_completed_task(new_task)
         if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
-            new_task = assign_by_previous_manual(stage, new_task, in_task)
+            assign_by_previous_manual(stage, new_task, in_task)
 
 
 def process_conditional(stage, in_task):
@@ -231,29 +230,24 @@ def evaluate_conditional_stage(stage, task):
 
 def assign_by_previous_manual(stage, new_task, in_task):
     previous_manual = stage.get_previous_manual()
-    value = value_from_json(previous_manual.field.split(' '), in_task.responses)
+    value = value_from_json(previous_manual.field, in_task.responses)
     if previous_manual.is_id:
         user = find_user(id=int(value))
     else:
         user = find_user(email=value)
 
     if not user:
+        reopen_task(in_task)
         new_task.delete()
         raise CustomApiException(400, f"User {value} doesn't exist")
 
     if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
+        reopen_task(in_task)
         new_task.delete()
         raise CustomApiException(400, f"User is not in the campaign.")
 
-    if user:
-        new_task.assignee = user
-        new_task.save()
-    else:
-        in_task.complete = False
-        in_task.reopened = True
-        in_task.save()
-
-        new_task.delete()
+    new_task.assignee = user
+    new_task.save()
 
 
 def get_value_from_dotted(dotted_path, source_dict):

@@ -268,3 +268,9 @@ def value_from_json(path, js):
         return value_from_json(path[1:], js.get(path[1:], js.get(path[0])))
     else:
         return js.get(path[0])
+
+
+def reopen_task(task):
+    task.complete = False
+    task.reopened = True
+    task.save()
