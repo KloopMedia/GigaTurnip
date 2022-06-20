@@ -4,7 +4,12 @@ import requests
 from django.db.models import Q, F, Count
 import math
 
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
+from django.http import HttpResponseBadRequest
+
+from api.api_exceptions import CustomApiException
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit
+from api.utils import find_user, value_from_json
+from django.core.exceptions import BadRequest, SuspiciousOperation
 
 
 def process_completed_task(task):
@@ -131,7 +136,7 @@ def create_new_task(stage, in_task):
             integrator_task.in_tasks.add(in_task)
             integrator_task.save()
     else:
-        if stage.assign_user_by == "ST":
+        if stage.assign_user_by == TaskStage.STAGE:
             if stage.assign_user_from_stage is not None:
                 assignee_task = Task.objects \
                     .filter(stage=stage.assign_user_from_stage) \
@@ -147,12 +152,14 @@ def create_new_task(stage, in_task):
         for copy_field in stage.copy_fields.all():
             new_task.responses = copy_field.copy_response(new_task)
         new_task.save()
-        if stage.assign_user_by == "IN":
+        if stage.assign_user_by == TaskStage.INTEGRATOR:
             process_completed_task(new_task)
-        if stage.assign_user_by == "AU":
+        if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
             new_task.complete = True
             new_task.save()
             process_completed_task(new_task)
+        if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
+            new_task = assign_by_previous_manual(stage, new_task, in_task)
 
 
 def process_conditional(stage, in_task):
@@ -220,6 +227,33 @@ def evaluate_conditional_stage(stage, task):
             results.append(control_value not in actual_value)
 
     return all(results)
+
+
+def assign_by_previous_manual(stage, new_task, in_task):
+    previous_manual = stage.get_previous_manual()
+    value = value_from_json(previous_manual.field.split(' '), in_task.responses)
+    if previous_manual.is_id:
+        user = find_user(id=int(value))
+    else:
+        user = find_user(email=value)
+
+    if not user:
+        new_task.delete()
+        raise CustomApiException(400, f"User {value} doesn't exist")
+
+    if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
+        new_task.delete()
+        raise CustomApiException(400, f"User is not in the campaign.")
+
+    if user:
+        new_task.assignee = user
+        new_task.save()
+    else:
+        in_task.complete = False
+        in_task.reopened = True
+        in_task.save()
+
+        new_task.delete()
 
 
 def get_value_from_dotted(dotted_path, source_dict):
@@ -320,8 +354,8 @@ def remove_answers_in_turn(schema, fields, responses):
         field = fields.pop(0)
         if field not in responses.keys():
             for i in fields:
-                schema['properties'][i]['enum'] = []
-                if schema['properties'][i].get('enumNames'):
-                    schema['properties'][i]['enumNames'] = []
+                del schema['properties'][i]
+                # if schema['properties'][i].get('enumNames'):
+                #     schema['properties'][i]['enumNames'] = []
             return schema
     return schema
