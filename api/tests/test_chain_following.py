@@ -2617,7 +2617,7 @@ class GigaTurnipTest(APITestCase):
         )
 
         PreviousManual.objects.create(
-            field="email_field",
+            field=["email_field"],
             task_stage=second_stage
         )
 
@@ -2659,7 +2659,7 @@ class GigaTurnipTest(APITestCase):
         )
 
         PreviousManual.objects.create(
-            field="email_field",
+            field=["email_field"],
             task_stage=second_stage
         )
 
@@ -2674,7 +2674,7 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(new_task.assignee, CustomUser.objects.get(email='employee@email.com'))
 
-    def test_assign_by_previous_manual_conditional_previous(self):
+    def test_assign_by_previous_manual_conditional_previous_happy(self):
         js_schema = {
                 "type": "object",
                 "properties": {
@@ -2712,7 +2712,7 @@ class GigaTurnipTest(APITestCase):
         )
 
         PreviousManual.objects.create(
-            field="email_field",
+            field=["email_field"],
             task_stage=final_stage
         )
 
@@ -2725,3 +2725,109 @@ class GigaTurnipTest(APITestCase):
         new_task = Task.objects.get(stage=final_stage, case=task.case)
 
         self.assertEqual(new_task.assignee, CustomUser.objects.get(email='employee@email.com'))
+
+    def test_assign_by_previous_manual_conditional_previous_wrong_no_rank(self):
+        js_schema = {
+                "type": "object",
+                "properties": {
+                    "email_field": {
+                        "type": "string",
+                        "title": "email to assign",
+                    },
+                    'foo':{
+                        "type": "string",
+                    }
+                }
+            }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        conditional_stage = self.initial_stage.add_stage(ConditionalStage(
+            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+        ))
+
+        final_stage_schema = {
+                "type": "object",
+                "properties": {
+                    "foo": {
+                        "type": "string",
+                        "title": "what is ur name",
+                    }
+                }
+            }
+        final_stage = conditional_stage.add_stage(
+            TaskStage(
+                name='Final stage',
+                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                json_schema=json.dumps(final_stage_schema)
+            )
+        )
+
+        PreviousManual.objects.create(
+            field=["email_field"],
+            task_stage=final_stage
+        )
+
+        responses = {"email_field": "employee@email.com", "foo": "boo"}
+        task = self.create_initial_task()
+        bad_response = self.complete_task(task, responses)
+
+        task = Task.objects.get(id=task.id)
+
+        self.assertEqual(bad_response.data['message'], 'User is not in the campaign.')
+        self.assertTrue(task.reopened)
+        self.assertFalse(task.complete)
+        self.assertEqual(Task.objects.count(), 1)
+
+    def test_assign_by_previous_manual_conditional_previous_wrong_user_does_not_exist(self):
+        js_schema = {
+                "type": "object",
+                "properties": {
+                    "email_field": {
+                        "type": "string",
+                        "title": "email to assign",
+                    },
+                    'foo':{
+                        "type": "string",
+                    }
+                }
+            }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        conditional_stage = self.initial_stage.add_stage(ConditionalStage(
+            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+        ))
+
+        final_stage_schema = {
+                "type": "object",
+                "properties": {
+                    "foo": {
+                        "type": "string",
+                        "title": "what is ur name",
+                    }
+                }
+            }
+        final_stage = conditional_stage.add_stage(
+            TaskStage(
+                name='Final stage',
+                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                json_schema=json.dumps(final_stage_schema)
+            )
+        )
+
+        PreviousManual.objects.create(
+            field=["email_field"],
+            task_stage=final_stage
+        )
+
+        responses = {"email_field": "employe@email.com", "foo": "boo"}
+        task = self.create_initial_task()
+        bad_response = self.complete_task(task, responses)
+
+        task = Task.objects.get(id=task.id)
+
+        self.assertEqual(bad_response.data['message'], 'User employe@email.com doesn\'t exist')
+        self.assertTrue(task.reopened)
+        self.assertFalse(task.complete)
+        self.assertEqual(Task.objects.count(), 1)
