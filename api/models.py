@@ -6,6 +6,7 @@ from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
+from django.contrib.postgres.fields import ArrayField
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
@@ -1324,11 +1325,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
 
 
 class PreviousManual(BaseDatesModel):
-    field = models.CharField(
-        null=False,
+    field = ArrayField(
+        models.CharField(max_length=250),
         blank=False,
-        max_length=200,
-        help_text='Field from previous Task Stage where placed email or id of user to assign'
+        null=False
     )
     is_id = models.BooleanField(default=False,
                                help_text='If True, user have to pass id. Otherwise, use have to pass email')
@@ -1340,7 +1340,7 @@ class PreviousManual(BaseDatesModel):
     )
 
     def __str__(self):
-        return f'ID {self.id}; {self.field.split()[-1]}'
+        return f'ID {self.id}; {self.field[-1]}'
 
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
