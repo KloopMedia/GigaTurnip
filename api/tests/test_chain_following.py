@@ -2659,8 +2659,8 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects("case-info-by-case", pk=task.case.id)
         maps_info = [
-            {'stage': 1, 'stage__name': 'Initial', 'complete': 1, 'force_complete': 0},
-            {'stage': 2, 'stage__name': 'Second Task Stage', 'complete': 0, 'force_complete': 0}
+            {'stage': self.initial_stage.id, 'stage__name': self.initial_stage.name, 'complete': 1, 'force_complete': 0},
+            {'stage': second_stage.id, 'stage__name': second_stage.name, 'complete': 0, 'force_complete': 0}
         ]
 
         self.assertEqual(status.HTTP_200_OK, response.data['status'])

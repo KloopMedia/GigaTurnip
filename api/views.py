@@ -304,6 +304,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             "info": task_info_by_stage
         })
 
+
 class ResponsesFilter(filters.SearchFilter):
     search_param = "task_responses"
     template = 'rest_framework/filters/search.html'
