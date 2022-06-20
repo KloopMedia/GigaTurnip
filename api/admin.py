@@ -266,6 +266,15 @@ class IntegrationAdmin(admin.ModelAdmin):
         return filter_by_admin_preference(queryset, request, "task_stage__chain__")
 
 
+class WebhookAdmin(admin.ModelAdmin):
+    search_fields = ('task_stage', 'url', )
+    autocomplete_fields = ('task_stage', )
+
+    def get_queryset(self, request):
+        queryset = super(WebhookAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, 'task_stage__chain__')
+
+
 class CaseAdmin(admin.ModelAdmin):
     list_filter = (DuplicateTasksCaseFilter,)
     search_fields = ('pk',)
@@ -544,14 +553,11 @@ class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
     list_display = ('task_stage', 'webhook', 'id', 'created_at', 'updated_at', )
     search_fields = ('task_stage', 'webhook', )
-    autocomplete_fields = ('task_stage', )
+    autocomplete_fields = ('task_stage', 'webhook', )
 
     def get_queryset(self, request):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
-        return queryset \
-            .filter(
-            task_stage__chain__campaign__campaign_managements__user=request.user
-        )
+        return queryset.filter_by_admin_preference(queryset, request, 'task_stage__chain__')
 
 
 class PreviousManualAdmin(admin.ModelAdmin):
@@ -566,7 +572,7 @@ admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
-admin.site.register(Webhook, IntegrationAdmin)
+admin.site.register(Webhook, WebhookAdmin)
 admin.site.register(DynamicJson, DynamicJsonAdmin)
 admin.site.register(StagePublisher, IntegrationAdmin)
 admin.site.register(CopyField, CopyFieldAdmin)

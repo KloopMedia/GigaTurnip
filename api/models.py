@@ -580,7 +580,9 @@ class Webhook(BaseDatesModel):
             "webhook_address field is empty."
         )
     )
+
     is_triggered = models.BooleanField(
+        blank=False,
         default=True,
         help_text="Sometimes there are cases when a webhook is used by a non-taskstage "
                   "and then we need to mark it accordingly"

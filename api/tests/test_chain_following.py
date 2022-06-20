@@ -2565,6 +2565,7 @@ class GigaTurnipTest(APITestCase):
         webhook = Webhook.objects.create(
             task_stage=self.initial_stage,
             url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/test_function',
+            is_triggered=False
         )
 
         dynamic_json = DynamicJson.objects.create(
