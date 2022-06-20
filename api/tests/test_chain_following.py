@@ -10,7 +10,7 @@ from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual
+    DynamicJson, PreviousManual, Webhook
 from jsonschema import validate
 
 class GigaTurnipTest(APITestCase):
@@ -2539,6 +2539,46 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-detail', pk=self.initial_stage.id)
         self.assertEqual(response.data['external_metadata'], external_metadata)
 
+    def test_dynamic_json_schema_webhook(self):
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": ['mon', 'tue', 'wed', 'thu', 'fri']
+                }
+            }
+        })
+
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 1
+        }
+
+        webhook = Webhook.objects.create(
+            task_stage=self.initial_stage,
+            url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/test_function',
+            is_triggered=False
+        )
+
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json,
+            webhook=webhook
+        )
+        task = self.create_initial_task()
+
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
+        self.assertEqual(response.data['schema'], self.initial_stage.json_schema)
+
+
     def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
@@ -2585,6 +2625,75 @@ class GigaTurnipTest(APITestCase):
         responses['time'] = time_slots[1]
         task = self.complete_task(task, responses)
         self.assertEqual(task.responses, responses)
+
+    def test_case_info_for_map(self):
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": ["mon", "tue", "wed", "thu", "fri"]
+                },
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": ["10:00", "11:00", "12:00", "13:00", "14:00"]
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(json_schema)
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second Task Stage',
+                json_schema=self.initial_stage.json_schema,
+                assign_user_by='ST',
+                assign_user_from_stage=self.initial_stage,
+            )
+        )
+
+        responses = {"weekday": "mon", "time": "10:00"}
+        task = self.create_initial_task()
+        self.complete_task(task, responses)
+
+        response = self.get_objects("case-info-by-case", pk=task.case.id)
+        maps_info = [
+            {'stage': self.initial_stage.id, 'stage__name': self.initial_stage.name, 'complete': 1, 'force_complete': 0},
+            {'stage': second_stage.id, 'stage__name': second_stage.name, 'complete': 0, 'force_complete': 0}
+        ]
+
+        self.assertEqual(status.HTTP_200_OK, response.data['status'])
+        for i in maps_info:
+            self.assertIn(i, response.data['info'])
+
+    def test_chain_get_graph(self):
+        self.user.managed_campaigns.add(self.campaign)
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second Task Stage',
+                assign_user_by='ST',
+                assign_user_from_stage=self.initial_stage,
+            )
+        )
+        cond_stage = second_stage.add_stage(
+            ConditionalStage(
+                name="MyCondStage",
+                conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            )
+        )
+
+        info_about_graph = [
+            {'pk': self.initial_stage.id, 'name': self.initial_stage.name, 'in_stages': [None],
+             'out_stages': [second_stage.id]},
+            {'pk': second_stage.id, 'name': second_stage.name, 'in_stages': [self.initial_stage.id],
+             'out_stages': [cond_stage.id]},
+            {'pk': cond_stage.id, 'name': cond_stage.name, 'in_stages': [second_stage.id], 'out_stages': [None]}
+        ]
+
+        response = self.get_objects("chain-get-graph", pk=self.chain.id)
+        self.assertEqual(len(response.data), 3)
+        for i in info_about_graph:
+            self.assertIn(i, response.data)
 
     def test_assign_by_previous_manual_user_without_rank(self):
         js_schema = {

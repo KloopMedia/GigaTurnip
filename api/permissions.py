@@ -94,6 +94,15 @@ class ManagersOnlyAccessPolicy(AccessPolicy):
 
 
 class ChainAccessPolicy(ManagersOnlyAccessPolicy):
+
+    def __init__(self):
+        self.statements += [{
+            "action": ["get_graph"],
+            "principal": "authenticated",
+            "effect": "allow"
+
+        }]
+
     @classmethod
     def scope_queryset(cls, request, queryset):
         return queryset.filter(
