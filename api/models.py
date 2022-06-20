@@ -580,6 +580,11 @@ class Webhook(BaseDatesModel):
             "webhook_address field is empty."
         )
     )
+    is_triggered = models.BooleanField(
+        default=True,
+        help_text="Sometimes there are cases when a webhook is used by a non-taskstage "
+                  "and then we need to mark it accordingly"
+    )
 
     def trigger(self, task):
         data = []
@@ -599,6 +604,10 @@ class Webhook(BaseDatesModel):
                 return False, task, response, "JSONDecodeError"
 
         return False, task, response, "See response status code"
+
+    def post(self, data):
+        response = requests.post(self.url, json=data, headers=self.headers)
+        return response
 
 
 class CopyField(BaseDatesModel):
@@ -1566,17 +1575,11 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
             "Get top level fields with dynamic answers"
         )
     )
-    webhook_address = models.URLField(
+    webhook = models.ForeignKey(
+        Webhook,
+        on_delete=models.CASCADE,
         null=True,
-        blank=True,
-        max_length=1000,
-        help_text=(
-            "Webhook URL address. If not empty, field indicates that "
-            "task should be given not to a user in the system, but to a "
-            "webhook. Only data from task directly preceding webhook is "
-            "sent. All fields related to user assignment are ignored,"
-            "if this field is not empty."
-        )
+        help_text='Webhook using for updating schema answers'
     )# todo форму и поля отправляю
 
     class Meta:

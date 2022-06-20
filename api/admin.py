@@ -542,8 +542,8 @@ class CampaignManagementAdmin(admin.ModelAdmin):
 
 class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
-    list_display = ('task_stage', 'webhook_address', 'id', 'created_at', 'updated_at', )
-    search_fields = ('task_stage', 'webhook_address', )
+    list_display = ('task_stage', 'webhook', 'id', 'created_at', 'updated_at', )
+    search_fields = ('task_stage', 'webhook', )
     autocomplete_fields = ('task_stage', )
 
     def get_queryset(self, request):
@@ -552,6 +552,7 @@ class DynamicJsonAdmin(admin.ModelAdmin):
             .filter(
             task_stage__chain__campaign__campaign_managements__user=request.user
         )
+
 
 class PreviousManualAdmin(admin.ModelAdmin):
     model = PreviousManual
