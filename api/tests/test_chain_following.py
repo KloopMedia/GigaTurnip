@@ -10,7 +10,7 @@ from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual
+    DynamicJson, PreviousManual, Webhook
 from jsonschema import validate
 
 class GigaTurnipTest(APITestCase):
@@ -2538,6 +2538,47 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
         response = self.get_objects('taskstage-detail', pk=self.initial_stage.id)
         self.assertEqual(response.data['external_metadata'], external_metadata)
+
+    def test_dynamic_json_schema_webhook(self):
+        js_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": ['mon', 'tue', 'wed', 'thu', 'fri']
+                }
+            }
+        })
+
+        ui_schema = json.dumps({"ui:order": ["time"]})
+        self.initial_stage.json_schema = js_schema
+        self.initial_stage.ui_schema = ui_schema
+        self.initial_stage.save()
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 1
+        }
+
+        webhook = Webhook.objects.create(
+            task_stage=self.initial_stage,
+            url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/test_function',
+            is_triggered=False
+        )
+
+        dynamic_json = DynamicJson.objects.create(
+            task_stage=self.initial_stage,
+            dynamic_fields=dynamic_fields_json,
+            webhook=webhook
+        )
+        task = self.create_initial_task()
+
+        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
+        print(response.data)
+        self.assertEqual(response.data['schema'], self.initial_stage.json_schema)
+
 
     def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']

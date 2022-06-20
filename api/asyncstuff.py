@@ -2,6 +2,7 @@ import json
 
 import requests
 from django.db.models import Q, F, Count
+from rest_framework import status
 import math
 
 from django.http import HttpResponseBadRequest
@@ -146,7 +147,7 @@ def create_new_task(stage, in_task):
         if stage.copy_input:
             new_task.responses = in_task.responses
         webhook = stage.get_webhook()
-        if webhook:
+        if webhook and webhook.is_triggered:
             webhook.trigger(new_task)
         for copy_field in stage.copy_fields.all():
             new_task.responses = copy_field.copy_response(new_task)
@@ -278,7 +279,10 @@ def process_updating_schema_answers(task_stage, responses={}):
     dynamic_properties = task_stage.dynamic_jsons.all()
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
-            schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+            if not dynamic_json.webhook:
+                schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+            else:
+                schema = update_schema_dynamic_answers_webhook(dynamic_json, schema)
         return schema
     else:
         return schema
@@ -332,6 +336,16 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
     schema = remove_answers_in_turn(schema, all_fields, responses)
     return schema
+
+
+def update_schema_dynamic_answers_webhook(dynamic_json, schema):
+    response = dynamic_json.webhook.post({"schema": json.dumps(schema)})
+    response_text = json.loads(response.text)
+    if response_text.get('status') == status.HTTP_200_OK:
+        return response_text.get('schema')
+    else:
+        raise CustomApiException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Exception on the webhook side')
+
 
 
 def remove_unavailable_enums_from_answers(schema, to_delete):
