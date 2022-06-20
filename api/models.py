@@ -270,7 +270,10 @@ class TaskStage(Stage, SchemaProvider):
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
         default=RANK,
-        help_text="User assignment method (by 'Stage' or by 'Rank')"
+        help_text='User assignment method.'
+                  'Rank means that all task assignments will be based on ranks. If the user has this rank.\n'
+                  'Stage means that created task will be assign automatically based on assign_user_from_stage. '
+                  'So you must pass assign_user_from_stage if you choose assign_user_by',
     )
 
     assign_user_from_stage = models.ForeignKey(
@@ -485,6 +488,7 @@ class TaskStage(Stage, SchemaProvider):
                 self.make_1d_arr(i, end_arr)
             else:
                 end_arr.append(i)
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -1569,7 +1573,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
             "sent. All fields related to user assignment are ignored,"
             "if this field is not empty."
         )
-    )
+    )# todo форму и поля отправляю
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]
