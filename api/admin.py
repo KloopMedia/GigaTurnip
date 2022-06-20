@@ -555,8 +555,8 @@ class DynamicJsonAdmin(admin.ModelAdmin):
 
 class PreviousManualAdmin(admin.ModelAdmin):
     model = PreviousManual
-    list_display = ('__str__', 'task_stage', 'is_id', 'created_at', 'updated_at', )
-    autocomplete_fields = ('task_stage',)
+    list_display = ('__str__', 'task_stage_to_assign', 'task_stage_email', 'is_id', 'created_at', 'updated_at', )
+    autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)

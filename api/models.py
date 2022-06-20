@@ -342,9 +342,9 @@ class TaskStage(Stage, SchemaProvider):
             return self.integration
         return None
 
-    def get_previous_manual(self):
-        if hasattr(self, 'previous_manual'):
-            return self.previous_manual
+    def get_previous_manual_to_assign(self):
+        if hasattr(self, 'previous_manual_to_assign'):
+            return self.previous_manual_to_assign
         return None
 
     def get_webhook(self):
@@ -1332,9 +1332,14 @@ class PreviousManual(BaseDatesModel):
     )
     is_id = models.BooleanField(default=False,
                                help_text='If True, user have to pass id. Otherwise, use have to pass email')
-    task_stage = models.OneToOneField(
+    task_stage_to_assign = models.OneToOneField(
         TaskStage,
-        related_name='previous_manual',
+        related_name='previous_manual_to_assign',
+        on_delete=models.CASCADE,
+        help_text='Point to find previous task stage'
+    )
+    task_stage_email = models.OneToOneField(
+        TaskStage,
         on_delete=models.CASCADE,
         help_text='Point to find previous task stage'
     )
