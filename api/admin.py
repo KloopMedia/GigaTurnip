@@ -9,7 +9,7 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -266,6 +266,15 @@ class IntegrationAdmin(admin.ModelAdmin):
         return filter_by_admin_preference(queryset, request, "task_stage__chain__")
 
 
+class WebhookAdmin(admin.ModelAdmin):
+    search_fields = ('task_stage', 'url', )
+    autocomplete_fields = ('task_stage', )
+
+    def get_queryset(self, request):
+        queryset = super(WebhookAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, 'task_stage__chain__')
+
+
 class CaseAdmin(admin.ModelAdmin):
     list_filter = (DuplicateTasksCaseFilter,)
     search_fields = ('pk',)
@@ -481,7 +490,7 @@ class ResponseFlattenerAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super(ResponseFlattenerAdmin, self).get_queryset(request)
-        return queryset.filter(task_stage__chain__campaign__campaign_managements__user=request.user)
+        return queryset.filter_by_admin_preference(queryset, request, 'task_stage__chain__')
 
 # class AdminPreferenceForm(forms.ModelForm):
 #     def clean(self):
@@ -542,16 +551,19 @@ class CampaignManagementAdmin(admin.ModelAdmin):
 
 class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
-    list_display = ('task_stage', 'webhook_address', 'id', 'created_at', 'updated_at', )
-    search_fields = ('task_stage', 'webhook_address', )
-    autocomplete_fields = ('task_stage', )
+    list_display = ('task_stage', 'webhook', 'id', 'created_at', 'updated_at', )
+    search_fields = ('task_stage', 'webhook', )
+    autocomplete_fields = ('task_stage', 'webhook', )
 
     def get_queryset(self, request):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
-        return queryset \
-            .filter(
-            task_stage__chain__campaign__campaign_managements__user=request.user
-        )
+        return queryset.filter_by_admin_preference(queryset, request, 'task_stage__chain__')
+
+
+class PreviousManualAdmin(admin.ModelAdmin):
+    model = PreviousManual
+    list_display = ('__str__', 'task_stage_to_assign', 'task_stage_email', 'is_id', 'created_at', 'updated_at', )
+    autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
@@ -560,7 +572,7 @@ admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
-admin.site.register(Webhook, IntegrationAdmin)
+admin.site.register(Webhook, WebhookAdmin)
 admin.site.register(DynamicJson, DynamicJsonAdmin)
 admin.site.register(StagePublisher, IntegrationAdmin)
 admin.site.register(CopyField, CopyFieldAdmin)
@@ -573,6 +585,7 @@ admin.site.register(RankRecord, RankRecordAdmin)
 admin.site.register(ResponseFlattener, ResponseFlattenerAdmin)
 admin.site.register(CampaignManagement, CampaignManagementAdmin)
 admin.site.register(TaskAward, TaskAwardAdmin)
+admin.site.register(PreviousManual, PreviousManualAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)

@@ -2,9 +2,14 @@ import json
 
 import requests
 from django.db.models import Q, F, Count
+from rest_framework import status
 import math
 
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward
+from django.http import HttpResponseBadRequest
+
+from api.api_exceptions import CustomApiException
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit
+from api.utils import find_user, value_from_json, reopen_task
 
 
 def process_completed_task(task):
@@ -131,7 +136,7 @@ def create_new_task(stage, in_task):
             integrator_task.in_tasks.add(in_task)
             integrator_task.save()
     else:
-        if stage.assign_user_by == "ST":
+        if stage.assign_user_by == TaskStage.STAGE:
             if stage.assign_user_from_stage is not None:
                 assignee_task = Task.objects \
                     .filter(stage=stage.assign_user_from_stage) \
@@ -142,17 +147,19 @@ def create_new_task(stage, in_task):
         if stage.copy_input:
             new_task.responses = in_task.responses
         webhook = stage.get_webhook()
-        if webhook:
+        if webhook and webhook.is_triggered:
             webhook.trigger(new_task)
         for copy_field in stage.copy_fields.all():
             new_task.responses = copy_field.copy_response(new_task)
         new_task.save()
-        if stage.assign_user_by == "IN":
+        if stage.assign_user_by == TaskStage.INTEGRATOR:
             process_completed_task(new_task)
-        if stage.assign_user_by == "AU":
+        if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
             new_task.complete = True
             new_task.save()
             process_completed_task(new_task)
+        if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
+            assign_by_previous_manual(stage, new_task, in_task)
 
 
 def process_conditional(stage, in_task):
@@ -222,6 +229,31 @@ def evaluate_conditional_stage(stage, task):
     return all(results)
 
 
+def assign_by_previous_manual(stage, new_task, in_task):
+    previous_manual_to_assign = stage.get_previous_manual_to_assign()
+    task_with_email = Task.objects.filter(case=in_task.case,
+                                          stage=previous_manual_to_assign.task_stage_email
+                                          ).order_by('updated_at')[0]
+    value = value_from_json(previous_manual_to_assign.field, task_with_email.responses)
+    if previous_manual_to_assign.is_id:
+        user = find_user(id=int(value))
+    else:
+        user = find_user(email=value)
+
+    if not user:
+        reopen_task(task_with_email)
+        new_task.delete()
+        raise CustomApiException(400, f"User {value} doesn't exist")
+
+    if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
+        reopen_task(task_with_email)
+        new_task.delete()
+        raise CustomApiException(400, f"User is not in the campaign.")
+
+    new_task.assignee = user
+    new_task.save()
+
+
 def get_value_from_dotted(dotted_path, source_dict):
     """Turns dotted_path into regular dict keys and returns the value.
     """
@@ -247,7 +279,10 @@ def process_updating_schema_answers(task_stage, responses={}):
     dynamic_properties = task_stage.dynamic_jsons.all()
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
-            schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+            if not dynamic_json.webhook:
+                schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+            else:
+                schema = update_schema_dynamic_answers_webhook(dynamic_json, schema)
         return schema
     else:
         return schema
@@ -301,6 +336,16 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
     schema = remove_answers_in_turn(schema, all_fields, responses)
     return schema
+
+
+def update_schema_dynamic_answers_webhook(dynamic_json, schema):
+    response = dynamic_json.webhook.post({"schema": json.dumps(schema)})
+    response_text = json.loads(response.text)
+    if response_text.get('status') == status.HTTP_200_OK:
+        return response_text.get('schema')
+    else:
+        raise CustomApiException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Exception on the webhook side')
+
 
 
 def remove_unavailable_enums_from_answers(schema, to_delete):

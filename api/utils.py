@@ -5,7 +5,8 @@ from json import JSONDecodeError
 from django.db.models import QuerySet, Count, Q
 from rest_framework.response import Response
 
-from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference
+from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference, \
+    CustomUser
 from django.contrib import messages
 from django.utils.translation import ngettext
 from datetime import datetime
@@ -244,3 +245,32 @@ def all_uncompleted_tasks(tasks):
         complete=False,
         force_complete=False
     )
+
+
+def find_user(id=None, email=None):
+    if email:
+        filter_to_find = {"email": email}
+    if id:
+        filter_to_find = {"id": id}
+    elif not id and not email:
+        return None
+
+    try:
+        user = CustomUser.objects.get(**filter_to_find)
+    except CustomUser.DoesNotExist:
+        user = None
+
+    return user
+
+
+def value_from_json(path, js):
+    if len(path) >= 2:
+        return value_from_json(path[1:], js.get(path[1:], js.get(path[0])))
+    else:
+        return js.get(path[0])
+
+
+def reopen_task(task):
+    task.complete = False
+    task.reopened = True
+    task.save()

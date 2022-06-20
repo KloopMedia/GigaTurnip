@@ -6,6 +6,7 @@ from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
+from django.contrib.postgres.fields import ArrayField
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
@@ -258,16 +259,25 @@ class TaskStage(Stage, SchemaProvider):
     STAGE = 'ST'
     INTEGRATOR = 'IN'
     AUTO_COMPLETE = 'AU'
+    PREVIOUS_MANUAL = 'PA'
     ASSIGN_BY_CHOICES = [
         (RANK, 'Rank'),
         (STAGE, 'Stage'),
-        (AUTO_COMPLETE, 'Auto-complete')
+        (AUTO_COMPLETE, 'Auto-complete'),
+        (PREVIOUS_MANUAL, 'Previous manual')
     ]
     assign_user_by = models.CharField(
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
         default=RANK,
-        help_text="User assignment method (by 'Stage' or by 'Rank')"
+        help_text='User assignment method.\n'
+                  'Rank means that all task assignments will be based on ranks. If the user has this rank.\n'
+                  'Stage means that created task will be assign automatically based on assign_user_from_stage. '
+                  'So you must pass assign_user_from_stage if you choose assign_user_by.\n'
+                  'Auto-complete means that this task will complete automatically without any condition.\n'
+                  'Previous manual means that task will assign manually by user. '
+                  'For this feature You must create new instance in '
+                  'Previous Manual model and pass this stage in field task_stage_to_assign.',
     )
 
     assign_user_from_stage = models.ForeignKey(
@@ -337,6 +347,11 @@ class TaskStage(Stage, SchemaProvider):
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
+        return None
+
+    def get_previous_manual_to_assign(self):
+        if hasattr(self, 'previous_manual_to_assign'):
+            return self.previous_manual_to_assign
         return None
 
     def get_webhook(self):
@@ -478,6 +493,7 @@ class TaskStage(Stage, SchemaProvider):
             else:
                 end_arr.append(i)
 
+
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
         TaskStage,
@@ -565,6 +581,13 @@ class Webhook(BaseDatesModel):
         )
     )
 
+    is_triggered = models.BooleanField(
+        blank=False,
+        default=True,
+        help_text="Sometimes there are cases when a webhook is used by a non-taskstage "
+                  "and then we need to mark it accordingly"
+    )
+
     def trigger(self, task):
         data = []
         for in_task in task.in_tasks.all():
@@ -583,6 +606,10 @@ class Webhook(BaseDatesModel):
                 return False, task, response, "JSONDecodeError"
 
         return False, task, response, "See response status code"
+
+    def post(self, data):
+        response = requests.post(self.url, json=data, headers=self.headers)
+        return response
 
 
 class CopyField(BaseDatesModel):
@@ -1315,6 +1342,35 @@ class TaskAward(BaseDatesModel, CampaignInterface):
                f"Verified: {self.task_stage_verified.id} " \
                f"Rank: {self.rank.id}"
 
+
+class PreviousManual(BaseDatesModel):
+    field = ArrayField(
+        models.CharField(max_length=250),
+        blank=False,
+        null=False,
+        help_text='User have to enter path to the field where places users email to assign new task'
+    )
+    is_id = models.BooleanField(
+        default=False,
+        help_text='If True, user have to enter id. Otherwise, user have to enter email'
+    )
+    task_stage_to_assign = models.OneToOneField(
+        TaskStage,
+        related_name='previous_manual_to_assign',
+        on_delete=models.CASCADE,
+        help_text='This task will assign to the user. '
+                  'Also, you have to set assign_user_by as PM in this TaskStage to use manual assignment.'
+    )
+    task_stage_email = models.OneToOneField(
+        TaskStage,
+        on_delete=models.CASCADE,
+        help_text='Task stage to get email from responses to assign task'
+    )
+
+    def __str__(self):
+        return f'ID {self.id}; {self.field[-1]}'
+
+
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -1521,18 +1577,12 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
             "Get top level fields with dynamic answers"
         )
     )
-    webhook_address = models.URLField(
+    webhook = models.ForeignKey(
+        Webhook,
+        on_delete=models.CASCADE,
         null=True,
-        blank=True,
-        max_length=1000,
-        help_text=(
-            "Webhook URL address. If not empty, field indicates that "
-            "task should be given not to a user in the system, but to a "
-            "webhook. Only data from task directly preceding webhook is "
-            "sent. All fields related to user assignment are ignored,"
-            "if this field is not empty."
-        )
-    )
+        help_text='Webhook using for updating schema answers'
+    )# todo форму и поля отправляю
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]
