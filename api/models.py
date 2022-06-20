@@ -270,7 +270,14 @@ class TaskStage(Stage, SchemaProvider):
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
         default=RANK,
-        help_text="User assignment method (by 'Stage' or by 'Rank')"
+        help_text='User assignment method.\n'
+                  'Rank means that all task assignments will be based on ranks. If the user has this rank.\n'
+                  'Stage means that created task will be assign automatically based on assign_user_from_stage. '
+                  'So you must pass assign_user_from_stage if you choose assign_user_by.\n'
+                  'Auto-complete means that this task will complete automatically without any condition.\n'
+                  'Previous manual means that task will assign manually by user. '
+                  'For this feature You must create new instance in '
+                  'Previous Manual model and pass this stage in field task_stage_to_assign.',
     )
 
     assign_user_from_stage = models.ForeignKey(
@@ -485,6 +492,7 @@ class TaskStage(Stage, SchemaProvider):
                 self.make_1d_arr(i, end_arr)
             else:
                 end_arr.append(i)
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -1328,24 +1336,29 @@ class PreviousManual(BaseDatesModel):
     field = ArrayField(
         models.CharField(max_length=250),
         blank=False,
-        null=False
+        null=False,
+        help_text='User have to enter path to the field where places users email to assign new task'
     )
-    is_id = models.BooleanField(default=False,
-                               help_text='If True, user have to pass id. Otherwise, use have to pass email')
+    is_id = models.BooleanField(
+        default=False,
+        help_text='If True, user have to enter id. Otherwise, user have to enter email'
+    )
     task_stage_to_assign = models.OneToOneField(
         TaskStage,
         related_name='previous_manual_to_assign',
         on_delete=models.CASCADE,
-        help_text='Point to find previous task stage'
+        help_text='This task will assign to the user. '
+                  'Also, you have to set assign_user_by as PM in this TaskStage to use manual assignment.'
     )
     task_stage_email = models.OneToOneField(
         TaskStage,
         on_delete=models.CASCADE,
-        help_text='Point to find previous task stage'
+        help_text='Task stage to get email from responses to assign task'
     )
 
     def __str__(self):
         return f'ID {self.id}; {self.field[-1]}'
+
 
 class Log(BaseDatesModel, CampaignInterface):
     name = models.CharField(max_length=200)
@@ -1564,7 +1577,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
             "sent. All fields related to user assignment are ignored,"
             "if this field is not empty."
         )
-    )
+    )# todo форму и поля отправляю
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]
