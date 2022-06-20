@@ -2576,7 +2576,6 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
 
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
-        print(response.data)
         self.assertEqual(response.data['schema'], self.initial_stage.json_schema)
 
 
@@ -2676,10 +2675,25 @@ class GigaTurnipTest(APITestCase):
                 assign_user_from_stage=self.initial_stage,
             )
         )
+        cond_stage = second_stage.add_stage(
+            ConditionalStage(
+                name="MyCondStage",
+                conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            )
+        )
 
-        # Todo: continue developing endopint for graph
+        info_about_graph = [
+            {'pk': self.initial_stage.id, 'name': self.initial_stage.name, 'in_stages': [None],
+             'out_stages': [second_stage.id]},
+            {'pk': second_stage.id, 'name': second_stage.name, 'in_stages': [self.initial_stage.id],
+             'out_stages': [cond_stage.id]},
+            {'pk': cond_stage.id, 'name': cond_stage.name, 'in_stages': [second_stage.id], 'out_stages': [None]}
+        ]
+
         response = self.get_objects("chain-get-graph", pk=self.chain.id)
-        print(response.data)
+        self.assertEqual(len(response.data), 3)
+        for i in info_about_graph:
+            self.assertIn(i, response.data)
 
     def test_assign_by_previous_manual_user_without_rank(self):
         js_schema = {
