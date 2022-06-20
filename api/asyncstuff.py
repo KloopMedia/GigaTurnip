@@ -229,20 +229,23 @@ def evaluate_conditional_stage(stage, task):
 
 
 def assign_by_previous_manual(stage, new_task, in_task):
-    previous_manual = stage.get_previous_manual()
-    value = value_from_json(previous_manual.field, in_task.responses)
-    if previous_manual.is_id:
+    previous_manual_to_assign = stage.get_previous_manual_to_assign()
+    task_with_email = Task.objects.filter(case=in_task.case,
+                                          stage=previous_manual_to_assign.task_stage_email
+                                          ).order_by('updated_at')[0]
+    value = value_from_json(previous_manual_to_assign.field, task_with_email.responses)
+    if previous_manual_to_assign.is_id:
         user = find_user(id=int(value))
     else:
         user = find_user(email=value)
 
     if not user:
-        reopen_task(in_task)
+        reopen_task(task_with_email)
         new_task.delete()
         raise CustomApiException(400, f"User {value} doesn't exist")
 
     if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
-        reopen_task(in_task)
+        reopen_task(task_with_email)
         new_task.delete()
         raise CustomApiException(400, f"User is not in the campaign.")
 

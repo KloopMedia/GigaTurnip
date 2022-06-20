@@ -2618,7 +2618,8 @@ class GigaTurnipTest(APITestCase):
 
         PreviousManual.objects.create(
             field=["email_field"],
-            task_stage=second_stage
+            task_stage_to_assign=second_stage,
+            task_stage_email=self.initial_stage,
         )
 
         responses = {"email_field": "employee@email.com"}
@@ -2660,7 +2661,8 @@ class GigaTurnipTest(APITestCase):
 
         PreviousManual.objects.create(
             field=["email_field"],
-            task_stage=second_stage
+            task_stage_to_assign=second_stage,
+            task_stage_email=self.initial_stage,
         )
 
         campaign_rank = RankLimit.objects.filter(stage__chain__campaign_id=self.campaign)[0].rank
@@ -2713,7 +2715,8 @@ class GigaTurnipTest(APITestCase):
 
         PreviousManual.objects.create(
             field=["email_field"],
-            task_stage=final_stage
+            task_stage_to_assign=final_stage,
+            task_stage_email=self.initial_stage,
         )
 
         campaign_rank = RankLimit.objects.filter(stage__chain__campaign_id=self.campaign)[0].rank
@@ -2765,7 +2768,8 @@ class GigaTurnipTest(APITestCase):
 
         PreviousManual.objects.create(
             field=["email_field"],
-            task_stage=final_stage
+            task_stage_to_assign=final_stage,
+            task_stage_email=self.initial_stage,
         )
 
         responses = {"email_field": "employee@email.com", "foo": "boo"}
@@ -2818,7 +2822,8 @@ class GigaTurnipTest(APITestCase):
 
         PreviousManual.objects.create(
             field=["email_field"],
-            task_stage=final_stage
+            task_stage_to_assign=final_stage,
+            task_stage_email=self.initial_stage,
         )
 
         responses = {"email_field": "employe@email.com", "foo": "boo"}
