@@ -2542,14 +2542,10 @@ class GigaTurnipTest(APITestCase):
     def test_dynamic_json_schema_webhook(self):
         js_schema = json.dumps({
             "type": "object",
-            "properties": {
-                "weekday": {
-                    "type": "string",
-                    "title": "Select Weekday",
-                    "enum": ['mon', 'tue', 'wed', 'thu', 'fri']
-                }
-            }
-        })
+            "title": "My form",
+            "properties": {},
+            "dependencies": {}}
+        )
 
         ui_schema = json.dumps({"ui:order": ["time"]})
         self.initial_stage.json_schema = js_schema
@@ -2557,15 +2553,16 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         dynamic_fields_json = {
-            "main": "weekday",
-            "foreign": ['time'],
+            "main": "",
+            "foreign": ['oblast', 'rayon', 'aymak', 'villages'],
             "count": 1
         }
 
         webhook = Webhook.objects.create(
             task_stage=self.initial_stage,
             url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/test_function',
-            is_triggered=False
+            is_triggered=False,
+            headers={"link": "https://storage.googleapis.com/media_journal_bucket/regions_data.xls", "sheet": "Sheet1"}
         )
 
         dynamic_json = DynamicJson.objects.create(
@@ -2576,7 +2573,7 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
 
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
-        self.assertEqual(response.data['schema'], self.initial_stage.json_schema)
+        self.assertNotEqual(response.data['schema'], self.initial_stage.json_schema)
 
     def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']

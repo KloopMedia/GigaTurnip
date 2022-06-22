@@ -282,7 +282,7 @@ def process_updating_schema_answers(task_stage, responses={}):
             if not dynamic_json.webhook:
                 schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
             else:
-                schema = update_schema_dynamic_answers_webhook(dynamic_json, schema)
+                schema = update_schema_dynamic_answers_webhook(dynamic_json, schema, responses)
         return schema
     else:
         return schema
@@ -338,8 +338,12 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
     return schema
 
 
-def update_schema_dynamic_answers_webhook(dynamic_json, schema):
-    response = dynamic_json.webhook.post({"schema": json.dumps(schema)})
+def update_schema_dynamic_answers_webhook(dynamic_json, schema, responses):
+    response = dynamic_json.webhook.post({
+        "fields": dynamic_json.dynamic_fields.get("foreign"),
+        "schema": schema,
+        "responses": responses})
+
     response_text = json.loads(response.text)
     if response_text.get('status') == status.HTTP_200_OK:
         return response_text.get('schema')
