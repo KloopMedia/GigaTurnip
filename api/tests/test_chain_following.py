@@ -2553,9 +2553,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         dynamic_fields_json = {
-            "main": "",
             "foreign": ['oblast', 'rayon', 'aymak', 'villages'],
-            "count": 1
         }
 
         webhook = Webhook.objects.create(
