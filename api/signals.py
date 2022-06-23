@@ -92,11 +92,11 @@ def notification_task_create(sender, instance, **kwargs):
             target_user=instance.assignee,
             campaign=instance.get_campaign(),
             title='Ваше задание успешно создано!',
-            text='У вас открылось новое задание.',
+            text='У вас появилось новое задание.',
         )
     if kwargs.get('update_fields'):
         updated_fields = kwargs.get('update_fields')
-        if 'reopened' in updated_fields:
+        if 'reopened' in updated_fields and instance.reopened:
             Notification.objects.create(
                 target_user=instance.assignee,
                 campaign=instance.get_campaign(),
@@ -114,6 +114,6 @@ def notification_task_create(sender, instance, **kwargs):
             Notification.objects.create(
                 target_user=instance.assignee,
                 campaign=instance.get_campaign(),
-                title='Вы отправили на проверку Ваше задание!',
+                title='Вы успешно отправли задание!',
                 text='Ждите дальнейших уведомлений',
             )
