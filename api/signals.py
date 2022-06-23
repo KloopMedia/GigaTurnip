@@ -1,8 +1,8 @@
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from rest_framework import serializers
 
-from api.models import Task, Log, TaskStage
+from api.models import Task, Log, TaskStage, Notification
 
 
 class TaskDebugSerializer(serializers.ModelSerializer):
@@ -83,3 +83,37 @@ def log_task_stage_changing(sender, instance, **kwargs):
                 stage=previous,
             )
             log.save()
+
+
+@receiver(post_save, sender=Task)
+def notification_task_create(sender, instance, **kwargs):
+    if kwargs['created'] and instance.assignee:
+        Notification.objects.create(
+            target_user=instance.assignee,
+            campaign=instance.get_campaign(),
+            title='Ваше задание успешно создано!',
+            text='У вас появилось новое задание.',
+        )
+    if kwargs.get('update_fields'):
+        updated_fields = kwargs.get('update_fields')
+        if 'reopened' in updated_fields and instance.reopened:
+            Notification.objects.create(
+                target_user=instance.assignee,
+                campaign=instance.get_campaign(),
+                title='Ваше задание вернулось Вам!',
+                text='У вас открылось Ваше старое задание. Пожалуйста пересмотрите его',
+            )
+        if 'assignee' in updated_fields:
+            Notification.objects.create(
+                target_user=instance.assignee,
+                campaign=instance.get_campaign(),
+                title='Вам назначено новое задание!',
+                text='Вам назначили новое задание.',
+            )
+        if 'complete' in updated_fields and instance.complete:
+            Notification.objects.create(
+                target_user=instance.assignee,
+                campaign=instance.get_campaign(),
+                title='Вы успешно отправли задание!',
+                text='Ждите дальнейших уведомлений',
+            )
