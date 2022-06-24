@@ -1519,6 +1519,26 @@ class Notification(BaseDates, CampaignInterface):
         )
 
 
+class AutoNotification(BaseDates):
+    trigger_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name='auto_notification_trigger_stages',
+        help_text='Stage that will be trigger notification'
+    )
+    recipient_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name='auto_notification_recipient_stages',
+        help_text='Stage that '
+    )
+    notification = models.ForeignKey(
+        Notification,
+        on_delete=models.CASCADE,
+        help_text='Notification that will be using for get user'
+    )
+
+
 class NotificationStatus(BaseDates, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,

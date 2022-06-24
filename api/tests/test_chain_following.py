@@ -10,7 +10,7 @@ from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook
+    DynamicJson, PreviousManual, Webhook, AutoNotification
 from jsonschema import validate
 
 class GigaTurnipTest(APITestCase):
@@ -2929,3 +2929,35 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)
+
+    def test_auto_notification_trigger_is_recipient_stage(self):
+        return
+        js_schema = {
+            "type": "object",
+            "properties": {
+                'foo': {
+                    "type": "string",
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        notification = Notification.objects.create(
+            title='Congrats you have completed your first task!',
+            campaign=self.campaign
+        )
+
+        auto_notification = AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notification
+        )
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"foo": "hello world!"})
+
+        user_notifications = Notification.objects.filter(target_user=self.user)
+        self.assertEqual(user_notifications.count(), 1)
+        self.assertEqual(Notification.objects.count(), 2)
+        self.assertEqual(user_notifications[0].title, notification.title)

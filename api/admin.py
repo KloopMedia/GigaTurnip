@@ -9,7 +9,7 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -568,6 +568,12 @@ class PreviousManualAdmin(admin.ModelAdmin):
     list_display = ('__str__', 'task_stage_to_assign', 'task_stage_email', 'is_id', 'created_at', 'updated_at', )
     autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
 
+
+class AutoNotificationAdmin(admin.ModelAdmin):
+    model = AutoNotification
+    list_display = ('trigger_stage', 'recipient_stage', 'notification')
+    autocomplete_fields = ('trigger_stage','recipient_stage', )
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
@@ -592,5 +598,6 @@ admin.site.register(PreviousManual, PreviousManualAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
 admin.site.register(Notification)
+admin.site.register(AutoNotification, AutoNotificationAdmin)
 admin.site.register(NotificationStatus)
 admin.site.register(AdminPreference, AdminPreferenceAdmin)
