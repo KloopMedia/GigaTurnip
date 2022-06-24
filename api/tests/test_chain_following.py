@@ -2929,3 +2929,258 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)
+
+    def test_cyclic_chain_ST(self):
+        js_schema = {
+            "type": "object",
+            "properties": {
+                'name': {
+                    "type": "string",
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        second_stage_schema = {
+            "type": "object",
+            "properties": {
+                'foo': {
+                    "type": "string",
+                }
+            }
+        }
+
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Test pronunciation",
+                json_schema=json.dumps(second_stage_schema),
+                assign_user_by=TaskStage.STAGE,
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+
+        conditional_stage = second_stage.add_stage(ConditionalStage(
+            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+        ))
+
+        conditional_stage_cyclic = second_stage.add_stage(ConditionalStage(
+            conditions=[{"field": "foo", "value": "boo", "condition": "!="}]
+        ))
+
+        final_stage_schema = {
+            "type": "object",
+            "properties": {
+                "too": {
+                    "type": "string",
+                    "title": "what is ur name",
+                }
+            }
+        }
+
+        final_stage = conditional_stage.add_stage(
+            TaskStage(
+                name='Final stage',
+                assign_user_by=TaskStage.STAGE,
+                json_schema=json.dumps(final_stage_schema)
+            )
+        )
+
+        conditional_stage_cyclic.out_stages.add(second_stage)
+        conditional_stage_cyclic.save()
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"name": "Kloop"})
+
+        second_task_1 = task.out_tasks.get()
+        second_task_1 = self.complete_task(second_task_1, {"foo": "not right"})
+        self.assertEqual(Task.objects.filter(case=task.case).count(), 3)
+        self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
+
+        second_task_2 = second_task_1.out_tasks.get()
+        second_task_2 = self.complete_task(second_task_2, {"foo": "boo"})
+        self.assertEqual(Task.objects.filter(case=task.case).count(), 4)
+        self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
+        self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
+
+    def test_cyclic_chain_RA(self):
+        js_schema = {
+            "type": "object",
+            "properties": {
+                'name': {
+                    "type": "string",
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        second_stage_schema = {
+            "type": "object",
+            "properties": {
+                'foo': {
+                    "type": "string",
+                }
+            }
+        }
+
+        verifier_rank = Rank.objects.create(name="test pronounce")
+        RankRecord.objects.create(
+            user=self.user,
+            rank=verifier_rank)
+
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Test pronunciation",
+                json_schema=json.dumps(second_stage_schema),
+                assign_user_by=TaskStage.RANK,
+            )
+        )
+        rank_l = RankLimit.objects.create(
+            rank=verifier_rank,
+            stage=second_stage,
+            open_limit=0,
+            total_limit=0,
+            is_creation_open=False,
+            is_listing_allowed=True,
+            is_selection_open=True,
+            is_submission_open=True)
+
+        conditional_stage = second_stage.add_stage(ConditionalStage(
+            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+        ))
+
+        conditional_stage_cyclic = second_stage.add_stage(ConditionalStage(
+            conditions=[{"field": "foo", "value": "boo", "condition": "!="}]
+        ))
+
+        final_stage_schema = {
+            "type": "object",
+            "properties": {
+                "too": {
+                    "type": "string",
+                    "title": "what is ur name",
+                }
+            }
+        }
+
+        final_stage = conditional_stage.add_stage(
+            TaskStage(
+                name='Final stage',
+                assign_user_by=TaskStage.STAGE,
+                json_schema=json.dumps(final_stage_schema)
+            )
+        )
+
+        conditional_stage_cyclic.out_stages.add(second_stage)
+        conditional_stage_cyclic.save()
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"name": "Kloop"})
+
+        # for i in range(2):
+        #     task = self.create_task(self.initial_stage, self.employee_client)
+        #     task = self.complete_task(task, {"answer": "norm"}, client=self.employee_client)
+
+            # response_assign = self.get_objects("task-request-assignment", {"decision": "pass"},
+            #                                    pk=task.out_tasks.all()[0].id)
+            # self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+            # task_to_check = Task.objects.get(assignee=self.user, case=task.case)
+            # task_to_check = self.complete_task(task_to_check, {"decision": "pass"}, client=self.client)
+
+        response_assign = self.get_objects('task-request-assignment', pk=task.out_tasks.get().id)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+
+        second_task_1 = task.out_tasks.get()
+        second_task_1 = self.complete_task(second_task_1, {"foo": "not right"})
+        self.assertEqual(Task.objects.filter(case=task.case).count(), 3)
+        self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
+
+        response_assign = self.get_objects('task-request-assignment', pk=second_task_1.out_tasks.get().id)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+
+        second_task_2 = second_task_1.out_tasks.get()
+        second_task_2 = self.complete_task(second_task_2, {"foo": "boo"})
+        self.assertEqual(Task.objects.filter(case=task.case).count(), 4)
+        self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
+        self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
+
+        #     self.initial_stage.json_schema = json.dumps({
+        #         "type": "object",
+        #         "properties": {
+        #             "answer": {
+        #                 "title": "Question 1",
+        #                 "type": "string"
+        #             }
+        #         },
+        #         "required": [
+        #             "answer"
+        #         ]
+        #     })
+        #     self.initial_stage.save()
+        #
+        #     verification_task_stage = self.initial_stage.add_stage(TaskStage(
+        #         name='verification',
+        #         assign_user_by="RA"
+        #     ))
+        #     verification_task_stage.json_schema = json.dumps({
+        #         "type": "object",
+        #         "properties": {
+        #             "decision": {
+        #                 "enum": ["reject", "pass"],
+        #                 "title": "Question 1",
+        #                 "type": "string"
+        #             }
+        #         },
+        #         "required": [
+        #             "decision"
+        #         ]
+        #     })
+        #     verification_task_stage.save()
+        #
+        #     verifier_rank = Rank.objects.create(name="verifier")
+        #     RankRecord.objects.create(
+        #         user=self.employee,
+        #         rank=Rank.objects.get(name="Initial"))
+        #     RankRecord.objects.create(
+        #         user=self.user,
+        #         rank=verifier_rank)
+        #
+        #     prize_rank = Rank.objects.create(name="SUPERMAN")
+        #     task_awards = TaskAward.objects.create(
+        #         task_stage_completion=self.initial_stage,
+        #         task_stage_verified=verification_task_stage,
+        #         rank=prize_rank,
+        #         count=3,
+        #         title="You achieve new rank",
+        #         message="Congratulations! You achieve new rank!",
+        #         message_before_achieve=""
+        #     )
+        #
+        #     rank_l = RankLimit.objects.create(
+        #         rank=verifier_rank,
+        #         stage=verification_task_stage,
+        #         open_limit=5,
+        #         total_limit=0,
+        #         is_creation_open=False,
+        #         is_listing_allowed=True,
+        #         is_selection_open=True,
+        #         is_submission_open=True)
+        #
+        #     for i in range(2):
+        #         task = self.create_task(self.initial_stage, self.employee_client)
+        #         task = self.complete_task(task, {"answer": "norm"}, client=self.employee_client)
+        #
+        #         response_assign = self.get_objects("task-request-assignment", {"decision": "pass"},
+        #                                            pk=task.out_tasks.all()[0].id)
+        #         self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+        #         task_to_check = Task.objects.get(assignee=self.user, case=task.case)
+        #         task_to_check = self.complete_task(task_to_check, {"decision": "pass"}, client=self.client)
+        #
+        #     employee_ranks = [i.rank for i in RankRecord.objects.filter(user=self.employee)]
+        #     self.assertEqual(len(employee_ranks), 1)
+        #     self.assertNotIn(prize_rank, employee_ranks)
+        #
+        #     user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.title)
+        #     self.assertEqual(user_notifications.count(), 0)
+        #
