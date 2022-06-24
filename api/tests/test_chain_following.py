@@ -612,15 +612,7 @@ class GigaTurnipTest(APITestCase):
                 allow_go_back=True
             ))
         initial_task = self.create_initial_task()
-        last_notifications = Notification.objects.filter(target_user=self.user).order_by('created_at')
-        self.assertEqual(last_notifications[0].title, 'Ваше задание успешно создано!')
-
         self.complete_task(initial_task, responses={})
-        last_notifications = Notification.objects.filter(target_user=self.user).order_by('created_at')
-        self.assertEqual(last_notifications[1].title, 'Вы успешно отправли задание!')
-
-        last_notifications = Notification.objects.filter(target_user=self.user).order_by('created_at')
-        self.assertEqual(last_notifications[0].title, 'Ваше задание успешно создано!')
 
         second_task = Task.objects.get(
             stage=second_stage,
@@ -630,13 +622,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects("task-open-previous", pk=second_task.pk)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["id"], initial_task.id)
-
-        last_notifications = Notification.objects.filter(target_user=self.user).order_by('-created_at')
-        self.assertEqual(last_notifications[0].title, 'Ваше задание вернулось Вам!')
-        self.assertEqual(last_notifications[1].title, 'Вы успешно отправли задание!')
-        self.assertEqual(last_notifications.count(), 5)
-
-
 
         initial_task = Task.objects.get(id=initial_task.id)
         second_task = Task.objects.get(id=second_task.id)
@@ -2779,17 +2764,10 @@ class GigaTurnipTest(APITestCase):
         responses = {"email_field": "employee@email.com"}
         task = self.create_initial_task()
         task = self.complete_task(task, responses)
-        user_notifications = Notification.objects.filter(target_user=self.user).order_by('-created_at')
-        self.assertEqual(user_notifications.count(), 2)
-        self.assertEqual(user_notifications[1].title, 'Ваше задание успешно создано!')
-        self.assertEqual(user_notifications[0].title, 'Вы успешно отправли задание!')
 
         new_task = Task.objects.get(stage=second_stage, case=task.case)
 
         self.assertEqual(new_task.assignee, CustomUser.objects.get(email='employee@email.com'))
-        employee_notifications = Notification.objects.filter(target_user=self.employee).order_by('-created_at')
-        self.assertEqual(employee_notifications.count(), 1)
-        self.assertEqual(employee_notifications[0].title, 'Вам назначено новое задание!')
 
     def test_assign_by_previous_manual_conditional_previous_happy(self):
         js_schema = {
@@ -2951,22 +2929,3 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)
-
-    def test_notification_creating(self):
-        js_schema = {
-                "type": "object",
-                "properties": {
-                    'foo':{
-                        "type": "string",
-                    }
-                }
-            }
-        self.initial_stage.json_schema = json.dumps(js_schema)
-        self.initial_stage.save()
-
-        task = self.create_initial_task()
-        self.assertEqual(Notification.objects.count(), 1)
-        self.assertEqual(Notification.objects.filter(target_user=self.user)[0].target_user, self.user)
-
-        task = self.complete_task(task, {"foo": "123321"})
-        self.assertEqual(Notification.objects.filter(target_user=self.user).count(), 2)
