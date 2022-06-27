@@ -557,7 +557,10 @@ class DynamicJsonAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
-        return queryset.filter_by_admin_preference(queryset, request, 'task_stage__chain__')
+        return queryset \
+            .filter(
+            task_stage__chain__campaign__campaign_managements__user=request.user
+        )
 
 
 class PreviousManualAdmin(admin.ModelAdmin):
