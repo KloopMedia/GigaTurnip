@@ -37,6 +37,11 @@ class CustomUser(AbstractUser, BaseDatesModel):
         through="RankRecord",
         related_name="users")
 
+    login_via_sms = models.BooleanField(
+        default=False,
+        help_text="User is login via sms"
+    )
+
     def __str__(self):
         return self.email + " " + self.last_name
 
@@ -119,6 +124,11 @@ class Campaign(BaseModel, CampaignInterface):
 
     open = models.BooleanField(default=False,
                                help_text="If True, users can join")
+
+    sms_login_allow = models.BooleanField(
+        default=False,
+        help_text='User that logged in via sms can enter in the campaign'
+    )
 
     def join(self, request):
         if request.user is not None:
