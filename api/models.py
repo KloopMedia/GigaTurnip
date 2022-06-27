@@ -1593,3 +1593,27 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
 
     def __str__(self):
         return self.task_stage.name
+
+
+class File(BaseDatesModel):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='files',
+        null=False,
+        help_text='Task that creates FileInstance'
+    )
+    path = models.CharField(
+        max_length=500,
+        help_text='Path to the storage'
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        blank=True,
+        on_delete=models.CASCADE,
+        null=True,
+        help_text='User that will has access to the file'
+    )
+
+    def create_public_token(self):
+        return self.path + 'hello_world'

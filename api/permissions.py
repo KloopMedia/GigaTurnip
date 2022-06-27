@@ -494,3 +494,33 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
         )
 
         return tasks_for_current_stage.count() > 0
+
+
+class FileAccessPolicy(TaskAccessPolicy):
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset. \
+            filter(task__stage__chain__campaign__campaign_managements__user=
+                   request.user).distinct()
+
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().task.get_campaign().managers.all()
+        return request.user in managers
+
+    def is_assignee(self, request, view, action):
+        task = view.get_object().task
+        return request.user == task.assignee
+
+    def is_not_complete(self, request, view, action):
+        task = view.get_object().task
+        return task.complete is False
+
+    def is_complete(self, request, view, action):
+        task = view.get_object().task
+        return task.complete
+
+    def can_user_request_assignment(self, request, view, action):
+        queryset = Task.objects.filter(id=view.get_object().task.id)
+        return bool(utils.filter_for_user_selectable_tasks(
+            queryset,
+            request))

@@ -17,7 +17,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, File
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -27,14 +27,14 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer
+    DynamicJsonReadSerializer, FileCreateSerializer, FileReadSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
     NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
-    DynamicJsonAccessPolicy
+    DynamicJsonAccessPolicy, FileAccessPolicy
 from . import utils
 from .utils import paginate
 import json
@@ -1183,3 +1183,22 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
         return DynamicJsonReadSerializer
 
 
+class FileViewSet(viewsets.ModelViewSet):
+
+    permission_classes = (FileAccessPolicy,)
+
+    def get_queryset(self):
+        return FileAccessPolicy.scope_queryset(
+            self.request, File.objects.all()
+        )
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'partial_update', 'update']:
+            return FileCreateSerializer
+        if self.action in ['retrieve', 'list']:
+            return FileReadSerializer
+
+    @action(detail=True)
+    def public_access_token(self, request, pk=None):
+        file = self.get_object()
+        return file.create_public_token()

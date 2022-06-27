@@ -9,7 +9,7 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, File
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -568,6 +568,17 @@ class PreviousManualAdmin(admin.ModelAdmin):
     list_display = ('__str__', 'task_stage_to_assign', 'task_stage_email', 'is_id', 'created_at', 'updated_at', )
     autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
 
+
+class FileAdmin(admin.ModelAdmin):
+    model = File
+    list_display = ('__str__', 'id', 'path', 'task', 'user')
+    autocomplete_fields = ('task', 'user',)
+
+    def get_queryset(self, request):
+        queryset = super(FileAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(task__stage__chain__campaign__campaign_managements__user=request.user)
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
@@ -591,6 +602,7 @@ admin.site.register(TaskAward, TaskAwardAdmin)
 admin.site.register(PreviousManual, PreviousManualAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
+admin.site.register(File, FileAdmin)
 admin.site.register(Notification)
 admin.site.register(NotificationStatus)
 admin.site.register(AdminPreference, AdminPreferenceAdmin)

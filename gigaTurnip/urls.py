@@ -79,6 +79,9 @@ router.register(api_v1 + r'responseflatteners',
 router.register(api_v1 + r'dynamicjsons',
                 turnip_app.DynamicJsonViewSet,
                 basename='dynamicjson')
+router.register(api_v1 + r'files',
+                turnip_app.FileViewSet,
+                basename='file')
 
 
 urlpatterns = [path('admin/', admin.site.urls),

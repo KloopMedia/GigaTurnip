@@ -9,7 +9,7 @@ from api.asyncstuff import process_updating_schema_answers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson
+    TaskAward, DynamicJson, File
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -406,3 +406,18 @@ class DynamicJsonReadSerializer(serializers.ModelSerializer):
         model = DynamicJson
         fields = '__all__'
         editable = False
+
+
+class FileReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = File
+        fields = '__all__'
+        editable = False
+
+
+class FileCreateSerializer(serializers.ModelSerializer):
+    task = TaskPublicBasicSerializer(read_only=True)
+
+    class Meta:
+        model = File
+        fields = '__all__'
