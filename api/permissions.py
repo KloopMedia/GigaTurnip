@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track, Task, AdminPreference
+from api.models import Campaign, TaskStage, Track, Task, AdminPreference, RankLimit
 from . import utils
 
 
@@ -105,10 +105,11 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
+        rank_limts = RankLimit.objects.filter(rank__in=request.user.ranks.all())
         return queryset.filter(
-            campaign__campaign_managements__user=request.user
+           Q(campaign__campaign_managements__user=request.user) |
+           Q(id__in=rank_limts.values_list('stage__chain', flat=True))
         )
-
 
 class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
