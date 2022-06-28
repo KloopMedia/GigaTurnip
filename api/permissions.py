@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track, Task, AdminPreference
+from api.models import Campaign, TaskStage, Track, Task, AdminPreference, RankLimit
 from . import utils
 
 
@@ -105,10 +105,11 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
+        rank_limts = RankLimit.objects.filter(rank__in=request.user.ranks.all())
         return queryset.filter(
-            campaign__campaign_managements__user=request.user
+           Q(campaign__campaign_managements__user=request.user) |
+           Q(id__in=rank_limts.values_list('stage__chain', flat=True))
         )
-
 
 class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
@@ -272,7 +273,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["list_displayed_previous"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee or is_manager"
+            "condition_expression": "is_assignee or is_manager or (is_selection_open and is_listing_allowed)"
         },
         {
             "action": ["trigger_webhook", ],
@@ -329,6 +330,22 @@ class TaskAccessPolicy(AccessPolicy):
     def is_campaign_manager(self, request, view, action):
         managed_campaigns = request.user.managed_campaigns.all()
         return bool(managed_campaigns)
+
+    def is_selection_open(self, request, view, action) -> bool:
+        rank_limits = RankLimit.objects.filter(
+            rank__in=request.user.ranks.all(),
+            is_selection_open=True,
+            stage=view.get_object().stage
+        )
+        return bool(rank_limits)
+
+    def is_listing_allowed(self, request, view, action) -> bool:
+        rank_limits = RankLimit.objects.filter(
+            rank__in=request.user.ranks.all(),
+            is_listing_allowed=True,
+            stage=view.get_object().stage
+        )
+        return bool(rank_limits)
 
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
@@ -434,26 +451,13 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
         return queryset. \
             filter(task_stage__chain__campaign__campaign_managements__user=request.user) \
             .distinct()
-        # managed_campaigns = request.user.managed_campaigns.all()
-        # preferences = AdminPreference.objects.filter(
-        #     campaign__in=managed_campaigns,
-        #     user=request.user
-        # )
-        # return queryset. \
-        #     filter(task_stage__chain__campaign__in=preferences.values_list('campaign')) \
-        #     .distinct()
 
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()
         return request.user in managers
 
     def is_campaign_manager(self, request, view, action):
-        managed_campaigns = request.user.managed_campaigns.all()
-        preferences = AdminPreference.objects.filter(
-            campaign__in=managed_campaigns,
-            user=request.user
-        )
-        return bool(preferences)
+        return bool(request.user.managed_campaigns.all())
 
 
 class TaskAwardAccessPolicy(ManagersOnlyAccessPolicy):
