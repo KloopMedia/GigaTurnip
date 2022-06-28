@@ -73,9 +73,9 @@ class FirebaseAuthentication(FirebaseAuthentication):
                     )
                 elif phone_number:
                     user = User.objects.create_user(
-                        username=username,
+                        username=phone_number,
                         phone_number=phone_number,
-
+                        login_via_sms=True
                     )
                 user.last_login = timezone.now()
                 if (
