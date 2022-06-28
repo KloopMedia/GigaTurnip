@@ -42,6 +42,12 @@ class CustomUser(AbstractUser, BaseDatesModel):
         help_text="User is login via sms"
     )
 
+    phone_number = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text='Users phone number'
+    )
+
     def __str__(self):
         return self.email + " " + self.last_name
 
