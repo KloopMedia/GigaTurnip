@@ -273,7 +273,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["list_displayed_previous"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee or is_manager"
+            "condition_expression": "is_assignee or is_manager or (is_selection_open and is_listing_allowed)"
         },
         {
             "action": ["trigger_webhook", ],
@@ -330,6 +330,22 @@ class TaskAccessPolicy(AccessPolicy):
     def is_campaign_manager(self, request, view, action):
         managed_campaigns = request.user.managed_campaigns.all()
         return bool(managed_campaigns)
+
+    def is_selection_open(self, request, view, action) -> bool:
+        rank_limits = RankLimit.objects.filter(
+            rank__in=request.user.ranks.all(),
+            is_selection_open=True,
+            stage=view.get_object().stage
+        )
+        return bool(rank_limits)
+
+    def is_listing_allowed(self, request, view, action) -> bool:
+        rank_limits = RankLimit.objects.filter(
+            rank__in=request.user.ranks.all(),
+            is_listing_allowed=True,
+            stage=view.get_object().stage
+        )
+        return bool(rank_limits)
 
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
