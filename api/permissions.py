@@ -434,26 +434,13 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
         return queryset. \
             filter(task_stage__chain__campaign__campaign_managements__user=request.user) \
             .distinct()
-        # managed_campaigns = request.user.managed_campaigns.all()
-        # preferences = AdminPreference.objects.filter(
-        #     campaign__in=managed_campaigns,
-        #     user=request.user
-        # )
-        # return queryset. \
-        #     filter(task_stage__chain__campaign__in=preferences.values_list('campaign')) \
-        #     .distinct()
 
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()
         return request.user in managers
 
     def is_campaign_manager(self, request, view, action):
-        managed_campaigns = request.user.managed_campaigns.all()
-        preferences = AdminPreference.objects.filter(
-            campaign__in=managed_campaigns,
-            user=request.user
-        )
-        return bool(preferences)
+        return bool(request.user.managed_campaigns.all())
 
 
 class TaskAwardAccessPolicy(ManagersOnlyAccessPolicy):

@@ -1306,12 +1306,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('responseflattener-list', client=self.client)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_response_flattener_list_wrong_preference(self):
-        self.user.managed_campaigns.add(self.campaign)
-
-        response = self.get_objects('responseflattener-list', client=self.client)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
     def test_response_flattener_list_happy(self):
         self.user.managed_campaigns.add(self.campaign)
         AdminPreference.objects.create(user=self.user, campaign=self.campaign)
