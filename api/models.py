@@ -49,6 +49,8 @@ class CustomUser(AbstractUser, BaseDatesModel):
     )
 
     def __str__(self):
+        if self.login_via_sms:
+            return self.phone_number
         return self.email + " " + self.last_name
 
 
