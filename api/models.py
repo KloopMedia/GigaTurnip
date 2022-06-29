@@ -1597,6 +1597,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         Webhook,
         on_delete=models.CASCADE,
         null=True,
+        blank=True,
         help_text='Webhook using for updating schema answers'
     )# todo форму и поля отправляю
 
