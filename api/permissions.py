@@ -105,11 +105,13 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        rank_limts = RankLimit.objects.filter(rank__in=request.user.ranks.all())
+        rank_limits = RankLimit.objects.filter(rank__in=request.user.ranks.all())
+        all_available_chains = rank_limits.values_list('stage__chain', flat=True).distinct()
         return queryset.filter(
            Q(campaign__campaign_managements__user=request.user) |
-           Q(id__in=rank_limts.values_list('stage__chain', flat=True))
+           Q(id__in=all_available_chains)
         )
+
 
 class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
