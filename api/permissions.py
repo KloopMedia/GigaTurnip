@@ -110,7 +110,7 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
         return queryset.filter(
            Q(campaign__campaign_managements__user=request.user) |
            Q(id__in=all_available_chains)
-        ).order_by('id')
+        ).distinct()
 
 
 class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
