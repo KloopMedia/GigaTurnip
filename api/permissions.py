@@ -186,8 +186,13 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(chain__campaign__campaign_managements__user=
-                               request.user)
+        stages_list = request.user.tasks.all().values_list('stage', flat=True).distinct()
+        by_stages = queryset.filter(id__in=stages_list)
+        by_displayed_prev_stages = queryset.filter(
+            id__in=by_stages.values_list('displayed_prev_stages', flat=True).distinct())
+        by_campaign_managers = queryset.filter(chain__campaign__campaign_managements__user=request.user)
+        result = by_stages | by_displayed_prev_stages | by_campaign_managers
+        return result.distinct()
 
     def is_stage_user_creatable(self, request, view, action) -> bool:
         queryset = TaskStage.objects.filter(id=view.get_object().id)
