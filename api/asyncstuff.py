@@ -84,7 +84,7 @@ def process_webhook(stage, in_task):
     if stage.webhook_payload_field:
         params[stage.webhook_payload_field] = json.dumps(in_task.responses)
     else:
-        params = in_task.responses
+        params = in_task.responses if in_task.responses else {}
     if stage.webhook_params:
         params.update(stage.webhook_params)
     params["in_task_id"] = in_task.id
