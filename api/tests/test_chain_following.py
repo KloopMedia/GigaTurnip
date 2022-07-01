@@ -2997,7 +2997,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
         self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
 
-
     def test_cyclic_chain_RA(self):
         js_schema = {
             "type": "object",
@@ -3089,3 +3088,79 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.filter(case=task.case).count(), 4)
         self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
         self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
+
+    def test_conditional_ping_pong_cyclic_chain(self):
+        # first book
+        self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
+        # second creating task
+        task_creation_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Creating task using webhook',
+                json_schema='{"type":"object","properties":{"foo":{"type":"string"}}}',
+                webhook_address='https://us-central1-valiant-cycle-353908.cloudfunctions.net/random_int_between_0_9'
+            )
+        )
+        """
+        create_task_webhook = Webhook.objects.create(
+            task_stage=task_creation_stage,
+            url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/random_int_between_0_9'
+        )"""
+        # third taks
+        completion_stage = task_creation_stage.add_stage(
+            TaskStage(
+                name='Completion stage',
+                json_schema='{"type":"object","properties":{"boo":{"type":"integer"}}}',
+                assign_user_by=TaskStage.STAGE,
+                assign_user_from_stage=self.initial_stage,
+                copy_input=True
+            )
+        )
+        # fourth ping pong
+        conditional_stage = completion_stage.add_stage(
+            ConditionalStage(
+                name='Conditional ping-pong stage',
+                conditions=[{"field": "verified", "value": "no", "condition": "=="}],
+                pingpong=True
+            )
+        )
+        # fifth webhook verification
+        verification_webhook_stage = conditional_stage.add_stage(
+            TaskStage(
+                name='Verification stage using webhook',
+                json_schema='{"type":"object","properties":{"foo":{"type":"string"}}}',
+                assign_user_by=TaskStage.AUTO_COMPLETE
+
+            )
+        )
+        webhook_verification = Webhook.objects.create(
+            task_stage=verification_webhook_stage,
+            url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/even_checker'
+        )
+        # sixth autocomplete task award
+        award_stage = verification_webhook_stage.add_stage(
+            TaskStage(
+                name='Award stage',
+                assign_user_by=TaskStage.AUTO_COMPLETE
+            )
+        )
+        award_stage.add_stage(task_creation_stage)
+
+        prize_rank = Rank.objects.create(name="SUPERMAN")
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=completion_stage,
+            task_stage_verified=award_stage,
+            rank=prize_rank,
+            count=5,
+            title="You achieve new rank",
+            message="Congratulations! You achieve new rank!",
+            message_before_achieve=""
+        )
+
+        init_task = self.create_initial_task()
+        init_task = self.complete_task(init_task, {"foo": 'hello world'})
+        test_task = init_task.out_tasks.get().out_tasks.get()
+
+        for i in range(5):
+            test_task = self.complete_task(test_task, {'boo': 2})
+            test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
+        self.assertEqual(self.user.ranks.count(), 2)
