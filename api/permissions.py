@@ -139,7 +139,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "action": ["retrieve", "schema_fields"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_manager or is_stage_user_creatable",
+            "condition_expression": "is_manager or is_stage_user_creatable or is_displayed_prev",
         },
         {
             "action": ["create"],
@@ -186,8 +186,17 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(chain__campaign__campaign_managements__user=
-                               request.user)
+        stages_by_ranks = RankLimit.objects.filter(
+            id__in=request.user.ranks.values_list('id', flat=True)
+        ).values_list('stage', flat=True).distinct()
+        stages_by_tasks = request.user.tasks.values_list('stage', flat=True).distinct()
+
+        stages = queryset.filter(Q(chain__campaign__campaign_managements__user=request.user) |
+                                 Q(id__in=stages_by_tasks) |
+                                 Q(id__in=stages_by_ranks))
+
+        stages |= queryset.filter(id__in=stages.values_list('displayed_prev_stages', flat=True).distinct())
+        return stages.distinct()
 
     def is_stage_user_creatable(self, request, view, action) -> bool:
         queryset = TaskStage.objects.filter(id=view.get_object().id)
@@ -203,6 +212,9 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
         )
 
         return tasks_for_current_stage.count() > 0
+
+    def is_displayed_prev(self, request, view, action) -> bool:
+        return view.get_object() in view.get_queryset()
 
 class TaskAccessPolicy(AccessPolicy):
     statements = [
