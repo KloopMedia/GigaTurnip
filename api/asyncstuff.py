@@ -64,8 +64,6 @@ def process_completed_task(task):
     elif (next_direct_task is None) and task_awards:
         for task_award in task_awards:
             rank_record = task_award.connect_user_with_rank(task)
-            if task_award.stop_chain and rank_record:
-                remove_tasks(task.out_tasks.get())
     return None
 
 
@@ -376,10 +374,3 @@ def remove_answers_in_turn(schema, fields, responses):
             return schema
     return schema
 
-
-def remove_tasks(task):
-    to_delete = [task]
-    while task:
-        to_delete.append(task.get_direct_next())
-        task = task.get_direct_next()
-    [i.delete() for i in to_delete if i]
