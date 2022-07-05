@@ -187,7 +187,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):
         stages_by_ranks = RankLimit.objects.filter(
-            id__in=request.user.ranks.values_list('id', flat=True)
+            rank_id__in=request.user.ranks.values_list('id', flat=True)
         ).values_list('stage', flat=True).distinct()
         stages_by_tasks = request.user.tasks.values_list('stage', flat=True).distinct()
 
@@ -215,6 +215,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
 
     def is_displayed_prev(self, request, view, action) -> bool:
         return view.get_object() in view.get_queryset()
+
 
 class TaskAccessPolicy(AccessPolicy):
     statements = [
