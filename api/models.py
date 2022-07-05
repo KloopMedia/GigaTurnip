@@ -1348,7 +1348,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
             force_complete=False)
         # if count is equal -> create notification and give rank
         if verified.count() == self.count:
-            rank_record = RankRecord.objects.create(user=user, rank=self.rank)  # todo:make get_or_create()
+            rank_record = RankRecord.objects.filter(user=user, rank=self.rank)
+            if rank_record:
+                return rank_record[0]
+            rank_record = RankRecord.objects.create(user=user, rank=self.rank)
             Notification.objects.create(
                 target_user=user,
                 campaign=self.get_campaign(),

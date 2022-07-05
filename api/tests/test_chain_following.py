@@ -3168,5 +3168,8 @@ class GigaTurnipTest(APITestCase):
                 test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
 
         self.assertEqual(self.user.ranks.count(), 2)
-        print([i.complete for i in init_task.case.tasks.filter(stage=completion_stage)])
         self.assertEqual(init_task.case.tasks.filter(stage=completion_stage).count(), 5)
+        all_tasks = init_task.case.tasks.all()
+        self.assertEqual(all_tasks.count(), 21)
+        self.assertEqual(all_tasks[20].stage, award_stage)
+
