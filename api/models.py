@@ -1303,6 +1303,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text="Rank to create the record with a user. It is a rank that will be given user, as an award who "
                   "have completed a defined count of tasks")
+    stop_chain = models.BooleanField(
+        default=False,
+        help_text='When rank will obtained by user chain will stop.'
+    )
     count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
     title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
     message = models.TextField(help_text="Message for users who achieve award.")
@@ -1344,7 +1348,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
             force_complete=False)
         # if count is equal -> create notification and give rank
         if verified.count() == self.count:
-            rank_record = RankRecord.objects.create(user=user, rank=self.rank)  # todo:make get_or_create()
+            rank_record = RankRecord.objects.filter(user=user, rank=self.rank)
+            if rank_record:
+                return rank_record[0]
+            rank_record = RankRecord.objects.create(user=user, rank=self.rank)
             Notification.objects.create(
                 target_user=user,
                 campaign=self.get_campaign(),
