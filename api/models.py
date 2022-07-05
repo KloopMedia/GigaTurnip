@@ -1303,6 +1303,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text="Rank to create the record with a user. It is a rank that will be given user, as an award who "
                   "have completed a defined count of tasks")
+    stop_chain = models.BooleanField(
+        default=False,
+        help_text='When rank will obtained by user chain will stop.'
+    )
     count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
     title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
     message = models.TextField(help_text="Message for users who achieve award.")

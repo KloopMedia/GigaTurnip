@@ -3147,6 +3147,7 @@ class GigaTurnipTest(APITestCase):
             task_stage_verified=award_stage,
             rank=prize_rank,
             count=5,
+            stop_chain=True,
             title="You achieve new rank",
             message="Congratulations! You achieve new rank!",
             message_before_achieve=""
@@ -3156,13 +3157,16 @@ class GigaTurnipTest(APITestCase):
         init_task = self.complete_task(init_task, {"foo": 'hello world'})
         test_task = init_task.out_tasks.get().out_tasks.get()
 
-        for i in range(5):
+        for i in range(task_awards.count):
             expression = test_task.responses['expression'].split(' ')
             sum_of_expression = int(expression[0]) + int(expression[2])
             responses = test_task.responses
             responses['answer'] = sum_of_expression
 
-            test_task = self.complete_task(test_task,responses)
-            test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
+            test_task = self.complete_task(test_task, responses)
+            if i+1 < task_awards.count:
+                test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
 
         self.assertEqual(self.user.ranks.count(), 2)
+        print([i.complete for i in init_task.case.tasks.filter(stage=completion_stage)])
+        self.assertEqual(init_task.case.tasks.filter(stage=completion_stage).count(), 5)
