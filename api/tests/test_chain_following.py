@@ -1977,6 +1977,20 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-schema-fields', pk=self.initial_stage.id)
         self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
 
+    def test_task_stages_list(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name='second stage',
+            assign_user_by=TaskStage.RANK
+        ))
+        RankLimit.objects.create(
+            rank=self.user.ranks.get(),
+            stage=second_stage
+        )
+
+        response = self.get_objects('taskstage-list')
+        content = json.loads(response.rendered_content)
+        self.assertEqual(len(content['results']), 2)
+
     def test_search_by_responses_by_previous_stage(self):
         self.user.managed_campaigns.add(self.campaign)
 
