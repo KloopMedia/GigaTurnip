@@ -675,10 +675,10 @@ class CopyField(BaseDatesModel):
                 stage=self.copy_from_stage,
                 complete=True)
         else:
-            original_task = Task.objects.filter(
-                case=task.case,
-                stage=self.copy_from_stage,
-                complete=True)
+            original_task = task.case.tasks.filter(
+                complete=True,
+                stage=self.copy_from_stage
+            )
         if original_task:
             original_task = original_task.latest("updated_at")
         else:
@@ -695,9 +695,7 @@ class CopyField(BaseDatesModel):
                     response = original_task.responses.get(pair[0], None)
                     if response is not None:
                         responses[pair[1]] = response
-        if responses:
-            task.responses = responses
-        return task.responses
+        return responses
 
 
 class StagePublisher(BaseDatesModel, SchemaProvider):

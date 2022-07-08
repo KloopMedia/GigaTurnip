@@ -3187,3 +3187,98 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
 
+
+    def test_conditional_ping_pong_with_shuffle_sentence_webhook(self):
+        # first book
+        self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
+        # second creating task
+        task_creation_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Creating task using webhook',
+                webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/shuffle_sentence',
+                webhook_params={"action":"create"}
+            )
+        )
+        """
+        create_task_webhook = Webhook.objects.create(
+            task_stage=task_creation_stage,
+            url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/random_int_between_0_9'
+        )"""
+        # third taks
+        completion_stage = task_creation_stage.add_stage(
+            TaskStage(
+                name='Completion stage',
+                json_schema='{"type": "object","properties": {"exercise": {"title": "Put the words in the correct order", "type": "string"},"answer": {"type": "string"}}}',
+                assign_user_by=TaskStage.STAGE,
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+        CopyField.objects.create(
+            copy_by=CopyField.CASE,
+            task_stage=completion_stage,
+            copy_from_stage=task_creation_stage,
+            fields_to_copy='exercise->exercise'
+        )
+        # fourth ping pong
+        conditional_stage = completion_stage.add_stage(
+            ConditionalStage(
+                name='Conditional ping-pong stage',
+                conditions=[{"field": "is_right", "value": "no", "condition": "=="}],
+                pingpong=True
+            )
+        )
+        # fifth webhook verification
+        verification_webhook_stage = conditional_stage.add_stage(
+            TaskStage(
+                name='Verification stage using webhook',
+                json_schema='{"type":"object","properties":{"is_right":{"type":"string"}}}',
+                webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/shuffle_sentence',
+                webhook_params={"action": "check"}
+
+            )
+        )
+        CopyField.objects.create(
+            copy_by=CopyField.CASE,
+            task_stage=verification_webhook_stage,
+            copy_from_stage=task_creation_stage,
+            fields_to_copy='sentence->sentence'
+        )
+        # sixth autocomplete task award
+        award_stage = verification_webhook_stage.add_stage(
+            TaskStage(
+                name='Award stage',
+                assign_user_by=TaskStage.AUTO_COMPLETE
+            )
+        )
+        award_stage.add_stage(task_creation_stage)
+
+        prize_rank = Rank.objects.create(name="SUPERMAN")
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=completion_stage,
+            task_stage_verified=award_stage,
+            rank=prize_rank,
+            count=5,
+            stop_chain=True,
+            title="You achieve new rank",
+            message="Congratulations! You achieve new rank!",
+            message_before_achieve=""
+        )
+
+        init_task = self.create_initial_task()
+        init_task = self.complete_task(init_task, {"foo": 'hello world'})
+        test_task = init_task.out_tasks.get().out_tasks.get()
+
+        for i in range(task_awards.count):
+            responses = test_task.responses
+            responses['answer'] = test_task.in_tasks.get().responses['sentence']
+            test_task = self.complete_task(test_task, responses)
+            print(i, test_task)
+            if i+1 < task_awards.count:
+                test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
+
+        self.assertEqual(self.user.ranks.count(), 2)
+        self.assertEqual(init_task.case.tasks.filter(stage=completion_stage).count(), 5)
+        all_tasks = init_task.case.tasks.all()
+        self.assertEqual(all_tasks.count(), 21)
+        self.assertEqual(all_tasks[20].stage, award_stage)
+
