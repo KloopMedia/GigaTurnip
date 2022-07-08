@@ -182,6 +182,8 @@ def process_conditional(stage, in_task):
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
                     if out_task.stage.webhook_address:
+                        for copy_field in stage.copy_fields.all():
+                            in_task.responses = copy_field.copy_response(in_task)
                         response = process_webhook(out_task.stage, in_task)
                         out_task.responses = response
                         out_task.complete = True
