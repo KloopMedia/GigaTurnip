@@ -112,6 +112,9 @@ def create_new_task(stage, in_task):
         #     response = response.json()[stage.webhook_response_field]
         # else:
         #     response = response.json()
+        # TODO: test it on responses savings
+        for copy_field in stage.copy_fields.all():
+            in_task.responses = copy_field.copy_response(in_task)
         response = process_webhook(stage, in_task)
         data["responses"] = response
         data["complete"] = True
@@ -191,7 +194,7 @@ def process_conditional(stage, in_task):
                             out_task.responses = update_responses(out_task.responses,
                                                                   in_task.responses)
                         for copy_field in stage.copy_fields.all():
-                            out_task.responses = copy_field.copy_response(out_task)
+                            out_task.responses.update(copy_field.copy_response(out_task))
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
