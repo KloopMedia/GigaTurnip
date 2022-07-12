@@ -37,7 +37,20 @@ class CustomUser(AbstractUser, BaseDatesModel):
         through="RankRecord",
         related_name="users")
 
+    login_via_sms = models.BooleanField(
+        default=False,
+        help_text="User is login via sms"
+    )
+
+    phone_number = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text='Users phone number'
+    )
+
     def __str__(self):
+        if self.login_via_sms:
+            return self.phone_number
         return self.email + " " + self.last_name
 
 
@@ -119,6 +132,11 @@ class Campaign(BaseModel, CampaignInterface):
 
     open = models.BooleanField(default=False,
                                help_text="If True, users can join")
+
+    sms_login_allow = models.BooleanField(
+        default=False,
+        help_text='User that logged in via sms can enter in the campaign'
+    )
 
     def join(self, request):
         if request.user is not None:
@@ -657,10 +675,10 @@ class CopyField(BaseDatesModel):
                 stage=self.copy_from_stage,
                 complete=True)
         else:
-            original_task = Task.objects.filter(
-                case=task.case,
-                stage=self.copy_from_stage,
-                complete=True)
+            original_task = task.case.tasks.filter(
+                complete=True,
+                stage=self.copy_from_stage
+            )
         if original_task:
             original_task = original_task.latest("updated_at")
         else:
@@ -677,9 +695,7 @@ class CopyField(BaseDatesModel):
                     response = original_task.responses.get(pair[0], None)
                     if response is not None:
                         responses[pair[1]] = response
-        if responses:
-            task.responses = responses
-        return task.responses
+        return responses
 
 
 class StagePublisher(BaseDatesModel, SchemaProvider):
@@ -1285,6 +1301,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text="Rank to create the record with a user. It is a rank that will be given user, as an award who "
                   "have completed a defined count of tasks")
+    stop_chain = models.BooleanField(
+        default=False,
+        help_text='When rank will obtained by user chain will stop.'
+    )
     count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
     title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
     message = models.TextField(help_text="Message for users who achieve award.")
@@ -1326,7 +1346,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
             force_complete=False)
         # if count is equal -> create notification and give rank
         if verified.count() == self.count:
-            rank_record = RankRecord.objects.create(user=user, rank=self.rank)  # todo:make get_or_create()
+            rank_record = RankRecord.objects.filter(user=user, rank=self.rank)
+            if rank_record:
+                return rank_record[0]
+            rank_record = RankRecord.objects.create(user=user, rank=self.rank)
             Notification.objects.create(
                 target_user=user,
                 campaign=self.get_campaign(),
@@ -1601,6 +1624,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         Webhook,
         on_delete=models.CASCADE,
         null=True,
+        blank=True,
         help_text='Webhook using for updating schema answers'
     )# todo форму и поля отправляю
 

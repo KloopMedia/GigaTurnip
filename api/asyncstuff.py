@@ -30,7 +30,6 @@ def process_completed_task(task):
             task.reopened = True
             task.save()
             return task
-
     next_direct_task = task.get_direct_next()
     if next_direct_task is not None:
         next_direct_task.complete = False
@@ -84,7 +83,7 @@ def process_webhook(stage, in_task):
     if stage.webhook_payload_field:
         params[stage.webhook_payload_field] = json.dumps(in_task.responses)
     else:
-        params = in_task.responses
+        params = in_task.responses if in_task.responses else {}
     if stage.webhook_params:
         params.update(stage.webhook_params)
     params["in_task_id"] = in_task.id
@@ -98,6 +97,7 @@ def process_webhook(stage, in_task):
 
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
+    new_task = None
     if stage.webhook_address:
         # params = {}
         # if stage.webhook_payload_field:
@@ -112,12 +112,14 @@ def create_new_task(stage, in_task):
         #     response = response.json()[stage.webhook_response_field]
         # else:
         #     response = response.json()
+        # TODO: test it on responses savings
+        for copy_field in stage.copy_fields.all():
+            in_task.responses = copy_field.copy_response(in_task)
         response = process_webhook(stage, in_task)
         data["responses"] = response
         data["complete"] = True
         new_task = Task.objects.create(**data)
         new_task.in_tasks.set([in_task])
-        process_completed_task(new_task)
     elif stage.get_integration():
         if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
             integration = stage.get_integration()
@@ -152,14 +154,21 @@ def create_new_task(stage, in_task):
         for copy_field in stage.copy_fields.all():
             new_task.responses = copy_field.copy_response(new_task)
         new_task.save()
-        if stage.assign_user_by == TaskStage.INTEGRATOR:
-            process_completed_task(new_task)
         if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
             new_task.complete = True
             new_task.save()
-            process_completed_task(new_task)
         if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
             assign_by_previous_manual(stage, new_task, in_task)
+    if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
+        task_award = stage.task_stage_verified.all()
+        if not task_award:
+            process_completed_task(new_task)
+        if task_award:
+            r = task_award[0].connect_user_with_rank(in_task)
+            if task_award[0].stop_chain and r:
+                pass
+            else:
+                process_completed_task(new_task)
 
 
 def process_conditional(stage, in_task):
@@ -173,6 +182,8 @@ def process_conditional(stage, in_task):
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
                     if out_task.stage.webhook_address:
+                        for copy_field in stage.copy_fields.all():
+                            in_task.responses = copy_field.copy_response(in_task)
                         response = process_webhook(out_task.stage, in_task)
                         out_task.responses = response
                         out_task.complete = True
@@ -185,7 +196,7 @@ def process_conditional(stage, in_task):
                             out_task.responses = update_responses(out_task.responses,
                                                                   in_task.responses)
                         for copy_field in stage.copy_fields.all():
-                            out_task.responses = copy_field.copy_response(out_task)
+                            out_task.responses.update(copy_field.copy_response(out_task))
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
@@ -351,7 +362,6 @@ def update_schema_dynamic_answers_webhook(dynamic_json, schema, responses):
         raise CustomApiException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Exception on the webhook side')
 
 
-
 def remove_unavailable_enums_from_answers(schema, to_delete):
     for key, answers in to_delete.items():
         k = key.replace('responses__', '')
@@ -374,3 +384,4 @@ def remove_answers_in_turn(schema, fields, responses):
                 #     schema['properties'][i]['enumNames'] = []
             return schema
     return schema
+

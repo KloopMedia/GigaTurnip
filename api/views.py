@@ -1,8 +1,8 @@
 import csv
 
 from django.core.paginator import Paginator
-from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Count, Q, Subquery, F, When
+from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
+from django.db.models import Count, Q, Subquery, F, When, Func, Value
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -293,15 +293,16 @@ class CaseViewSet(viewsets.ModelViewSet):
     def info_by_case(self, request, pk=None):
         tasks = self.get_object().tasks.all()
         filters_tasks_info = {
-            "complete": Count('pk', Q(complete=True)),
-            "force_complete": Count('pk', Q(force_complete=True)),
+            "complete": ArrayAgg('complete'),
+            "force_complete": ArrayAgg('force_complete'),
+            "id": ArrayAgg('pk'),
         }
         task_info_by_stage = tasks.values('stage', 'stage__name').annotate(
             **filters_tasks_info
         )
         return Response({
             "status": status.HTTP_200_OK,
-            "info": task_info_by_stage
+            "info": list(task_info_by_stage)
         })
 
 

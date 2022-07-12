@@ -490,7 +490,7 @@ class ResponseFlattenerAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super(ResponseFlattenerAdmin, self).get_queryset(request)
-        return queryset.filter_by_admin_preference(queryset, request, 'task_stage__chain__')
+        return filter_by_admin_preference(queryset, request, 'task_stage__chain__')
 
 # class AdminPreferenceForm(forms.ModelForm):
 #     def clean(self):
