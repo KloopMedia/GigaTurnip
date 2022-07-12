@@ -1553,13 +1553,23 @@ class AutoNotification(BaseDates):
         TaskStage,
         on_delete=models.CASCADE,
         related_name='auto_notification_recipient_stages',
-        help_text='Stage that '
+        help_text='Stage to get recipient user.'
+    )
+    go_forward = models.BooleanField(
+        default=True,
+        help_text='If process will go forward notification will be sent. '
+                  'Otherwise process goes back and previous task is returned.'
     )
     notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
         help_text='Notification that will be using for get user'
     )
+
+    def create_notification(self, user):
+        new_notification = self.notification
+        new_notification.pk, new_notification.target_user = None, user
+        new_notification.save()
 
 
 class NotificationStatus(BaseDates, CampaignInterface):

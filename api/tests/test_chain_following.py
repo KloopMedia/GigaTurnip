@@ -1029,6 +1029,28 @@ class GigaTurnipTest(APITestCase):
             copy_from_stage=self.initial_stage,
             fields_to_copy="answer->answerField"
         )
+        # returning
+        return_notification = Notification.objects.create(
+            title='Your task have been returned!',
+            campaign=self.campaign
+        )
+        AutoNotification.objects.create(
+            trigger_stage=verification_task_stage,
+            recipient_stage=self.initial_stage,
+            notification=return_notification,
+            go_forward=False
+        )
+
+        complete_notification = Notification.objects.create(
+            title='You have been complete task successfully!',
+            campaign=self.campaign
+        )
+        AutoNotification.objects.create(
+            trigger_stage=verification_task_stage,
+            recipient_stage=self.initial_stage,
+            notification=complete_notification,
+            go_forward=True
+        )
 
         verification_client = self.prepare_client(verification_task_stage)
 
@@ -1056,6 +1078,9 @@ class GigaTurnipTest(APITestCase):
         self.assertFalse(initial_task.complete)
         self.assertTrue(verification_task.complete)
         self.assertEqual(Task.objects.count(), 2)
+        user_notifications = Notification.objects.filter(target_user=self.user)
+        self.assertEqual(user_notifications.count(), 1)
+        self.assertEqual(user_notifications[0].title, return_notification.title)
 
         responses = {"answer": "something new"}
         initial_task = self.complete_task(initial_task, responses=responses)
@@ -1081,9 +1106,9 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(Task.objects.count(), 3)
 
-        final_task = Task.objects.get(case=initial_task.case, stage=final_task_stage)
-
-        self.assertEqual(final_task.assignee, self.user)
+        user_notifications = Notification.objects.filter(target_user=self.user)
+        self.assertEqual(user_notifications.count(), 2)
+        self.assertEqual(user_notifications[0].title, return_notification.title)
 
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
@@ -1303,12 +1328,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response_falttener.columns, [])
 
     def test_response_flattener_list_wrong_not_manager(self):
-        response = self.get_objects('responseflattener-list', client=self.client)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_response_flattener_list_wrong_preference(self):
-        self.user.managed_campaigns.add(self.campaign)
-
         response = self.get_objects('responseflattener-list', client=self.client)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -2609,7 +2628,6 @@ class GigaTurnipTest(APITestCase):
         responses['time'] = time_slots[1]
         task = self.complete_task(task, responses)
         self.assertEqual(task.responses, responses)
-
     def test_case_info_for_map(self):
         json_schema = {
             "type": "object",
@@ -2642,8 +2660,10 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects("case-info-by-case", pk=task.case.id)
         maps_info = [
-            {'stage': self.initial_stage.id, 'stage__name': self.initial_stage.name, 'complete': 1, 'force_complete': 0},
-            {'stage': second_stage.id, 'stage__name': second_stage.name, 'complete': 0, 'force_complete': 0}
+            {'stage': self.initial_stage.id, 'stage__name': self.initial_stage.name, 'complete': [True],
+             'force_complete': [False], 'id':[task.id]},
+            {'stage': second_stage.id, 'stage__name': second_stage.name, 'complete': [False], 'force_complete': [False],
+             'id':[task.out_tasks.get().id]}
         ]
 
         self.assertEqual(status.HTTP_200_OK, response.data['status'])
@@ -3291,8 +3311,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks[20].stage, award_stage)
 
 
-    def test_auto_notification_trigger_is_recipient_stage(self):
-        return
+    def test_auto_notification_simple(self):
         js_schema = {
             "type": "object",
             "properties": {
@@ -3303,6 +3322,14 @@ class GigaTurnipTest(APITestCase):
         }
         self.initial_stage.json_schema = json.dumps(js_schema)
         self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second stage',
+                json_schema=self.initial_stage.json_schema,
+                assign_user_by=TaskStage.STAGE
+            )
+        )
 
         notification = Notification.objects.create(
             title='Congrats you have completed your first task!',
