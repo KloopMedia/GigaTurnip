@@ -54,6 +54,15 @@ def process_completed_task(task):
                 process_out_stages(current_stage, task)
     else:
         process_out_stages(current_stage, task)
+    if task.out_tasks.all():
+        out_task =task.out_tasks.get()
+        if out_task.complete is False and out_task.reopened is False:
+            send_auto_notifications(current_stage, task.case, {'go_forward': True})
+    elif task.in_tasks.all():
+        previous_task = task.in_tasks.get()
+        if previous_task.complete is False and previous_task.reopened is True:
+            send_auto_notifications(current_stage, task.case, {'go_forward': False})
+
     next_direct_task = task.get_direct_next()
     task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
     if next_direct_task is not None:
@@ -99,20 +108,6 @@ def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
     new_task = None
     if stage.webhook_address:
-        # params = {}
-        # if stage.webhook_payload_field:
-        #     params[stage.webhook_payload_field] = json.dumps(in_task.responses)
-        # else:
-        #     params = in_task.responses
-        # if stage.webhook_params:
-        #     params.update(stage.webhook_params)
-        # params["in_task_id"] = in_task.id
-        # response = requests.get(stage.webhook_address, params=params)
-        # if stage.webhook_response_field:
-        #     response = response.json()[stage.webhook_response_field]
-        # else:
-        #     response = response.json()
-        # TODO: test it on responses savings
         for copy_field in stage.copy_fields.all():
             in_task.responses = copy_field.copy_response(in_task)
         response = process_webhook(stage, in_task)
@@ -385,3 +380,8 @@ def remove_answers_in_turn(schema, fields, responses):
             return schema
     return schema
 
+
+def send_auto_notifications(trigger, case, filters=None):
+    for auto_notification in trigger.auto_notification_trigger_stages.filter(**filters):
+        user = case.tasks.get(stage=auto_notification.recipient_stage).assignee
+        auto_notification.create_notification(user)

@@ -274,3 +274,16 @@ def reopen_task(task):
     task.complete = False
     task.reopened = True
     task.save()
+
+
+def create_auto_notifications_by_stage_and_case(stage, case):
+    auto_notifications = stage.auto_notification_trigger_stages.all()
+    if auto_notifications:
+        for auto_notification in auto_notifications:
+            recipient_stage = auto_notification.recipient_stage
+            recipient_task = case.tasks.get(stage=recipient_stage)
+
+            targeted_notification = auto_notification.notification
+            targeted_notification.pk = None
+            targeted_notification.target_user = recipient_task.assignee
+            targeted_notification.save()

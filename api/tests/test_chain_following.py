@@ -10,7 +10,7 @@ from rest_framework.reverse import reverse
 
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook
+    DynamicJson, PreviousManual, Webhook, AutoNotification
 from jsonschema import validate
 
 class GigaTurnipTest(APITestCase):
@@ -527,6 +527,23 @@ class GigaTurnipTest(APITestCase):
             y_pos=1,
             chain=id_chain,
             is_creatable=True)
+        # self.client = self.prepare_client(
+        #     id_stage,
+        #     self.user,
+        #     RankLimit(is_creation_open=True))
+        # task1 = self.create_task(id_stage)
+        # task2 = self.create_task(id_stage)
+        # task3 = self.create_task(id_stage)
+        #
+        # correct_responses = {"name": "kloop", "phone": 3, "addr": "kkkk"}
+        #
+        # task1 = self.complete_task(
+        #     task1,
+        #     {"name": "rinat", "phone": 2, "addr": "ssss"})
+        # task3 = self.complete_task(
+        #     task3,
+        #     {"name": "ri", "phone": 5, "addr": "oooo"})
+        # task2 = self.complete_task(task2, correct_responses)
 
         CopyField.objects.create(
             copy_by="US",
@@ -1012,6 +1029,28 @@ class GigaTurnipTest(APITestCase):
             copy_from_stage=self.initial_stage,
             fields_to_copy="answer->answerField"
         )
+        # returning
+        return_notification = Notification.objects.create(
+            title='Your task have been returned!',
+            campaign=self.campaign
+        )
+        AutoNotification.objects.create(
+            trigger_stage=verification_task_stage,
+            recipient_stage=self.initial_stage,
+            notification=return_notification,
+            go_forward=False
+        )
+
+        complete_notification = Notification.objects.create(
+            title='You have been complete task successfully!',
+            campaign=self.campaign
+        )
+        AutoNotification.objects.create(
+            trigger_stage=verification_task_stage,
+            recipient_stage=self.initial_stage,
+            notification=complete_notification,
+            go_forward=True
+        )
 
         verification_client = self.prepare_client(verification_task_stage)
 
@@ -1039,6 +1078,9 @@ class GigaTurnipTest(APITestCase):
         self.assertFalse(initial_task.complete)
         self.assertTrue(verification_task.complete)
         self.assertEqual(Task.objects.count(), 2)
+        user_notifications = Notification.objects.filter(target_user=self.user)
+        self.assertEqual(user_notifications.count(), 1)
+        self.assertEqual(user_notifications[0].title, return_notification.title)
 
         responses = {"answer": "something new"}
         initial_task = self.complete_task(initial_task, responses=responses)
@@ -1064,9 +1106,9 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(Task.objects.count(), 3)
 
-        final_task = Task.objects.get(case=initial_task.case, stage=final_task_stage)
-
-        self.assertEqual(final_task.assignee, self.user)
+        user_notifications = Notification.objects.filter(target_user=self.user)
+        self.assertEqual(user_notifications.count(), 2)
+        self.assertEqual(user_notifications[0].title, return_notification.title)
 
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
@@ -1977,20 +2019,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-schema-fields', pk=self.initial_stage.id)
         self.assertEqual(response.data['fields'], ['column2', 'column1', 'oik__uik1'])
 
-    def test_task_stages_list(self):
-        second_stage = self.initial_stage.add_stage(TaskStage(
-            name='second stage',
-            assign_user_by=TaskStage.RANK
-        ))
-        RankLimit.objects.create(
-            rank=self.user.ranks.get(),
-            stage=second_stage
-        )
-
-        response = self.get_objects('taskstage-list')
-        content = json.loads(response.rendered_content)
-        self.assertEqual(len(content['results']), 2)
-
     def test_search_by_responses_by_previous_stage(self):
         self.user.managed_campaigns.add(self.campaign)
 
@@ -2446,6 +2474,7 @@ class GigaTurnipTest(APITestCase):
         updated_schema = json.loads(js_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
+
     def test_dynamic_json_schema_many(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         day_parts = ['12:00 - 13:00', '13:00 - 14:00',  '14:00 - 15:00']
@@ -2599,7 +2628,6 @@ class GigaTurnipTest(APITestCase):
         responses['time'] = time_slots[1]
         task = self.complete_task(task, responses)
         self.assertEqual(task.responses, responses)
-
     def test_case_info_for_map(self):
         json_schema = {
             "type": "object",
@@ -3282,3 +3310,42 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
 
+
+    def test_auto_notification_simple(self):
+        js_schema = {
+            "type": "object",
+            "properties": {
+                'foo': {
+                    "type": "string",
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Second stage',
+                json_schema=self.initial_stage.json_schema,
+                assign_user_by=TaskStage.STAGE
+            )
+        )
+
+        notification = Notification.objects.create(
+            title='Congrats you have completed your first task!',
+            campaign=self.campaign
+        )
+
+        auto_notification = AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notification
+        )
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"foo": "hello world!"})
+
+        user_notifications = Notification.objects.filter(target_user=self.user)
+        self.assertEqual(user_notifications.count(), 1)
+        self.assertEqual(Notification.objects.count(), 2)
+        self.assertEqual(user_notifications[0].title, notification.title)
