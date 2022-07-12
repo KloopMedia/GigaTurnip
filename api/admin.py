@@ -569,10 +569,16 @@ class PreviousManualAdmin(admin.ModelAdmin):
     autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
 
 
+class NotificationAdmin(admin.ModelAdmin):
+    model = Notification
+    search_fields = ('title', 'campaign', )
+    list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
+    autocomplete_fields = ('campaign', 'rank', )
+
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
     list_display = ('trigger_stage', 'recipient_stage', 'notification')
-    autocomplete_fields = ('trigger_stage','recipient_stage', )
+    autocomplete_fields = ('trigger_stage','recipient_stage', 'notification' )
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
@@ -597,7 +603,7 @@ admin.site.register(TaskAward, TaskAwardAdmin)
 admin.site.register(PreviousManual, PreviousManualAdmin)
 admin.site.register(Track, TrackAdmin)
 admin.site.register(Log, LogAdmin)
-admin.site.register(Notification)
+admin.site.register(Notification, NotificationAdmin)
 admin.site.register(AutoNotification, AutoNotificationAdmin)
 admin.site.register(NotificationStatus)
 admin.site.register(AdminPreference, AdminPreferenceAdmin)
