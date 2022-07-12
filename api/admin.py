@@ -571,7 +571,7 @@ class PreviousManualAdmin(admin.ModelAdmin):
 
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
-    search_fields = ('title', 'campaign', )
+    search_fields = ('title', )
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
     autocomplete_fields = ('campaign', 'rank', )
 
