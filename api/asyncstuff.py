@@ -55,11 +55,11 @@ def process_completed_task(task):
     else:
         process_out_stages(current_stage, task)
     if task.out_tasks.all():
-        out_task =task.out_tasks.get()
+        out_task = task.out_tasks.all()[0]
         if out_task.complete is False and out_task.reopened is False:
             send_auto_notifications(current_stage, task.case, {'go_forward': True})
     elif task.in_tasks.all():
-        previous_task = task.in_tasks.get()
+        previous_task = task.in_tasks.all()[0]
         if previous_task.complete is False and previous_task.reopened is True:
             send_auto_notifications(current_stage, task.case, {'go_forward': False})
 
