@@ -63,7 +63,7 @@ def process_completed_task(task):
         if previous_task.complete is False and previous_task.reopened is True:
             send_auto_notifications(current_stage, task.case, {'go_forward': False})
 
-    next_direct_task = task.get_direct_next()
+    next_direct_task = task.get_next_demo()
     task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
     if next_direct_task is not None:
         if next_direct_task.assignee == task.assignee:
