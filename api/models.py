@@ -1074,6 +1074,12 @@ class Task(BaseDatesModel, CampaignInterface):
                 return in_tasks[0]
         return None
 
+    def get_next_demo(self): # todo: have to refactor
+        tasks = self.out_tasks.filter(assignee=self.assignee)
+        if tasks.count() == 1:
+            return tasks[0]
+        return None
+
     def get_direct_next(self):
         out_tasks = self.out_tasks.all()
         if len(out_tasks) == 1:
