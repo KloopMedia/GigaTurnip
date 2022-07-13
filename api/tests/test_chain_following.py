@@ -3349,3 +3349,39 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(user_notifications.count(), 1)
         self.assertEqual(Notification.objects.count(), 2)
         self.assertEqual(user_notifications[0].title, notification.title)
+
+
+    def test_forking_chain_happy(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a"}
+        self.initial_stage.json_schema = {"type": "object",
+                                          "properties": {"1": {"enum": ["a", "b", "c", "d"], "type": "string"}}}
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.save()
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses
+        )
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name='You have complete task successfully',
+            json_schema=self.initial_stage.json_schema,
+            assign_user_by=TaskStage.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+        rating_stage = self.initial_stage.add_stage(TaskStage(
+            name='Rating stage',
+            json_schema=self.initial_stage.json_schema,
+            assign_user_by=TaskStage.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+
+        task = self.create_initial_task()
+        responses = {"1": "a"}
+        task = self.complete_task(task, responses=responses)
+        result_responses = {'1': 'a', 'meta_quiz_score': 100, 'meta_quiz_incorrect_questions': ''}
+        self.assertEqual(result_responses, task.responses)
+        self.assertEqual(task.case.tasks.count(), 3)
+
