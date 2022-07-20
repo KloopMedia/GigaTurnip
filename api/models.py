@@ -1312,9 +1312,9 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         help_text='When rank will obtained by user chain will stop.'
     )
     count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
-    title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
-    message = models.TextField(help_text="Message for users who achieve award.")
-    message_before_achieve = models.TextField(help_text="Message for users about coming award.")
+    # title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
+    # message = models.TextField(help_text="Message for users who achieve award.")
+    # message_before_achieve = models.TextField(help_text="Message for users about coming award.")
 
     def get_campaign(self) -> Campaign:
         return self.task_stage_completion.chain.campaign
