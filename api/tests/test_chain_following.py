@@ -3418,3 +3418,58 @@ class GigaTurnipTest(APITestCase):
         response = self.complete_task(task, responses=responses, whole_response=True)
         task = Task.objects.get(id=response.data["id"])
         self.assertEqual(task.out_tasks.get().id, response.data['next_direct_id'])
+
+    def test_conditional_and_operator(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a", "2": "a", "3": "a", "4": "a", "5": "a"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.save()
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses
+        )
+
+        conditional_one = self.initial_stage.add_stage(ConditionalStage(
+            name='60 <= x <= 90',
+            conditions=[
+                {"field": "meta_quiz_score", "value": "60", "condition": "<="},
+                {"field": "meta_quiz_score", "value": "90", "condition": ">="},
+            ]
+        ))
+
+        final = conditional_one.add_stage(TaskStage(
+            name='Final stage',
+            assign_user_by=TaskStage.AUTO_COMPLETE,
+            json_schema='{}'
+        ))
+
+        task = self.create_initial_task()
+        responses = {"1": "a", "2": "a", "3": "a", "4": "a", "5": "b"}
+        task = self.complete_task(task, responses=responses)
+
+        self.assertEqual(task.case.tasks.count(), 2)
