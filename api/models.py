@@ -1319,9 +1319,6 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         on_delete=models.SET_NULL,
         help_text='Notification which will be sent on achieving new rank.'
     )
-    # title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
-    # message = models.TextField(help_text="Message for users who achieve award.")
-    # message_before_achieve = models.TextField(help_text="Message for users about coming award.")
 
     def get_campaign(self) -> Campaign:
         return self.task_stage_completion.chain.campaign
