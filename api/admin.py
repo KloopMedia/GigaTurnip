@@ -351,7 +351,7 @@ class TaskAwardAdmin(admin.ModelAdmin):
         "rank",
         "count"
     )
-    autocomplete_fields = ('task_stage_completion', 'task_stage_verified', 'rank')
+    autocomplete_fields = ('task_stage_completion', 'task_stage_verified', 'rank', 'notification')
 
     def get_queryset(self, request):
         queryset = super(TaskAwardAdmin, self).get_queryset(request)

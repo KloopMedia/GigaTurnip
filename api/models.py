@@ -1312,9 +1312,13 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         help_text='When rank will obtained by user chain will stop.'
     )
     count = models.PositiveIntegerField(help_text="The count of completed tasks to give an award.")
-    title = models.TextField(null=True, help_text="Title for a message for users who achieve the award.")
-    message = models.TextField(help_text="Message for users who achieve award.")
-    message_before_achieve = models.TextField(help_text="Message for users about coming award.")
+    notification = models.ForeignKey(
+        'Notification',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text='Notification which will be sent on achieving new rank.'
+    )
 
     def get_campaign(self) -> Campaign:
         return self.task_stage_completion.chain.campaign
@@ -1356,12 +1360,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
             if rank_record:
                 return rank_record[0]
             rank_record = RankRecord.objects.create(user=user, rank=self.rank)
-            Notification.objects.create(
-                target_user=user,
-                campaign=self.get_campaign(),
-                title=self.title,
-                text=self.message,
-            )
+            new_notification = self.notification
+            new_notification.pk, new_notification.target_user = None, user
+            new_notification.save()
+
             return rank_record
         else:
             return None

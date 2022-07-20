@@ -1727,14 +1727,17 @@ class GigaTurnipTest(APITestCase):
             rank=verifier_rank)
 
         prize_rank = Rank.objects.create(name="SUPERMAN")
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
         task_awards = TaskAward.objects.create(
             task_stage_completion=self.initial_stage,
             task_stage_verified=verification_task_stage,
             rank=prize_rank,
             count=3,
-            title="You achieve new rank",
-            message="Congratulations! You achieve new rank!",
-            message_before_achieve=""
+            notification=notification
         )
 
         rank_l = RankLimit.objects.create(
@@ -1760,7 +1763,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(employee_ranks), 2)
         self.assertIn(prize_rank, employee_ranks)
 
-        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.title)
+        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 1)
 
     def test_task_awards_count_is_lower(self):
@@ -1806,14 +1809,17 @@ class GigaTurnipTest(APITestCase):
             rank=verifier_rank)
 
         prize_rank = Rank.objects.create(name="SUPERMAN")
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
         task_awards = TaskAward.objects.create(
             task_stage_completion=self.initial_stage,
             task_stage_verified=verification_task_stage,
             rank=prize_rank,
             count=3,
-            title="You achieve new rank",
-            message="Congratulations! You achieve new rank!",
-            message_before_achieve=""
+            notification=notification
         )
 
         rank_l = RankLimit.objects.create(
@@ -1840,7 +1846,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(employee_ranks), 1)
         self.assertNotIn(prize_rank, employee_ranks)
 
-        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.title)
+        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 0)
 
     def test_task_awards_count_many_task_stages(self):
@@ -1891,14 +1897,17 @@ class GigaTurnipTest(APITestCase):
             rank=verifier_rank)
 
         prize_rank = Rank.objects.create(name="SUPERMAN")
+        notification = Notification.objects.create(
+            campaign=self.campaign,
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!"
+        )
         task_awards = TaskAward.objects.create(
             task_stage_completion=self.initial_stage,
             task_stage_verified=verification_task_stage,
             rank=prize_rank,
             count=3,
-            title="You achieve new rank",
-            message="Congratulations! You achieve new rank!",
-            message_before_achieve=""
+            notification=notification
         )
 
         rank_l = RankLimit.objects.create(
@@ -1927,7 +1936,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(employee_ranks), 2)
         self.assertIn(prize_rank, employee_ranks)
 
-        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.title)
+        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 1)
 
     def test_task_awards_for_giving_ranks(self):
@@ -1977,14 +1986,17 @@ class GigaTurnipTest(APITestCase):
             rank=verifier_rank)
 
         prize_rank = Rank.objects.create(name="SUPERMAN")
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
         task_awards = TaskAward.objects.create(
             task_stage_completion=self.initial_stage,
             task_stage_verified=verification_task_stage,
             rank=prize_rank,
             count=3,
-            title="You achieve new rank",
-            message="Congratulations! You achieve new rank!",
-            message_before_achieve=""
+            notification=notification
         )
 
         rank_l = RankLimit.objects.create(
@@ -2010,7 +2022,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(employee_ranks), 2)
         self.assertIn(prize_rank, employee_ranks)
 
-        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.title)
+        user_notifications = Notification.objects.filter(target_user=self.employee, title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 1)
 
     def test_task_stage_get_schema_fields(self):
@@ -3186,15 +3198,18 @@ class GigaTurnipTest(APITestCase):
         award_stage.add_stage(task_creation_stage)
 
         prize_rank = Rank.objects.create(name="SUPERMAN")
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
         task_awards = TaskAward.objects.create(
             task_stage_completion=completion_stage,
             task_stage_verified=award_stage,
             rank=prize_rank,
             count=5,
             stop_chain=True,
-            title="You achieve new rank",
-            message="Congratulations! You achieve new rank!",
-            message_before_achieve=""
+            notification=notification
         )
 
         init_task = self.create_initial_task()
@@ -3283,15 +3298,18 @@ class GigaTurnipTest(APITestCase):
         award_stage.add_stage(task_creation_stage)
 
         prize_rank = Rank.objects.create(name="SUPERMAN")
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
         task_awards = TaskAward.objects.create(
             task_stage_completion=completion_stage,
             task_stage_verified=award_stage,
             rank=prize_rank,
             count=5,
             stop_chain=True,
-            title="You achieve new rank",
-            message="Congratulations! You achieve new rank!",
-            message_before_achieve=""
+            notification=notification
         )
 
         init_task = self.create_initial_task()
