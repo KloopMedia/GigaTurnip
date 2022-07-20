@@ -210,10 +210,12 @@ def evaluate_conditional_stage(stage, task):
         return False
 
     for rule in rules:
-
         control_value = rule["value"]
         condition = rule["condition"]
         actual_value = get_value_from_dotted(rule["field"], responses)
+        type_to_convert = get_value_from_dotted('properties.' + rule["field"], json.loads(task.stage.json_schema)).get('type')
+
+        # TODO: convert values to type
 
         if condition == "==":
             results.append(control_value == actual_value)
