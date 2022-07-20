@@ -1040,7 +1040,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=return_notification,
-            # go_forward=False
+            go=AutoNotification.BACKWARD
         )
 
         complete_notification = Notification.objects.create(
@@ -1051,7 +1051,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=complete_notification,
-            # go_forward=True
+            go=AutoNotification.FORWARD
         )
 
         verification_client = self.prepare_client(verification_task_stage)
@@ -3320,7 +3320,6 @@ class GigaTurnipTest(APITestCase):
             responses = test_task.responses
             responses['answer'] = test_task.in_tasks.get().responses['sentence']
             test_task = self.complete_task(test_task, responses)
-            print(i, test_task)
             if i+1 < task_awards.count:
                 test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
 
@@ -3486,8 +3485,41 @@ class GigaTurnipTest(APITestCase):
             json_schema='{}'
         ))
 
+        notification = Notification.objects.create(
+            title='Congrats!',
+            campaign=self.campaign
+        )
+        AutoNotification.objects.create(
+            trigger_stage=final,
+            recipient_stage=self.initial_stage,
+            notification=notification,
+            go=AutoNotification.LAST_ONE
+        )
+
         task = self.create_initial_task()
         responses = {"1": "a", "2": "a", "3": "a", "4": "a", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
         self.assertEqual(task.case.tasks.count(), 2)
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_auto_notification_last_one_option_as_go(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "foo": {"type": "string"}
+            }
+        })
+        notification = Notification.objects.create(
+            title='Congrats!',
+            campaign=self.campaign
+        )
+        AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notification,
+            go=AutoNotification.LAST_ONE
+        )
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"foo": "boo"})
+        self.assertEqual(Notification.objects.count(), 2)
