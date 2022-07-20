@@ -1040,7 +1040,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=return_notification,
-            go_forward=False
+            # go_forward=False
         )
 
         complete_notification = Notification.objects.create(
@@ -1051,7 +1051,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=complete_notification,
-            go_forward=True
+            # go_forward=True
         )
 
         verification_client = self.prepare_client(verification_task_stage)

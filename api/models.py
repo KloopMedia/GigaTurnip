@@ -1563,11 +1563,11 @@ class AutoNotification(BaseDates):
         related_name='auto_notification_recipient_stages',
         help_text='Stage to get recipient user.'
     )
-    go_forward = models.BooleanField(
-        default=True,
-        help_text='If process will go forward notification will be sent. '
-                  'Otherwise process goes back and previous task is returned.'
-    )
+    # go_forward = models.BooleanField(
+    #     default=True,
+    #     help_text='If process will go forward notification will be sent. '
+    #               'Otherwise process goes back and previous task is returned.'
+    # )
     notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
