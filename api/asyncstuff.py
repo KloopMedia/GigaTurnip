@@ -8,7 +8,8 @@ import math
 from django.http import HttpResponseBadRequest
 
 from api.api_exceptions import CustomApiException
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit
+from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
+    AutoNotification
 from api.utils import find_user, value_from_json, reopen_task
 
 
@@ -54,15 +55,7 @@ def process_completed_task(task):
                 process_out_stages(current_stage, task)
     else:
         process_out_stages(current_stage, task)
-    if task.out_tasks.all():
-        out_task = task.out_tasks.all()[0]
-        if out_task.complete is False and out_task.reopened is False:
-            send_auto_notifications(current_stage, task.case, {'go_forward': True})
-    elif task.in_tasks.all():
-        previous_task = task.in_tasks.all()[0]
-        if previous_task.complete is False and previous_task.reopened is True:
-            send_auto_notifications(current_stage, task.case, {'go_forward': False})
-
+    detecting_auto_notifications(current_stage, task)
     next_direct_task = task.get_next_demo()
     task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
     if next_direct_task is not None:
@@ -395,6 +388,23 @@ def remove_answers_in_turn(schema, fields, responses):
                 #     schema['properties'][i]['enumNames'] = []
             return schema
     return schema
+
+
+def detecting_auto_notifications(stage, task):
+    if task.out_tasks.all():
+        out_task = task.out_tasks.all()[0]
+        if out_task.complete is False and out_task.reopened is False:
+            send_auto_notifications(stage, task.case, {'go': AutoNotification.FORWARD})
+    elif task.in_tasks.all():
+        previous_task = task.in_tasks.all()[0]
+        if previous_task.complete is False and previous_task.reopened is True:
+            send_auto_notifications(stage, task.case, {'go': AutoNotification.BACKWARD})
+        else:
+            send_auto_notifications(stage, task.case, {'go': AutoNotification.LAST_ONE})
+    elif not stage.in_stages.count():
+        in_tasks, out_tasks = task.in_tasks.all(), task.out_tasks.all()
+        if (not in_tasks or in_tasks and in_tasks[0].complete) and task.complete and not out_tasks:
+            send_auto_notifications(stage, task.case, {'go': AutoNotification.LAST_ONE})
 
 
 def send_auto_notifications(trigger, case, filters=None):

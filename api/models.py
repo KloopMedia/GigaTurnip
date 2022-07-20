@@ -1563,15 +1563,25 @@ class AutoNotification(BaseDates):
         related_name='auto_notification_recipient_stages',
         help_text='Stage to get recipient user.'
     )
-    go_forward = models.BooleanField(
-        default=True,
-        help_text='If process will go forward notification will be sent. '
-                  'Otherwise process goes back and previous task is returned.'
-    )
     notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
         help_text='Notification that will be using for get user'
+    )
+
+    FORWARD = 'FW'
+    BACKWARD = 'BW'
+    LAST_ONE = 'LO'
+    ASSIGN_BY_CHOICES = [
+        (FORWARD, 'Forward'),
+        (BACKWARD, 'Backward'),
+        (LAST_ONE, 'Last-one')
+    ]
+    go = models.CharField(
+        max_length=2,
+        choices=ASSIGN_BY_CHOICES,
+        default=FORWARD,
+        help_text=('You have to choose on what action notification would be sent.')
     )
 
     def create_notification(self, user):
