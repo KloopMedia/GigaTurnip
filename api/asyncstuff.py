@@ -4,13 +4,11 @@ import requests
 from django.db.models import Q, F, Count
 from rest_framework import status
 import math
-
-from django.http import HttpResponseBadRequest
-
 from api.api_exceptions import CustomApiException
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
-from api.utils import find_user, value_from_json, reopen_task
+from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
+    connect_user_with_ranks
 
 
 def process_completed_task(task):
@@ -58,14 +56,16 @@ def process_completed_task(task):
     detecting_auto_notifications(current_stage, task)
     next_direct_task = task.get_next_demo()
     task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
+    for task_award in task_awards:
+        rank_record = task_award.connect_user_with_rank(task)
+        if rank_record:
+            ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
+            connect_user_with_ranks(rank_record.user, ranks)
     if next_direct_task is not None:
         if next_direct_task.assignee == task.assignee:
             return next_direct_task
         else:
             return None
-    elif (next_direct_task is None) and task_awards:
-        for task_award in task_awards:
-            rank_record = task_award.connect_user_with_rank(task)
     return None
 
 
@@ -152,8 +152,11 @@ def create_new_task(stage, in_task):
         if not task_award:
             process_completed_task(new_task)
         if task_award:
-            r = task_award[0].connect_user_with_rank(in_task)
-            if task_award[0].stop_chain and r:
+            rank_record = task_award[0].connect_user_with_rank(in_task)
+            if rank_record:
+                ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
+                connect_user_with_ranks(rank_record.user, ranks)
+            if task_award[0].stop_chain and rank_record:
                 pass
             else:
                 process_completed_task(new_task)
