@@ -583,7 +583,23 @@ class PreviousManualAdmin(admin.ModelAdmin):
     model = PreviousManual
     list_display = ('__str__', 'task_stage_to_assign', 'task_stage_email', 'is_id', 'created_at', 'updated_at', )
     autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
+    search_fields = ('task_stage_to_assign__name', 'task_stage_email__name', 'field', )
+    list_filter = (
+        "task_stage_to_assign",
+        "task_stage_email",
+        "task_stage_email__chain",
+        "task_stage_email__chain__campaign",
+        "task_stage_to_assign__chain",
+        "task_stage_to_assign__chain__campaign",
+        "is_id",
+    )
 
+    def get_queryset(self, request):
+        queryset = super(PreviousManualAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            task_stage_email__chain__campaign__campaign_managements__user=request.user
+        )
 
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
