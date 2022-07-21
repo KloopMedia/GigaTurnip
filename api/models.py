@@ -1187,9 +1187,9 @@ class Rank(BaseModel, CampaignInterface):
         null=True,
         blank=True
     )
-    parent_ranks = models.ManyToManyField(
+    prerequisite_ranks = models.ManyToManyField(
         "self",
-        related_name="child_ranks",
+        related_name="postrequisite_ranks",
         blank=True,
         symmetrical=False,
         help_text="Preceded tasks"

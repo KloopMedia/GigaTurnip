@@ -292,7 +292,7 @@ def create_auto_notifications_by_stage_and_case(stage, case):
 def get_ranks_where_user_have_parent_ranks(user, rank):
     available_ranks = []
     for i in rank.child_ranks.all():
-        parent_ids = i.parent_ranks.values_list('id', flat=True)
+        parent_ids = i.prerequisite_ranks.values_list('id', flat=True)
         if user.ranks.filter(id__in=parent_ids).count() == parent_ids.count():
             available_ranks.append(i.id)
     return available_ranks

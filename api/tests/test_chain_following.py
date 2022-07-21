@@ -3557,8 +3557,8 @@ class GigaTurnipTest(APITestCase):
         )
 
         super_rank = Rank.objects.create(name='SUPERMAN RANK')
-        super_rank.parent_ranks.add(prize_rank_1)
-        super_rank.parent_ranks.add(prize_rank_2)
+        super_rank.prerequisite_ranks.add(prize_rank_1)
+        super_rank.prerequisite_ranks.add(prize_rank_2)
         super_rank.save()
         resp = {"foo":"hello world"}
         task = self.create_initial_task()
