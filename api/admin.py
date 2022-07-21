@@ -286,8 +286,18 @@ class RankLimitAdmin(admin.ModelAdmin):
                     'stage',
                     'created_at',
                     'updated_at')
-    search_fields = ('pk', 'rank', 'stage', )
+    search_fields = ('pk', 'rank__name', 'stage__name', )
     autocomplete_fields = ('stage', 'rank')
+    list_filter = (
+        "rank",
+        "stage",
+        "stage__chain__campaign",
+        "rank",
+        'is_listing_allowed',
+        'is_submission_open',
+        'is_selection_open',
+        'is_creation_open'
+    )
 
     def get_queryset(self, request):
         queryset = super(RankLimitAdmin, self).get_queryset(request)
