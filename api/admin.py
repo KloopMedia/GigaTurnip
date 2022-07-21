@@ -3,7 +3,6 @@ from abc import ABC
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
-from django import forms
 from django.db.models import Count
 
 from .models import Campaign, Chain, \
@@ -286,8 +285,18 @@ class RankLimitAdmin(admin.ModelAdmin):
                     'stage',
                     'created_at',
                     'updated_at')
-    search_fields = ('pk', 'rank', 'stage', )
+    search_fields = ('pk', 'rank__name', 'stage__name', )
     autocomplete_fields = ('stage', 'rank')
+    list_filter = (
+        "rank",
+        "stage",
+        "stage__chain__campaign",
+        "rank",
+        'is_listing_allowed',
+        'is_submission_open',
+        'is_selection_open',
+        'is_creation_open'
+    )
 
     def get_queryset(self, request):
         queryset = super(RankLimitAdmin, self).get_queryset(request)
@@ -554,6 +563,12 @@ class DynamicJsonAdmin(admin.ModelAdmin):
     list_display = ('task_stage', 'webhook', 'id', 'created_at', 'updated_at', )
     search_fields = ('task_stage', 'webhook', )
     autocomplete_fields = ('task_stage', 'webhook', )
+    list_filter = (
+        "task_stage",
+        "task_stage__chain",
+        "task_stage__chain__campaign",
+        "webhook",
+    )
 
     def get_queryset(self, request):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
@@ -567,6 +582,23 @@ class PreviousManualAdmin(admin.ModelAdmin):
     model = PreviousManual
     list_display = ('__str__', 'task_stage_to_assign', 'task_stage_email', 'is_id', 'created_at', 'updated_at', )
     autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
+    search_fields = ('task_stage_to_assign__name', 'task_stage_email__name', 'field', )
+    list_filter = (
+        "task_stage_to_assign",
+        "task_stage_email",
+        "task_stage_email__chain",
+        "task_stage_email__chain__campaign",
+        "task_stage_to_assign__chain",
+        "task_stage_to_assign__chain__campaign",
+        "is_id",
+    )
+
+    def get_queryset(self, request):
+        queryset = super(PreviousManualAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            task_stage_email__chain__campaign__campaign_managements__user=request.user
+        )
 
 
 class NotificationAdmin(admin.ModelAdmin):
@@ -575,10 +607,29 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
     autocomplete_fields = ('campaign', 'rank', )
 
+
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
     list_display = ('trigger_stage', 'recipient_stage', 'notification')
-    autocomplete_fields = ('trigger_stage','recipient_stage', 'notification' )
+    autocomplete_fields = ('trigger_stage', 'recipient_stage', 'notification', )
+    search_fields = ('notification__title', 'notification', 'trigger_stage__name', 'recipient_stage__name', )
+    list_filter = (
+        'trigger_stage',
+        'recipient_stage',
+        "trigger_stage__chain",
+        "trigger_stage__chain__campaign",
+        "recipient_stage__chain",
+        "recipient_stage__chain__campaign",
+        'go',
+        'notification__title',
+    )
+
+    def get_queryset(self, request):
+        queryset = super(AutoNotificationAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            trigger_stage__chain__campaign__campaign_managements__user=request.user
+        )
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
