@@ -1187,6 +1187,13 @@ class Rank(BaseModel, CampaignInterface):
         null=True,
         blank=True
     )
+    parent_ranks = models.ManyToManyField(
+        "self",
+        related_name="child_ranks",
+        blank=True,
+        symmetrical=False,
+        help_text="Preceded tasks"
+    )
 
     def get_campaign(self):
         return self.track.campaign
