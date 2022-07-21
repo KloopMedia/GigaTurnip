@@ -3,7 +3,6 @@ from abc import ABC
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
-from django import forms
 from django.db.models import Count
 
 from .models import Campaign, Chain, \
@@ -601,6 +600,7 @@ class PreviousManualAdmin(admin.ModelAdmin):
             task_stage_email__chain__campaign__campaign_managements__user=request.user
         )
 
+
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
     search_fields = ('title', )
@@ -611,8 +611,25 @@ class NotificationAdmin(admin.ModelAdmin):
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
     list_display = ('trigger_stage', 'recipient_stage', 'notification')
-    autocomplete_fields = ('trigger_stage','recipient_stage', 'notification' )
+    autocomplete_fields = ('trigger_stage', 'recipient_stage', 'notification', )
+    search_fields = ('notification__title', 'notification', 'trigger_stage__name', 'recipient_stage__name', )
+    list_filter = (
+        'trigger_stage',
+        'recipient_stage',
+        "trigger_stage__chain",
+        "trigger_stage__chain__campaign",
+        "recipient_stage__chain",
+        "recipient_stage__chain__campaign",
+        'go',
+        'notification__title',
+    )
 
+    def get_queryset(self, request):
+        queryset = super(AutoNotificationAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            trigger_stage__chain__campaign__campaign_managements__user=request.user
+        )
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
