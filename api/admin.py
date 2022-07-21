@@ -564,6 +564,12 @@ class DynamicJsonAdmin(admin.ModelAdmin):
     list_display = ('task_stage', 'webhook', 'id', 'created_at', 'updated_at', )
     search_fields = ('task_stage', 'webhook', )
     autocomplete_fields = ('task_stage', 'webhook', )
+    list_filter = (
+        "task_stage",
+        "task_stage__chain",
+        "task_stage__chain__campaign",
+        "webhook",
+    )
 
     def get_queryset(self, request):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
@@ -585,10 +591,12 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
     autocomplete_fields = ('campaign', 'rank', )
 
+
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
     list_display = ('trigger_stage', 'recipient_stage', 'notification')
     autocomplete_fields = ('trigger_stage','recipient_stage', 'notification' )
+
 
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
