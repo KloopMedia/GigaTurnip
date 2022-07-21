@@ -3523,3 +3523,49 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         task = self.complete_task(task, {"foo": "boo"})
         self.assertEqual(Notification.objects.count(), 2)
+
+    def test_assign_rank_by_parent_rank(self):
+        schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
+        self.initial_stage.json_schema = json.dumps(schema)
+        prize_rank_1 = Rank.objects.create(name='GOOD RANK')
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=self.initial_stage,
+            task_stage_verified=self.initial_stage,
+            rank=prize_rank_1,
+            count=1,
+            notification=notification
+        )
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name='Second stage',
+            assign_user_by=TaskStage.STAGE,
+            assign_user_from_stage=self.initial_stage,
+            json_schema=self.initial_stage.json_schema
+        ))
+        prize_rank_2 = Rank.objects.create(name='BEST RANK')
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=second_stage,
+            task_stage_verified=second_stage,
+            rank=prize_rank_2,
+            count=1,
+            notification=notification
+        )
+
+        super_rank = Rank.objects.create(name='SUPERMAN RANK')
+        super_rank.parent_ranks.add(prize_rank_1)
+        super_rank.parent_ranks.add(prize_rank_2)
+        super_rank.save()
+        resp = {"foo":"hello world"}
+        task = self.create_initial_task()
+        task = self.complete_task(task, resp)
+        second_task = task.out_tasks.get()
+        second_task = self.complete_task(second_task, resp)
+
+        self.assertEqual(Notification.objects.count(), 3)
+        print(self.user.ranks.all())
+        self.assertEqual(self.user.ranks.count(), 4)

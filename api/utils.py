@@ -287,3 +287,17 @@ def create_auto_notifications_by_stage_and_case(stage, case):
             targeted_notification.pk = None
             targeted_notification.target_user = recipient_task.assignee
             targeted_notification.save()
+
+
+def get_ranks_where_user_have_parent_ranks(user, rank):
+    available_ranks = []
+    for i in rank.child_ranks.all():
+        parent_ids = i.parent_ranks.values_list('id', flat=True)
+        if user.ranks.filter(id__in=parent_ids).count() == parent_ids.count():
+            available_ranks.append(i.id)
+    return available_ranks
+
+
+def connect_user_with_ranks(user, ranks_ids):
+    for i in ranks_ids:
+        RankRecord.objects.create(rank_id=i, user=user)
