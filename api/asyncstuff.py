@@ -35,6 +35,24 @@ def get_next_direct_task(next_direct_task, task):
             return None
 
 
+def process_on_chain(current_stage, task):
+    in_conditional_pingpong_stages = ConditionalStage.objects \
+        .filter(out_stages=current_stage) \
+        .filter(pingpong=True)
+    if len(in_conditional_pingpong_stages) > 0:
+        for stage in in_conditional_pingpong_stages:
+            if evaluate_conditional_stage(stage, task):
+                in_tasks = Task.objects.filter(out_tasks=task)
+                for in_task in in_tasks:
+                    in_task.complete = False
+                    in_task.reopened = True
+                    in_task.save()
+            else:
+                process_out_stages(current_stage, task)
+    else:
+        process_out_stages(current_stage, task)
+
+
 def process_completed_task(task):
     current_stage = task.stage
 
@@ -54,21 +72,7 @@ def process_completed_task(task):
     if next_direct_task is not None:
         return get_next_direct_task(next_direct_task, task)
 
-    in_conditional_pingpong_stages = ConditionalStage.objects \
-        .filter(out_stages=current_stage) \
-        .filter(pingpong=True)
-    if len(in_conditional_pingpong_stages) > 0:
-        for stage in in_conditional_pingpong_stages:
-            if evaluate_conditional_stage(stage, task):
-                in_tasks = Task.objects.filter(out_tasks=task)
-                for in_task in in_tasks:
-                    in_task.complete = False
-                    in_task.reopened = True
-                    in_task.save()
-            else:
-                process_out_stages(current_stage, task)
-    else:
-        process_out_stages(current_stage, task)
+    process_on_chain(current_stage, task)
     detecting_auto_notifications(current_stage, task)
     next_direct_task = task.get_next_demo()
     task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
