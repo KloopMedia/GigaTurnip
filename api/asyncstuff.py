@@ -182,6 +182,23 @@ def process_previous_manual_assign(stage, new_task, in_task):
     return new_task
 
 
+def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
+    if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
+        task_award = stage.task_stage_verified.all()
+        if not task_award:
+            process_completed_task(new_task)
+        if task_award:
+            rank_record = task_award[0].connect_user_with_rank(in_task)
+            if rank_record:
+                ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
+                connect_user_with_ranks(rank_record.user, ranks)
+
+            if task_award[0].stop_chain and rank_record:
+                pass
+            else:
+                process_completed_task(new_task)
+
+
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
     new_task = None
@@ -199,20 +216,7 @@ def create_new_task(stage, in_task):
         process_auto_completed_task(stage, new_task)
         new_task = process_previous_manual_assign(stage, new_task, in_task)
 
-    if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
-        task_award = stage.task_stage_verified.all()
-        if not task_award:
-            process_completed_task(new_task)
-        if task_award:
-            rank_record = task_award[0].connect_user_with_rank(in_task)
-            if rank_record:
-                ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
-                connect_user_with_ranks(rank_record.user, ranks)
-
-            if task_award[0].stop_chain and rank_record:
-                pass
-            else:
-                process_completed_task(new_task)
+    process_create_new_task_based_and_stage_assign(stage, new_task, in_task)
 
 
 def process_conditional(stage, in_task):
