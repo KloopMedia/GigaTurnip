@@ -11,14 +11,7 @@ from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_u
     connect_user_with_ranks
 
 
-def process_completed_task(task):
-    current_stage = task.stage
-
-    # Check if task is a quiz, and if so, score and save result inside
-    # responses as meta_quiz_score. If quiz threshold is set, quiz with
-    # score lower than threshold will be opened and returned without
-    # chain propagation.
-    quiz = current_stage.get_quiz()
+def evaluate_quiz(quiz, task):
     if quiz and quiz.is_ready():
         quiz_score, incorrect_questions = quiz.check_score(task)
         task.responses["meta_quiz_score"] = quiz_score
@@ -29,7 +22,9 @@ def process_completed_task(task):
             task.reopened = True
             task.save()
             return task
-    next_direct_task = task.get_direct_next()
+
+
+def get_next_direct_task(next_direct_task, task):
     if next_direct_task is not None:
         next_direct_task.complete = False
         next_direct_task.reopened = True
@@ -38,6 +33,27 @@ def process_completed_task(task):
             return next_direct_task
         else:
             return None
+
+
+def process_completed_task(task):
+    current_stage = task.stage
+
+    # Check if task is a quiz, and if so, score and save result inside
+    # responses as meta_quiz_score. If quiz threshold is set, quiz with
+    # score lower than threshold will be opened and returned without
+    # chain propagation.
+    quiz_evaluated_task = current_stage.get_quiz()
+    if quiz_evaluated_task:
+        quiz_evaluated_task = evaluate_quiz(quiz_evaluated_task, task)
+        if quiz_evaluated_task:
+            return quiz_evaluated_task
+        else:
+            del quiz_evaluated_task
+
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        return get_next_direct_task(next_direct_task, task)
+
     in_conditional_pingpong_stages = ConditionalStage.objects \
         .filter(out_stages=current_stage) \
         .filter(pingpong=True)
