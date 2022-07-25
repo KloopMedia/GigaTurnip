@@ -95,7 +95,7 @@ def process_out_stages(current_stage, task):
         create_new_task(stage, task)
 
 
-def process_webhook(stage, in_task):
+def send_webhook_request(stage, in_task):
     params = {}
     if stage.webhook_payload_field:
         params[stage.webhook_payload_field] = json.dumps(in_task.responses)
@@ -112,17 +112,22 @@ def process_webhook(stage, in_task):
     return response
 
 
+def process_webhook(stage, in_task, data):
+    response = send_webhook_request(stage, in_task)
+    data["responses"] = response
+    data["complete"] = True
+    new_task = Task.objects.create(**data)
+    new_task.in_tasks.set([in_task])
+    return new_task
+
+
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
     new_task = None
     if stage.webhook_address:
         for copy_field in stage.copy_fields.all():
             in_task.responses = copy_field.copy_response(in_task)
-        response = process_webhook(stage, in_task)
-        data["responses"] = response
-        data["complete"] = True
-        new_task = Task.objects.create(**data)
-        new_task.in_tasks.set([in_task])
+        new_task = process_webhook(stage, in_task, data)
     elif stage.get_integration():
         if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
             integration = stage.get_integration()
