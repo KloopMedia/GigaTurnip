@@ -8,7 +8,7 @@ from api.api_exceptions import CustomApiException
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
-    connect_user_with_ranks, give_task_awards
+    connect_user_with_ranks, give_task_awards, process_auto_completed_task
 
 
 def evaluate_quiz(quiz, task):
@@ -137,6 +137,51 @@ def process_integration(stage, in_task):
         return in_task
 
 
+def process_stage_assign_by_ST(stage, data, in_task):
+    if stage.assign_user_by == TaskStage.STAGE:
+        if stage.assign_user_from_stage is not None:
+            assignee_task = Task.objects \
+                .filter(stage=stage.assign_user_from_stage) \
+                .filter(case=in_task.case)
+            data["assignee"] = assignee_task[0].assignee
+    new_task = Task.objects.create(**data)
+    new_task.in_tasks.set([in_task])
+    return new_task
+
+
+def trigger_on_copy_input(stage, new_task, in_task):
+    if stage.copy_input:
+        new_task.responses = in_task.responses
+    return new_task
+
+
+def trigger_on_webhook(stage, new_task):
+    webhook = stage.get_webhook()
+    if webhook and webhook.is_triggered:
+        webhook.trigger(new_task)
+
+
+def set_copied_fields(stage, new_task, responses=None):
+    responses = responses if responses else {}
+    for copy_field in stage.copy_fields.all():
+        responses.update(copy_field.copy_response(new_task))
+
+    if new_task.responses:
+        new_task.responses.update(responses)
+    else:
+        new_task.responses = responses
+
+    new_task.save()
+
+    return new_task
+
+
+def process_previous_manual_assign(stage, new_task, in_task):
+    if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
+        new_task = assign_by_previous_manual(stage, new_task, in_task)
+    return new_task
+
+
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
     new_task = None
@@ -147,27 +192,13 @@ def create_new_task(stage, in_task):
     elif stage.get_integration():
         in_task = process_integration(stage, in_task)
     else:
-        if stage.assign_user_by == TaskStage.STAGE:
-            if stage.assign_user_from_stage is not None:
-                assignee_task = Task.objects \
-                    .filter(stage=stage.assign_user_from_stage) \
-                    .filter(case=in_task.case)
-                data["assignee"] = assignee_task[0].assignee
-        new_task = Task.objects.create(**data)
-        new_task.in_tasks.set([in_task])
-        if stage.copy_input:
-            new_task.responses = in_task.responses
-        webhook = stage.get_webhook()
-        if webhook and webhook.is_triggered:
-            webhook.trigger(new_task)
-        for copy_field in stage.copy_fields.all():
-            new_task.responses = copy_field.copy_response(new_task)
-        new_task.save()
-        if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
-            new_task.complete = True
-            new_task.save()
-        if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
-            assign_by_previous_manual(stage, new_task, in_task)
+        new_task = process_stage_assign_by_ST(stage, data, in_task)
+        new_task = trigger_on_copy_input(stage, new_task, in_task)
+        trigger_on_webhook(stage, new_task)
+        new_task = set_copied_fields(stage, new_task)
+        process_auto_completed_task(stage, new_task)
+        new_task = process_previous_manual_assign(stage, new_task, in_task)
+
     if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
         task_award = stage.task_stage_verified.all()
         if not task_award:
@@ -177,6 +208,7 @@ def create_new_task(stage, in_task):
             if rank_record:
                 ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
                 connect_user_with_ranks(rank_record.user, ranks)
+
             if task_award[0].stop_chain and rank_record:
                 pass
             else:
@@ -291,6 +323,8 @@ def assign_by_previous_manual(stage, new_task, in_task):
 
     new_task.assignee = user
     new_task.save()
+
+    return new_task
 
 
 def get_value_from_dotted(dotted_path, source_dict):

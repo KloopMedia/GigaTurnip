@@ -310,3 +310,9 @@ def give_task_awards(stage, task):
         if rank_record:
             ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
             connect_user_with_ranks(rank_record.user, ranks)
+
+
+def process_auto_completed_task(stage, task):
+    if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
+        task.complete = True
+        task.save()
