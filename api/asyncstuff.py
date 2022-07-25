@@ -121,6 +121,22 @@ def process_webhook(stage, in_task, data):
     return new_task
 
 
+def process_integration(stage, in_task):
+    if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+        integration = stage.get_integration()
+        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+        if created:
+            case = Case.objects.create()
+            integrator_task.case = case
+        if integrator_task.assignee is not None and \
+                in_task.stage.assign_user_by == "IN":
+            in_task.assignee = integrator_task.assignee
+            in_task.save()
+        integrator_task.in_tasks.add(in_task)
+        integrator_task.save()
+        return in_task
+
+
 def create_new_task(stage, in_task):
     data = {"stage": stage, "case": in_task.case}
     new_task = None
@@ -129,22 +145,7 @@ def create_new_task(stage, in_task):
             in_task.responses = copy_field.copy_response(in_task)
         new_task = process_webhook(stage, in_task, data)
     elif stage.get_integration():
-        if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
-            integration = stage.get_integration()
-            (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
-            # integration_status = IntegrationStatus(
-            #     integrated_task=in_task,
-            #     integrator=integrator_task)
-            # integration_status.save()
-            if created:
-                case = Case.objects.create()
-                integrator_task.case = case
-            if integrator_task.assignee is not None and \
-                    in_task.stage.assign_user_by == "IN":
-                in_task.assignee = integrator_task.assignee
-                in_task.save()
-            integrator_task.in_tasks.add(in_task)
-            integrator_task.save()
+        in_task = process_integration(stage, in_task)
     else:
         if stage.assign_user_by == TaskStage.STAGE:
             if stage.assign_user_from_stage is not None:
