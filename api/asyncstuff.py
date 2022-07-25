@@ -8,7 +8,7 @@ from api.api_exceptions import CustomApiException
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
-    connect_user_with_ranks
+    connect_user_with_ranks, give_task_awards
 
 
 def evaluate_quiz(quiz, task):
@@ -74,18 +74,13 @@ def process_completed_task(task):
 
     process_on_chain(current_stage, task)
     detecting_auto_notifications(current_stage, task)
+
+    give_task_awards(current_stage, task)
+
     next_direct_task = task.get_next_demo()
-    task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
-    for task_award in task_awards:
-        rank_record = task_award.connect_user_with_rank(task)
-        if rank_record:
-            ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
-            connect_user_with_ranks(rank_record.user, ranks)
     if next_direct_task is not None:
         if next_direct_task.assignee == task.assignee:
             return next_direct_task
-        else:
-            return None
     return None
 
 
