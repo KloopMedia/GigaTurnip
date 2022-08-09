@@ -3567,5 +3567,4 @@ class GigaTurnipTest(APITestCase):
         second_task = self.complete_task(second_task, resp)
 
         self.assertEqual(Notification.objects.count(), 3)
-        print(self.user.ranks.all())
         self.assertEqual(self.user.ranks.count(), 4)

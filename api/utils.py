@@ -291,7 +291,7 @@ def create_auto_notifications_by_stage_and_case(stage, case):
 
 def get_ranks_where_user_have_parent_ranks(user, rank):
     available_ranks = []
-    for i in rank.child_ranks.all():
+    for i in rank.postrequisite_ranks.all():
         parent_ids = i.prerequisite_ranks.values_list('id', flat=True)
         if user.ranks.filter(id__in=parent_ids).count() == parent_ids.count():
             available_ranks.append(i.id)
@@ -301,3 +301,18 @@ def get_ranks_where_user_have_parent_ranks(user, rank):
 def connect_user_with_ranks(user, ranks_ids):
     for i in ranks_ids:
         RankRecord.objects.create(rank_id=i, user=user)
+
+
+def give_task_awards(stage, task):
+    task_awards = stage.task_stage_verified.all()
+    for task_award in task_awards:
+        rank_record = task_award.connect_user_with_rank(task)
+        if rank_record:
+            ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
+            connect_user_with_ranks(rank_record.user, ranks)
+
+
+def process_auto_completed_task(stage, task):
+    if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
+        task.complete = True
+        task.save()

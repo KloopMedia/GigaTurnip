@@ -1229,6 +1229,7 @@ class RankRecord(BaseDatesModel, CampaignInterface):
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
+        related_name='user_ranks',
         help_text="User id"
     )
     rank = models.ForeignKey(
@@ -1339,31 +1340,26 @@ class TaskAward(BaseDatesModel, CampaignInterface):
         :return:
         """
         # Get user from task which stage is stage of completion
-        user = Task.objects.filter(
-            stage=self.task_stage_completion,
-            case=task.case,
+        user = task.case.tasks.filter(
             complete=True,
-            force_complete=False)[0].assignee
+            force_complete=False,
+            stage=self.task_stage_completion).last().assignee
 
         # Get tasks which was completed by user to get cases id
-        user_completed_tasks = Task.objects.filter(
+        cases_of_tasks = user.tasks.filter(
             stage=self.task_stage_completion,
-            assignee=user,
             complete=True,
-            force_complete=False)
-        # Collect all cases where user have completing tasks
-        cases_of_tasks = [i[0] for i in user_completed_tasks.values_list('case')]
+            force_complete=False).values_list('case', flat=True)
 
         # Get all tasks with our needing cases
-        all_tasks_by_cases = Task.objects.filter(case__in=cases_of_tasks)
+        verified = Task.objects.filter(
+            case__in=cases_of_tasks)\
+            .filter(
+                stage=self.task_stage_verified, force_complete=False)
 
-        # Get verified tasks for compare with min. count of tasks to give achievement
-        verified = all_tasks_by_cases.filter(
-            stage=self.task_stage_verified,
-            force_complete=False)
         # if count is equal -> create notification and give rank
         if verified.count() == self.count:
-            rank_record = RankRecord.objects.filter(user=user, rank=self.rank)
+            rank_record = user.user_ranks.filter(rank=self.rank)
             if rank_record:
                 return rank_record[0]
             rank_record = RankRecord.objects.create(user=user, rank=self.rank)

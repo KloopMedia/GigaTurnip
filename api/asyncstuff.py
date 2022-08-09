@@ -8,17 +8,10 @@ from api.api_exceptions import CustomApiException
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
-    connect_user_with_ranks
+    connect_user_with_ranks, give_task_awards, process_auto_completed_task
 
 
-def process_completed_task(task):
-    current_stage = task.stage
-
-    # Check if task is a quiz, and if so, score and save result inside
-    # responses as meta_quiz_score. If quiz threshold is set, quiz with
-    # score lower than threshold will be opened and returned without
-    # chain propagation.
-    quiz = current_stage.get_quiz()
+def evaluate_quiz(quiz, task):
     if quiz and quiz.is_ready():
         quiz_score, incorrect_questions = quiz.check_score(task)
         task.responses["meta_quiz_score"] = quiz_score
@@ -29,7 +22,9 @@ def process_completed_task(task):
             task.reopened = True
             task.save()
             return task
-    next_direct_task = task.get_direct_next()
+
+
+def get_next_direct_task(next_direct_task, task):
     if next_direct_task is not None:
         next_direct_task.complete = False
         next_direct_task.reopened = True
@@ -38,6 +33,9 @@ def process_completed_task(task):
             return next_direct_task
         else:
             return None
+
+
+def process_on_chain(current_stage, task):
     in_conditional_pingpong_stages = ConditionalStage.objects \
         .filter(out_stages=current_stage) \
         .filter(pingpong=True)
@@ -53,19 +51,36 @@ def process_completed_task(task):
                 process_out_stages(current_stage, task)
     else:
         process_out_stages(current_stage, task)
+
+
+def process_completed_task(task):
+    current_stage = task.stage
+
+    # Check if task is a quiz, and if so, score and save result inside
+    # responses as meta_quiz_score. If quiz threshold is set, quiz with
+    # score lower than threshold will be opened and returned without
+    # chain propagation.
+    quiz_evaluated_task = current_stage.get_quiz()
+    if quiz_evaluated_task:
+        quiz_evaluated_task = evaluate_quiz(quiz_evaluated_task, task)
+        if quiz_evaluated_task:
+            return quiz_evaluated_task
+        else:
+            del quiz_evaluated_task
+
+    next_direct_task = task.get_direct_next()
+    if next_direct_task is not None:
+        return get_next_direct_task(next_direct_task, task)
+
+    process_on_chain(current_stage, task)
     detecting_auto_notifications(current_stage, task)
+
+    give_task_awards(current_stage, task)
+
     next_direct_task = task.get_next_demo()
-    task_awards = TaskAward.objects.filter(task_stage_verified=task.stage)
-    for task_award in task_awards:
-        rank_record = task_award.connect_user_with_rank(task)
-        if rank_record:
-            ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
-            connect_user_with_ranks(rank_record.user, ranks)
     if next_direct_task is not None:
         if next_direct_task.assignee == task.assignee:
             return next_direct_task
-        else:
-            return None
     return None
 
 
@@ -80,7 +95,7 @@ def process_out_stages(current_stage, task):
         create_new_task(stage, task)
 
 
-def process_webhook(stage, in_task):
+def send_webhook_request(stage, in_task):
     params = {}
     if stage.webhook_payload_field:
         params[stage.webhook_payload_field] = json.dumps(in_task.responses)
@@ -97,56 +112,77 @@ def process_webhook(stage, in_task):
     return response
 
 
-def create_new_task(stage, in_task):
-    data = {"stage": stage, "case": in_task.case}
-    new_task = None
-    if stage.webhook_address:
-        for copy_field in stage.copy_fields.all():
-            in_task.responses = copy_field.copy_response(in_task)
-        response = process_webhook(stage, in_task)
-        data["responses"] = response
-        data["complete"] = True
-        new_task = Task.objects.create(**data)
-        new_task.in_tasks.set([in_task])
-    elif stage.get_integration():
-        if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
-            integration = stage.get_integration()
-            (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
-            # integration_status = IntegrationStatus(
-            #     integrated_task=in_task,
-            #     integrator=integrator_task)
-            # integration_status.save()
-            if created:
-                case = Case.objects.create()
-                integrator_task.case = case
-            if integrator_task.assignee is not None and \
-                    in_task.stage.assign_user_by == "IN":
-                in_task.assignee = integrator_task.assignee
-                in_task.save()
-            integrator_task.in_tasks.add(in_task)
-            integrator_task.save()
+def process_webhook(stage, in_task, data):
+    response = send_webhook_request(stage, in_task)
+    data["responses"] = response
+    data["complete"] = True
+    new_task = Task.objects.create(**data)
+    new_task.in_tasks.set([in_task])
+    return new_task
+
+
+def process_integration(stage, in_task):
+    if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+        integration = stage.get_integration()
+        (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
+        if created:
+            case = Case.objects.create()
+            integrator_task.case = case
+        if integrator_task.assignee is not None and \
+                in_task.stage.assign_user_by == "IN":
+            in_task.assignee = integrator_task.assignee
+            in_task.save()
+        integrator_task.in_tasks.add(in_task)
+        integrator_task.save()
+        return in_task
+
+
+def process_stage_assign_by_ST(stage, data, in_task):
+    if stage.assign_user_by == TaskStage.STAGE:
+        if stage.assign_user_from_stage is not None:
+            assignee_task = Task.objects \
+                .filter(stage=stage.assign_user_from_stage) \
+                .filter(case=in_task.case)
+            data["assignee"] = assignee_task[0].assignee
+    new_task = Task.objects.create(**data)
+    new_task.in_tasks.set([in_task])
+    return new_task
+
+
+def trigger_on_copy_input(stage, new_task, in_task):
+    if stage.copy_input:
+        new_task.responses = in_task.responses
+    return new_task
+
+
+def trigger_on_webhook(stage, new_task):
+    webhook = stage.get_webhook()
+    if webhook and webhook.is_triggered:
+        webhook.trigger(new_task)
+
+
+def set_copied_fields(stage, new_task, responses=None):
+    responses = responses if responses else {}
+    for copy_field in stage.copy_fields.all():
+        responses.update(copy_field.copy_response(new_task))
+
+    if new_task.responses:
+        new_task.responses.update(responses)
     else:
-        if stage.assign_user_by == TaskStage.STAGE:
-            if stage.assign_user_from_stage is not None:
-                assignee_task = Task.objects \
-                    .filter(stage=stage.assign_user_from_stage) \
-                    .filter(case=in_task.case)
-                data["assignee"] = assignee_task[0].assignee
-        new_task = Task.objects.create(**data)
-        new_task.in_tasks.set([in_task])
-        if stage.copy_input:
-            new_task.responses = in_task.responses
-        webhook = stage.get_webhook()
-        if webhook and webhook.is_triggered:
-            webhook.trigger(new_task)
-        for copy_field in stage.copy_fields.all():
-            new_task.responses = copy_field.copy_response(new_task)
-        new_task.save()
-        if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
-            new_task.complete = True
-            new_task.save()
-        if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
-            assign_by_previous_manual(stage, new_task, in_task)
+        new_task.responses = responses
+
+    new_task.save()
+
+    return new_task
+
+
+def process_previous_manual_assign(stage, new_task, in_task):
+    if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
+        new_task = assign_by_previous_manual(stage, new_task, in_task)
+    return new_task
+
+
+def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
     if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
         task_award = stage.task_stage_verified.all()
         if not task_award:
@@ -156,10 +192,31 @@ def create_new_task(stage, in_task):
             if rank_record:
                 ranks = get_ranks_where_user_have_parent_ranks(rank_record.user, rank_record.rank)
                 connect_user_with_ranks(rank_record.user, ranks)
+
             if task_award[0].stop_chain and rank_record:
                 pass
             else:
                 process_completed_task(new_task)
+
+
+def create_new_task(stage, in_task):
+    data = {"stage": stage, "case": in_task.case}
+    new_task = None
+    if stage.webhook_address:
+        for copy_field in stage.copy_fields.all():
+            in_task.responses = copy_field.copy_response(in_task)
+        new_task = process_webhook(stage, in_task, data)
+    elif stage.get_integration():
+        in_task = process_integration(stage, in_task)
+    else:
+        new_task = process_stage_assign_by_ST(stage, data, in_task)
+        new_task = trigger_on_copy_input(stage, new_task, in_task)
+        trigger_on_webhook(stage, new_task)
+        new_task = set_copied_fields(stage, new_task)
+        process_auto_completed_task(stage, new_task)
+        new_task = process_previous_manual_assign(stage, new_task, in_task)
+
+    process_create_new_task_based_and_stage_assign(stage, new_task, in_task)
 
 
 def process_conditional(stage, in_task):
@@ -270,6 +327,8 @@ def assign_by_previous_manual(stage, new_task, in_task):
 
     new_task.assignee = user
     new_task.save()
+
+    return new_task
 
 
 def get_value_from_dotted(dotted_path, source_dict):
