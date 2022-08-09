@@ -1607,7 +1607,7 @@ class GigaTurnipTest(APITestCase):
         response_flattener.save()
         ordered_columns = response_flattener.ordered_columns()
         system_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
-                          'integrator_group', 'complete', 'force_complete', 'reopened']
+                          'integrator_group', 'complete', 'force_complete', 'reopened', 'internal_metadata']
         responses_fields = ["BBB", "DDD__d__d", "AAA"]
 
         all_columns = system_columns + responses_fields

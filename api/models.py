@@ -1015,6 +1015,12 @@ class Task(BaseDatesModel, CampaignInterface):
         default=False,
         help_text="Indicates that task was returned to user, "
                   "usually because of pingpong stages.")
+    internal_metadata = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text='The field for internal data that wouldn\'t be shown to the user.'
+    )
 
     class Meta:
         UniqueConstraint(
