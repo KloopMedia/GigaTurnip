@@ -1534,7 +1534,32 @@ class Notification(BaseDates, CampaignInterface):
         blank=True,
         null=True,
         on_delete=models.CASCADE,
+        related_name='notifications',
         help_text="User id"
+    )
+    trigger_task = models.ForeignKey(
+        Task,
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name="notifications"
+    )
+
+    FORWARD = 'FW'
+    BACKWARD = 'BW'
+    LAST_ONE = 'LO'
+    ASSIGN_BY_CHOICES = [
+        ('', ''),
+        (FORWARD, 'Forward'),
+        (BACKWARD, 'Backward'),
+        (LAST_ONE, 'Last-one')
+    ]
+    trigger_go = models.CharField(
+        max_length=2,
+        choices=ASSIGN_BY_CHOICES,
+        default='',
+        blank=None,
+        help_text=('Trigger gone in this direction and this notification has been created.')
     )
 
     def open(self, request):
@@ -1593,9 +1618,10 @@ class AutoNotification(BaseDates):
         help_text=('You have to choose on what action notification would be sent.')
     )
 
-    def create_notification(self, user):
+    def create_notification(self, user, task: Task):
         new_notification = self.notification
-        new_notification.pk, new_notification.target_user = None, user
+        new_notification.pk, new_notification.target_user, new_notification.trigger_task = None, user, task
+        new_notification.trigger_go = self.go
         new_notification.save()
 
 

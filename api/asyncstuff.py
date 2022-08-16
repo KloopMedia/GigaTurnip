@@ -456,20 +456,20 @@ def detecting_auto_notifications(stage, task):
     if task.out_tasks.all():
         out_task = task.out_tasks.all()[0]
         if out_task.complete is False and out_task.reopened is False:
-            send_auto_notifications(stage, task.case, {'go': AutoNotification.FORWARD})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.FORWARD})
     elif task.in_tasks.all():
         previous_task = task.in_tasks.all()[0]
         if previous_task.complete is False and previous_task.reopened is True:
-            send_auto_notifications(stage, task.case, {'go': AutoNotification.BACKWARD})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.BACKWARD})
         else:
-            send_auto_notifications(stage, task.case, {'go': AutoNotification.LAST_ONE})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.LAST_ONE})
     elif not stage.in_stages.count():
         in_tasks, out_tasks = task.in_tasks.all(), task.out_tasks.all()
         if (not in_tasks or in_tasks and in_tasks[0].complete) and task.complete and not out_tasks:
-            send_auto_notifications(stage, task.case, {'go': AutoNotification.LAST_ONE})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.LAST_ONE})
 
 
-def send_auto_notifications(trigger, case, filters=None):
+def send_auto_notifications(trigger, task, case, filters=None):
     for auto_notification in trigger.auto_notification_trigger_stages.filter(**filters):
         user = case.tasks.get(stage=auto_notification.recipient_stage).assignee
-        auto_notification.create_notification(user)
+        auto_notification.create_notification(user, task)
