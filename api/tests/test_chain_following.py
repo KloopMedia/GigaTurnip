@@ -1036,7 +1036,7 @@ class GigaTurnipTest(APITestCase):
             title='Your task have been returned!',
             campaign=self.campaign
         )
-        AutoNotification.objects.create(
+        auto_notification_1 = AutoNotification.objects.create(
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=return_notification,
@@ -1047,7 +1047,7 @@ class GigaTurnipTest(APITestCase):
             title='You have been complete task successfully!',
             campaign=self.campaign
         )
-        AutoNotification.objects.create(
+        auto_notification_2 = AutoNotification.objects.create(
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=complete_notification,
@@ -1065,7 +1065,7 @@ class GigaTurnipTest(APITestCase):
 
         verification_task = self.request_assignment(verification_task, verification_client)
 
-        self.assertEqual({"answerField":"something"}, verification_task.responses)
+        self.assertEqual({"answerField": "something"}, verification_task.responses)
 
         verification_task.responses['verified'] = 'no'
 
@@ -1108,9 +1108,15 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(Task.objects.count(), 3)
 
-        user_notifications = Notification.objects.filter(target_user=self.user)
-        self.assertEqual(user_notifications.count(), 2)
-        self.assertEqual(user_notifications[0].title, return_notification.title)
+        bw_notifications = self.user.notifications.filter(trigger_task=verification_task,
+                                                          trigger_go=AutoNotification.BACKWARD)
+        fw_notifications = self.user.notifications.filter(trigger_task=verification_task,
+                                                          trigger_go=AutoNotification.FORWARD)
+        self.assertEqual(self.user.notifications.count(), 2)
+        self.assertEqual(bw_notifications.count(), 1)
+        self.assertEqual(fw_notifications.count(), 1)
+        self.assertEqual(bw_notifications[0].title, auto_notification_1.notification.title)
+        self.assertEqual(fw_notifications[0].title, auto_notification_2.notification.title)
 
     def test_quiz(self):
         task_correct_responses = self.create_initial_task()
@@ -1607,7 +1613,7 @@ class GigaTurnipTest(APITestCase):
         response_flattener.save()
         ordered_columns = response_flattener.ordered_columns()
         system_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
-                          'integrator_group', 'complete', 'force_complete', 'reopened']
+                          'integrator_group', 'complete', 'force_complete', 'reopened', 'internal_metadata']
         responses_fields = ["BBB", "DDD__d__d", "AAA"]
 
         all_columns = system_columns + responses_fields
@@ -3329,7 +3335,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
 
-
     def test_auto_notification_simple(self):
         js_schema = {
             "type": "object",
@@ -3364,10 +3369,10 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         task = self.complete_task(task, {"foo": "hello world!"})
 
-        user_notifications = Notification.objects.filter(target_user=self.user)
-        self.assertEqual(user_notifications.count(), 1)
+        self.assertEqual(self.user.notifications.count(), 1)
         self.assertEqual(Notification.objects.count(), 2)
-        self.assertEqual(user_notifications[0].title, notification.title)
+        self.assertEqual(self.user.notifications.filter(trigger_task=task).count(), 1)
+        self.assertEqual(self.user.notifications.all()[0].title, notification.title)
 
     def test_forking_chain_happy(self):
         correct_responses = {"1": "a"}
@@ -3489,7 +3494,7 @@ class GigaTurnipTest(APITestCase):
             title='Congrats!',
             campaign=self.campaign
         )
-        AutoNotification.objects.create(
+        auto_notification = AutoNotification.objects.create(
             trigger_stage=final,
             recipient_stage=self.initial_stage,
             notification=notification,
@@ -3502,6 +3507,9 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(task.case.tasks.count(), 2)
         self.assertEqual(Notification.objects.count(), 2)
+        self.assertTrue(self.user.notifications.all()[0].trigger_task)
+        self.assertEqual(self.user.notifications.all()[0].trigger_task.stage, final)
+        self.assertEqual(self.user.notifications.all()[0].trigger_go, auto_notification.go)
 
     def test_auto_notification_last_one_option_as_go(self):
         self.initial_stage.json_schema = json.dumps({
@@ -3523,6 +3531,7 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         task = self.complete_task(task, {"foo": "boo"})
         self.assertEqual(Notification.objects.count(), 2)
+        self.assertEqual(self.user.notifications.filter(trigger_task=task).count(), 1)
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
@@ -3568,3 +3577,85 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(Notification.objects.count(), 3)
         self.assertEqual(self.user.ranks.count(), 4)
+
+    def test_assignee_new_ranks_based_on_prerequisite(self):
+        prize_rank_1 = Rank.objects.create(name='Good', track=self.user.ranks.all()[0].track)
+        prize_rank_2 = Rank.objects.create(name='Best', track=self.user.ranks.all()[0].track)
+        prize_rank_3 = Rank.objects.create(name='Superman', track=self.user.ranks.all()[0].track)
+        prize_rank_3.prerequisite_ranks.add(prize_rank_1)
+        prize_rank_3.prerequisite_ranks.add(prize_rank_2)
+        notification = Notification.objects.create(
+            title="You achieve new rank",
+            text="Congratulations! You achieve new rank!",
+            campaign=self.campaign
+        )
+        schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
+
+        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.save()
+        task_award_1 = TaskAward.objects.create(
+            task_stage_completion=self.initial_stage,
+            task_stage_verified=self.initial_stage,
+            rank=prize_rank_1,
+            count=5,
+            notification=notification
+        )
+
+        another_chain = Chain.objects.create(name='Chain for getting best', campaign=self.campaign)
+        new_initial = TaskStage.objects.create(
+            name="Initial for Good persons",
+            x_pos=1,
+            y_pos=1,
+            json_schema=self.initial_stage.json_schema,
+            chain=another_chain,
+            is_creatable=True)
+        rank_limit = RankLimit.objects.create(
+            rank=prize_rank_1,
+            stage=new_initial,
+            open_limit=0,
+            total_limit=0,
+            is_listing_allowed=True,
+            is_creation_open=True
+        )
+        task_award_2 = TaskAward.objects.create(
+            task_stage_completion=new_initial,
+            task_stage_verified=new_initial,
+            rank=prize_rank_2,
+            count=5,
+            notification=notification
+        )
+
+        responses = {"foo": "Kloop"}
+        task = self.create_initial_task()
+        for i in range(task_award_1.count):
+            task = self.complete_task(task, responses)
+            if task_award_1.count-1 > i:
+                task = self.create_initial_task()
+                self.assertNotIn(prize_rank_2, self.user.ranks.all())
+                self.assertNotIn(prize_rank_3, self.user.ranks.all())
+            else:
+                self.assertIn(prize_rank_1, self.user.ranks.all())
+        self.assertIn(prize_rank_1, self.user.ranks.all())
+        self.assertNotIn(prize_rank_2, self.user.ranks.all())
+        self.assertNotIn(prize_rank_3, self.user.ranks.all())
+        another_rank_1 = Rank.objects.create(name='Barmaley', track=self.user.ranks.all()[0].track)
+        another_rank_2 = Rank.objects.create(name='Jeenbekov', track=self.user.ranks.all()[0].track)
+        self.user.ranks.add(another_rank_2)
+        self.user.ranks.add(another_rank_1)
+        self.user.ranks.add(prize_rank_1)
+
+        task = self.create_task(new_initial)
+        for i in range(task_award_2.count):
+            task = self.complete_task(task, responses)
+            print(task.complete)
+            if task_award_2.count-1 > i:
+                task = self.create_task(new_initial)
+                self.assertIn(prize_rank_1, self.user.ranks.all())
+                self.assertNotIn(prize_rank_2, self.user.ranks.all())
+                self.assertNotIn(prize_rank_3, self.user.ranks.all())
+            else:
+                self.assertIn(prize_rank_2, self.user.ranks.all())
+                self.assertIn(prize_rank_3, self.user.ranks.all())
+        self.assertIn(prize_rank_1, self.user.ranks.all())
+        self.assertIn(prize_rank_2, self.user.ranks.all())
+        self.assertIn(prize_rank_3, self.user.ranks.all())
