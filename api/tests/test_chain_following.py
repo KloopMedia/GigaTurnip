@@ -1108,9 +1108,11 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(Task.objects.count(), 3)
 
-        bw_notifications = self.user.notifications.filter(trigger_task=verification_task,
+        bw_notifications = self.user.notifications.filter(sender_task=verification_task,
+                                                          receiver_task=initial_task,
                                                           trigger_go=AutoNotification.BACKWARD)
-        fw_notifications = self.user.notifications.filter(trigger_task=verification_task,
+        fw_notifications = self.user.notifications.filter(sender_task=verification_task,
+                                                          receiver_task=initial_task,
                                                           trigger_go=AutoNotification.FORWARD)
         self.assertEqual(self.user.notifications.count(), 2)
         self.assertEqual(bw_notifications.count(), 1)
@@ -3371,7 +3373,7 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(self.user.notifications.count(), 1)
         self.assertEqual(Notification.objects.count(), 2)
-        self.assertEqual(self.user.notifications.filter(trigger_task=task).count(), 1)
+        self.assertEqual(self.user.notifications.filter(sender_task=task, receiver_task=task).count(), 1)
         self.assertEqual(self.user.notifications.all()[0].title, notification.title)
 
     def test_forking_chain_happy(self):
@@ -3507,8 +3509,9 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(task.case.tasks.count(), 2)
         self.assertEqual(Notification.objects.count(), 2)
-        self.assertTrue(self.user.notifications.all()[0].trigger_task)
-        self.assertEqual(self.user.notifications.all()[0].trigger_task.stage, final)
+        self.assertTrue(self.user.notifications.all()[0].sender_task)
+        self.assertEqual(self.user.notifications.all()[0].sender_task.stage, final)
+        self.assertEqual(self.user.notifications.all()[0].receiver_task.stage, self.initial_stage)
         self.assertEqual(self.user.notifications.all()[0].trigger_go, auto_notification.go)
 
     def test_auto_notification_last_one_option_as_go(self):
@@ -3531,7 +3534,8 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         task = self.complete_task(task, {"foo": "boo"})
         self.assertEqual(Notification.objects.count(), 2)
-        self.assertEqual(self.user.notifications.filter(trigger_task=task).count(), 1)
+        self.assertEqual(self.user.notifications.filter(sender_task=task,
+                                                        receiver_task=task).count(), 1)
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
