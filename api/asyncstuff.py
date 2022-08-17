@@ -112,7 +112,9 @@ def send_webhook_request(stage, in_task):
     return response
 
 
-def process_webhook(stage, in_task, data):
+def process_webhook(stage, in_task, data=None):
+    data = data if data else dict()
+    data['stage'], data['case'] = stage, in_task.case
     response = send_webhook_request(stage, in_task)
     data["responses"] = response
     data["complete"] = True
@@ -226,13 +228,13 @@ def process_conditional(stage, in_task):
         out_task_stages = TaskStage.objects \
             .filter(in_stages=stage)
         for stage in out_task_stages:
-            out_tasks = Task.objects.filter(in_tasks=in_task).filter(stage=stage)
+            out_tasks = in_task.out_tasks.filter(stage=stage)
             if len(out_tasks) > 0:
                 for out_task in out_tasks:
                     if out_task.stage.webhook_address:
                         for copy_field in stage.copy_fields.all():
                             in_task.responses = copy_field.copy_response(in_task)
-                        response = process_webhook(out_task.stage, in_task)
+                        response = send_webhook_request(out_task.stage, in_task)
                         out_task.responses = response
                         out_task.complete = True
                         out_task.save()
