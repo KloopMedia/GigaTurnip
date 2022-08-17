@@ -109,16 +109,19 @@ class DuplicateTasksFilter(SimpleListFilter):
 
 
 class UserNoRankFilter(SimpleListFilter):
-    title = "Users who do not have rank below"
-    parameter_name = "Responses"
+    title = "not existing Ranks"
+    parameter_name = "rank_exclude"
 
     def lookups(self, request, model_admin):
         rank_lookups = []
-        for rank in list(Rank.objects.all()):
+        ranks = Rank.objects.filter(track__campaign__campaign_managements__user=request.user)
+        for rank in ranks:
             rank_lookups.append((rank.id, rank.name))
         return rank_lookups
 
     def queryset(self, request, queryset):
+        if self.value() is None:
+            return queryset
         return queryset.exclude(ranks__id=self.value())
 
 
