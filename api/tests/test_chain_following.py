@@ -3240,7 +3240,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
 
-
     def test_conditional_ping_pong_with_shuffle_sentence_webhook(self):
         # first book
         self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
@@ -3249,7 +3248,7 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name='Creating task using webhook',
                 webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/shuffle_sentence',
-                webhook_params={"action":"create"}
+                webhook_params={"action": "create"}
             )
         )
         """
@@ -3319,6 +3318,30 @@ class GigaTurnipTest(APITestCase):
             stop_chain=True,
             notification=notification
         )
+        notification_good = Notification.objects.create(
+            title="Passed",
+            text="Accept",
+            campaign=self.campaign
+        )
+        notification_bad = Notification.objects.create(
+            title="Fail",
+            text="Remake your task",
+            campaign=self.campaign
+        )
+
+        auto_notification_1 = AutoNotification.objects.create(
+            trigger_stage=verification_webhook_stage,
+            recipient_stage=self.initial_stage,
+            notification=notification_good,
+            go=AutoNotification.FORWARD
+        )
+        auto_notification_1 = AutoNotification.objects.create(
+            trigger_stage=verification_webhook_stage,
+            recipient_stage=self.initial_stage,
+            notification=notification_bad,
+            go=AutoNotification.BACKWARD
+
+        )
 
         init_task = self.create_initial_task()
         init_task = self.complete_task(init_task, {"foo": 'hello world'})
@@ -3326,9 +3349,17 @@ class GigaTurnipTest(APITestCase):
 
         for i in range(task_awards.count):
             responses = test_task.responses
-            responses['answer'] = test_task.in_tasks.get().responses['sentence']
+            right_answer = test_task.in_tasks.get().responses['sentence']
+            responses['answer'] = right_answer[:-1]
+
             test_task = self.complete_task(test_task, responses)
-            if i+1 < task_awards.count:
+
+            self.assertTrue(test_task.reopened)
+            self.assertEqual(test_task.out_tasks.count(), 1)
+
+            responses['answer'] = right_answer
+            test_task = self.complete_task(test_task, responses)
+            if i + 1 < task_awards.count:
                 test_task = test_task.out_tasks.get().out_tasks.get().out_tasks.get().out_tasks.get()
 
         self.assertEqual(self.user.ranks.count(), 2)
@@ -3336,6 +3367,7 @@ class GigaTurnipTest(APITestCase):
         all_tasks = init_task.case.tasks.all()
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
+        self.assertEqual(task_awards.count * 2 + 1, self.user.notifications.count())
 
     def test_auto_notification_simple(self):
         js_schema = {
