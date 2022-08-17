@@ -1537,18 +1537,25 @@ class Notification(BaseDates, CampaignInterface):
         related_name='notifications',
         help_text="User id"
     )
-    trigger_task = models.ForeignKey(
+    sender_task = models.ForeignKey(
         Task,
         blank=True,
         null=True,
         on_delete=models.CASCADE,
-        related_name="notifications"
+        related_name="sender_notifications"
+    )
+    receiver_task = models.ForeignKey(
+        Task,
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name="receiver_notifications"
     )
 
     FORWARD = 'FW'
     BACKWARD = 'BW'
     LAST_ONE = 'LO'
-    ASSIGN_BY_CHOICES = [
+    DIRECTIONS = [
         ('', ''),
         (FORWARD, 'Forward'),
         (BACKWARD, 'Backward'),
@@ -1556,7 +1563,7 @@ class Notification(BaseDates, CampaignInterface):
     ]
     trigger_go = models.CharField(
         max_length=2,
-        choices=ASSIGN_BY_CHOICES,
+        choices=DIRECTIONS,
         default='',
         blank=None,
         help_text=('Trigger gone in this direction and this notification has been created.')
@@ -1618,9 +1625,11 @@ class AutoNotification(BaseDates):
         help_text=('You have to choose on what action notification would be sent.')
     )
 
-    def create_notification(self, user, task: Task):
+    def create_notification(self, task: Task, receiver_task: Task, user: CustomUser=None):
         new_notification = self.notification
-        new_notification.pk, new_notification.target_user, new_notification.trigger_task = None, user, task
+        u = user if user else receiver_task.assignee
+        new_notification.pk, new_notification.target_user = None, u
+        new_notification.sender_task, new_notification.receiver_task = task, receiver_task
         new_notification.trigger_go = self.go
         new_notification.save()
 

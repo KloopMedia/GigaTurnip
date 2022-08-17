@@ -1004,7 +1004,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    filterset_fields = ['importance', 'campaign', 'rank']
+    filterset_fields = [
+        'importance',
+        'campaign',
+        'rank',
+        'receiver_task',
+        'sender_task',
+        'trigger_go',
+    ]
     serializer_class = NotificationSerializer
 
     permission_classes = (NotificationAccessPolicy,)

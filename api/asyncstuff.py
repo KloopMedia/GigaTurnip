@@ -471,5 +471,5 @@ def detecting_auto_notifications(stage, task):
 
 def send_auto_notifications(trigger, task, case, filters=None):
     for auto_notification in trigger.auto_notification_trigger_stages.filter(**filters):
-        user = case.tasks.get(stage=auto_notification.recipient_stage).assignee
-        auto_notification.create_notification(user, task)
+        receiver_task = case.tasks.get(stage=auto_notification.recipient_stage)
+        auto_notification.create_notification(task, receiver_task, receiver_task.assignee)
