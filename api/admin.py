@@ -369,6 +369,7 @@ class TaskAwardAdmin(admin.ModelAdmin):
         queryset = super(TaskAwardAdmin, self).get_queryset(request)
         return filter_by_admin_preference(queryset, request, 'task_stage_completion__chain__')
 
+
 class CopyFieldAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'task_stage',
@@ -609,6 +610,13 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ('title', )
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
     autocomplete_fields = ('campaign', 'rank', )
+
+    def get_queryset(self, request):
+        queryset = super(NotificationAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            campaign__campaign_managements__user=request.user
+        )
 
 
 class AutoNotificationAdmin(admin.ModelAdmin):
