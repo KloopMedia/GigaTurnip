@@ -456,8 +456,7 @@ def remove_answers_in_turn(schema, fields, responses):
 
 def detecting_auto_notifications(stage, task):
     if task.out_tasks.all():
-        out_task = task.out_tasks.all()[0]
-        if out_task.complete is False and out_task.reopened is False:
+        if all(task.in_tasks.values_list('complete', flat=True)):
             send_auto_notifications(stage, task, task.case, {'go': AutoNotification.FORWARD})
     elif task.in_tasks.all():
         previous_task = task.in_tasks.all()[0]
