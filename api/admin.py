@@ -369,6 +369,7 @@ class TaskAwardAdmin(admin.ModelAdmin):
         queryset = super(TaskAwardAdmin, self).get_queryset(request)
         return filter_by_admin_preference(queryset, request, 'task_stage_completion__chain__')
 
+
 class CopyFieldAdmin(admin.ModelAdmin):
     list_display = ('id',
                     'task_stage',
@@ -616,6 +617,7 @@ class NotificationAdmin(admin.ModelAdmin):
             .filter(
             campaign__campaign_managements__user=request.user
         )
+
 
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
