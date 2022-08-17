@@ -610,6 +610,12 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
     autocomplete_fields = ('campaign', 'rank', )
 
+    def get_queryset(self, request):
+        queryset = super(NotificationAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            campaign__campaign_managements__user=request.user
+        )
 
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
