@@ -265,6 +265,36 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.count(), 2)
         self.assertEqual(initial_task.responses, responses)
 
+    def test_conditional_stage(self):
+        self.user.managed_campaigns.add(self.campaign)
+        conditions = [{
+                    "field": "verified",
+                    "value": "Нет",
+                    "condition": "=="
+                }]
+        conditional_stage = {
+            "name": "My Conditional Stage",
+            "chain": self.initial_stage.chain.id,
+            "x_pos": 1,
+            "y_pos": 1,
+            "conditions": json.dumps(conditions),
+            "pingpong": False,
+        }
+        response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], "Invalid data in 1 index. Please, provide 'type' field")
+
+        conditions[0]['type'] = 'number'
+        conditional_stage['conditions'] = json.dumps(conditions)
+        response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], "Please, provide a valid data. The 'Нет' is incorrect for 'number' type.")
+
+        conditions[0]['value'] = 15
+        conditional_stage['conditions'] = json.dumps(conditions)
+        response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
     def test_passing_conditional(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",

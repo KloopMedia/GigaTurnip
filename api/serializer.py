@@ -5,6 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from jsonschema import validate
 from rest_framework import serializers
 
+from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
@@ -71,6 +72,27 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
         raise serializers.ValidationError("User may not add stage "
                                           "to this chain")
 
+    def validate_conditions(self, value):
+        attrs = ["field", "value", "condition", "type"]
+        for cond_id, condition in enumerate(value):
+            for attr in attrs:
+                if attr not in condition.keys():
+                    raise CustomApiException(
+                        400, f"Invalid data in {cond_id+1} index. Please, provide '{attr}' field"
+                    )
+
+            supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
+            val = condition.get('value')
+            type_ = condition.get('type')
+            try:
+                condition['value'] = supported_types.get(type_)(val)
+                value[cond_id] = condition
+            except Exception as e:
+                raise CustomApiException(
+                    400, f"Please, provide a valid data. The '{val}' is incorrect for '{type_}' type."
+                )
+
+        return value
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
