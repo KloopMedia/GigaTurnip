@@ -84,6 +84,10 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
             supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
             val = condition.get('value')
             type_ = condition.get('type')
+            if not type_:
+                raise CustomApiException(
+                    400, f"Unsupported '{type_}' type."
+                )
             try:
                 condition['value'] = supported_types.get(type_)(val)
                 value[cond_id] = condition
@@ -93,6 +97,7 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                 )
 
         return value
+
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
