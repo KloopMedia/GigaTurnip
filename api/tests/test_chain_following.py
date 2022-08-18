@@ -265,6 +265,36 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.count(), 2)
         self.assertEqual(initial_task.responses, responses)
 
+    def test_conditional_stage(self):
+        self.user.managed_campaigns.add(self.campaign)
+        conditions = [{
+                    "field": "verified",
+                    "value": "Нет",
+                    "condition": "=="
+                }]
+        conditional_stage = {
+            "name": "My Conditional Stage",
+            "chain": self.initial_stage.chain.id,
+            "x_pos": 1,
+            "y_pos": 1,
+            "conditions": json.dumps(conditions),
+            "pingpong": False,
+        }
+        response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], "Invalid data in 1 index. Please, provide 'type' field")
+
+        conditions[0]['type'] = 'number'
+        conditional_stage['conditions'] = json.dumps(conditions)
+        response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], "Please, provide a valid data. The 'Нет' is incorrect for 'number' type.")
+
+        conditions[0]['value'] = 15
+        conditional_stage['conditions'] = json.dumps(conditions)
+        response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
     def test_passing_conditional(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
@@ -279,7 +309,7 @@ class GigaTurnipTest(APITestCase):
 
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
-            {"field": "verified", "value": "yes", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "yes", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(conditional_stage)
         last_task_stage = conditional_stage.add_stage(TaskStage())
@@ -307,7 +337,7 @@ class GigaTurnipTest(APITestCase):
 
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
-            {"field": "verified", "value": "yes", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "yes", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(conditional_stage)
         last_task_stage = conditional_stage.add_stage(TaskStage())
@@ -332,7 +362,7 @@ class GigaTurnipTest(APITestCase):
 
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
-            {"field": "verified", "value": "no", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "no", "condition": "=="}
         ]
         conditional_stage.pingpong = True
         verification_task_stage = self.initial_stage \
@@ -426,7 +456,7 @@ class GigaTurnipTest(APITestCase):
 
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
-            {"field": "verified", "value": "no", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "no", "condition": "=="}
         ]
         conditional_stage.pingpong = True
         verification_task_stage = self.initial_stage \
@@ -786,7 +816,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditions = [
-            {"field": "verified", "value": "no", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "no", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(
             ConditionalStage(
@@ -844,7 +874,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditions = [
-            {"field": "verified", "value": "no", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "no", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(
             ConditionalStage(
@@ -926,7 +956,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditions = [
-            {"field": "verified", "value": "no", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "no", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(
             ConditionalStage(
@@ -1005,7 +1035,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditions = [
-            {"field": "verified", "value": "no", "condition": "=="}
+            {"field": "verified", "type":"string", "value": "no", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(
             ConditionalStage(
@@ -1963,7 +1993,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [
-            {"field": "answer", "value": "norm", "condition": "=="}
+            {"field": "answer", "type":"string", "value": "norm", "condition": "=="}
         ]
         conditional_stage = self.initial_stage.add_stage(conditional_stage)
         verification_task_stage = conditional_stage.add_stage(TaskStage(
@@ -2828,7 +2858,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "=="}]
         ))
 
         final_stage_schema = {
@@ -2881,7 +2911,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "=="}]
         ))
 
         final_stage_schema = {
@@ -2935,7 +2965,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "=="}]
         ))
 
         final_stage_schema = {
@@ -3003,11 +3033,11 @@ class GigaTurnipTest(APITestCase):
         )
 
         conditional_stage = second_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "=="}]
         ))
 
         conditional_stage_cyclic = second_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "!="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "!="}]
         ))
 
         final_stage_schema = {
@@ -3105,11 +3135,11 @@ class GigaTurnipTest(APITestCase):
             is_submission_open=True)
 
         conditional_stage = second_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "=="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "=="}]
         ))
 
         conditional_stage_cyclic = second_stage.add_stage(ConditionalStage(
-            conditions=[{"field": "foo", "value": "boo", "condition": "!="}]
+            conditions=[{"field": "foo", "type":"string", "value": "boo", "condition": "!="}]
         ))
 
         final_stage_schema = {
@@ -3182,7 +3212,7 @@ class GigaTurnipTest(APITestCase):
         conditional_stage = completion_stage.add_stage(
             ConditionalStage(
                 name='Conditional ping-pong stage',
-                conditions=[{"field": "is_right", "value": "no", "condition": "=="}],
+                conditions=[{"field": "is_right", "type":"string", "value": "no", "condition": "=="}],
                 pingpong=True
             )
         )
@@ -3275,7 +3305,7 @@ class GigaTurnipTest(APITestCase):
         conditional_stage = completion_stage.add_stage(
             ConditionalStage(
                 name='Conditional ping-pong stage',
-                conditions=[{"field": "is_right", "value": "no", "condition": "=="}],
+                conditions=[{"field": "is_right", "type":"string", "value": "no", "condition": "=="}],
                 pingpong=True
             )
         )
@@ -3444,14 +3474,14 @@ class GigaTurnipTest(APITestCase):
         first_cond_stage = self.initial_stage.add_stage(
             ConditionalStage(
                 name='If a',
-                conditions=[{"field": "1", "value": "a", "condition": "=="}]
+                conditions=[{"field": "1", "type":"string", "value": "a", "condition": "=="}]
             )
         )
 
         second_cond_stage = self.initial_stage.add_stage(
             ConditionalStage(
                 name='If b',
-                conditions=[{"field": "1", "value": "b", "condition": "=="}]
+                conditions=[{"field": "1", "type":"string", "value": "b", "condition": "=="}]
             )
         )
 
@@ -3513,8 +3543,8 @@ class GigaTurnipTest(APITestCase):
         conditional_one = self.initial_stage.add_stage(ConditionalStage(
             name='60 <= x <= 90',
             conditions=[
-                {"field": "meta_quiz_score", "value": "60", "condition": "<="},
-                {"field": "meta_quiz_score", "value": "90", "condition": ">="},
+                {"field": "meta_quiz_score", "type":"integer", "value": "60", "condition": "<="},
+                {"field": "meta_quiz_score", "type":"integer", "value": "90", "condition": ">="},
             ]
         ))
 
