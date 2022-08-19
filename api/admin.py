@@ -184,6 +184,15 @@ class CustomUserAdmin(UserAdmin):
                                             action.short_description)
         return actions
 
+    def get_queryset(self, request):
+        queryset = super(CustomUserAdmin, self).get_queryset(request)
+        if not request.user.is_superuser:
+            managed_campaigns = request.user.managed_campaigns.all()
+            campaigns_ranks = Rank.objects.filter(track__in=managed_campaigns.values_list('tracks', flat=True))
+            return queryset.filter(ranks__in=campaigns_ranks).distinct()
+        return queryset.all()
+
+
 class CampaignAdmin(admin.ModelAdmin):
     search_fields = ('id', 'name', )
     autocomplete_fields = ('default_track', )
