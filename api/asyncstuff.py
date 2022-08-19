@@ -267,9 +267,9 @@ def evaluate_conditional_stage(stage, task):
     supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
 
     for rule in rules:
-        control_value = rule["value"]
-        condition = rule["condition"]
-        type_ = rule["type"]
+        control_value = rule.get("value")
+        condition = rule.get("condition")
+        type_ = rule.get("type") if rule.get("type") else "string"
         actual_value = get_value_from_dotted(rule["field"], responses)
         js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
         type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
