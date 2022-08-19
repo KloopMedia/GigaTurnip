@@ -109,16 +109,19 @@ class DuplicateTasksFilter(SimpleListFilter):
 
 
 class UserNoRankFilter(SimpleListFilter):
-    title = "Users who do not have rank below"
-    parameter_name = "Responses"
+    title = "not existing Ranks"
+    parameter_name = "rank_exclude"
 
     def lookups(self, request, model_admin):
         rank_lookups = []
-        for rank in list(Rank.objects.all()):
+        ranks = Rank.objects.filter(track__campaign__campaign_managements__user=request.user)
+        for rank in ranks:
             rank_lookups.append((rank.id, rank.name))
         return rank_lookups
 
     def queryset(self, request, queryset):
+        if self.value() is None:
+            return queryset
         return queryset.exclude(ranks__id=self.value())
 
 
@@ -180,6 +183,15 @@ class CustomUserAdmin(UserAdmin):
                                             action.__name__,
                                             action.short_description)
         return actions
+
+    def get_queryset(self, request):
+        queryset = super(CustomUserAdmin, self).get_queryset(request)
+        if not request.user.is_superuser:
+            managed_campaigns = request.user.managed_campaigns.all()
+            campaigns_ranks = Rank.objects.filter(track__in=managed_campaigns.values_list('tracks', flat=True))
+            return queryset.filter(ranks__in=campaigns_ranks).distinct()
+        return queryset.all()
+
 
 class CampaignAdmin(admin.ModelAdmin):
     search_fields = ('id', 'name', )
@@ -365,6 +377,7 @@ class TaskAwardAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super(TaskAwardAdmin, self).get_queryset(request)
         return filter_by_admin_preference(queryset, request, 'task_stage_completion__chain__')
+
 
 class CopyFieldAdmin(admin.ModelAdmin):
     list_display = ('id',
@@ -606,6 +619,13 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ('title', )
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
     autocomplete_fields = ('campaign', 'rank', )
+
+    def get_queryset(self, request):
+        queryset = super(NotificationAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            campaign__campaign_managements__user=request.user
+        )
 
 
 class AutoNotificationAdmin(admin.ModelAdmin):

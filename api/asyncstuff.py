@@ -264,27 +264,21 @@ def evaluate_conditional_stage(stage, task):
     if responses is None:
         return False
 
+    supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
+
     for rule in rules:
-        control_value = rule["value"]
-        condition = rule["condition"]
+        control_value = rule.get("value")
+        condition = rule.get("condition")
+        type_ = rule.get("type") if rule.get("type") else "string"
         actual_value = get_value_from_dotted(rule["field"], responses)
         js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
         type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
-        if type_to_convert:
-            type_to_convert = type_to_convert.get('type')
-            if type_to_convert == "string":
-                control_value = str(control_value)
-                actual_value = str(actual_value)
-            elif type_to_convert == "integer":
-                control_value = int(control_value)
-                actual_value = int(actual_value)
-            elif type_to_convert == "number":
-                control_value = float(control_value)
-                actual_value = float(actual_value)
-        else:
-            control_value = str(control_value)
-            actual_value = str(actual_value)
+        if not supported_types.get(type_):
+            raise CustomApiException(
+                400, f"Unsupported '{type_}' type. Please send this to your moderators"
+            )
+        control_value = supported_types.get(type_)(control_value)
 
         if condition == "==":
             results.append(control_value == actual_value)
