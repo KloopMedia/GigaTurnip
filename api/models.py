@@ -361,6 +361,16 @@ class TaskStage(Stage, SchemaProvider):
             "webhook_address field is empty."
         )
     )
+    card_json_schema = models.TextField(
+        null=True,
+        blank=True,
+        help_text=""  # todo: add help text for card json schema
+    )
+    card_ui_schema = models.TextField(
+        null=True,
+        blank=True,
+        help_text=""  # todo: add help text for card ui schema
+    )
 
     def get_integration(self):
         if hasattr(self, 'integration'):
