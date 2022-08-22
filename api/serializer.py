@@ -15,7 +15,7 @@ from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
-schema_provider_fields = ['json_schema', 'ui_schema', 'library']
+schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_ui_schema', 'library']
 
 
 class CampaignSerializer(serializers.ModelSerializer):
