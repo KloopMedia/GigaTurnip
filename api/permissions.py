@@ -409,11 +409,11 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        notifications_ranks = queryset.filter(rank__rankrecord__user=request.user)
+        notifications_ranks = queryset.filter(rank__rankrecord__user=request.user).values_list('id', flat=True)
+        notifications_target_user = queryset.filter(target_user=request.user).values_list('id', flat=True)
+        available_ids = set(list(notifications_ranks) + list(notifications_target_user))
 
-        notifications_target_user = queryset.filter(target_user=request.user)
-
-        notifications = notifications_ranks | notifications_target_user
+        notifications = queryset.filter(id__in=available_ids)
 
         return notifications
 
