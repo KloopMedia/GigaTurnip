@@ -2998,7 +2998,7 @@ class GigaTurnipTest(APITestCase):
 
         task = Task.objects.get(id=task.id)
 
-        self.assertEqual(bad_response.data['message'], 'User employe@email.com doesn\'t exist')
+        self.assertEqual(bad_response.data['message'], 'User employe@email.com doesn\'t exist.')
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)

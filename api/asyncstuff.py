@@ -5,7 +5,7 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
-from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants
+from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
@@ -276,9 +276,9 @@ def evaluate_conditional_stage(stage, task):
         type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
         if not supported_types.get(type_):
-            raise CustomApiException(
-                400, f"Unsupported '{type_}' type. Please send this to your moderators"
-            )
+
+            raise CustomApiException(status.HTTP_400_BAD_REQUEST,
+                                     f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
         control_value = supported_types.get(type_)(control_value)
 
         if condition == "==":
@@ -315,12 +315,12 @@ def assign_by_previous_manual(stage, new_task, in_task):
     if not user:
         reopen_task(task_with_email)
         new_task.delete()
-        raise CustomApiException(400, f"User {value} doesn't exist")
+        raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_DOESNT_EXIST % ('User', value))
 
     if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
         reopen_task(task_with_email)
         new_task.delete()
-        raise CustomApiException(400, f"User is not in the campaign.")
+        raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_IS_NOT_IN_CAMPAIGN % 'User')
 
     new_task.assignee = user
     new_task.save()

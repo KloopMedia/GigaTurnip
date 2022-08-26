@@ -36,6 +36,8 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
     DynamicJsonAccessPolicy
 from . import utils
+from .api_exceptions import CustomApiException
+from .constans import ErrorConstants
 from .utils import paginate
 import json
 
@@ -557,10 +559,11 @@ class TaskViewSet(viewsets.ModelViewSet):
             next_direct_task = None
             complete = serializer.validated_data.get("complete", False)
             if complete and not utils.can_complete(instance, request.user):
-                return Response(
-                    {"message": "You may not submit this task!",
-                     "id": instance.id},
-                    status=status.HTTP_403_FORBIDDEN)
+                err_message = {
+                    "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                    "id": instance.id
+                }
+                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
             try:
                 task = instance.set_complete(
                     responses=serializer.validated_data.get("responses", {}),
@@ -569,15 +572,20 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if complete:
                     next_direct_task = process_completed_task(task)
             except Task.CompletionInProgress:
-                return Response(
-                    {"message": "Task is being completed!",
-                     "id": instance.id},
-                    status=status.HTTP_403_FORBIDDEN)
+                err_message = {
+                    "detail": {
+                        "message": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                        "id": instance.id
+                    }
+                }
+                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
             except Task.AlreadyCompleted:
-                return Response(
-                    {"message": "Task is already complete!",
-                     "id": instance.id},
-                    status=status.HTTP_403_FORBIDDEN)
+                err_message = {
+                    "detail": {
+                        "message": ErrorConstants.TASK_ALREADY_COMPLETED,
+                        "id": instance.id}
+                }
+                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset,
                 # we need to forcibly invalidate the prefetch
@@ -792,9 +800,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if in_tasks:
                     in_tasks.update(assignee=None)
             return Response({'status': 'assignment released'})
-        return Response(
-            {'message': 'It is impossible to release this task.'},
-            status=status.HTTP_403_FORBIDDEN)
+        raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'release this')
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):
@@ -803,10 +809,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             task.set_not_complete()
             return Response({'status': 'Assignment uncompleted', 'id': task.id})
         except Task.ImpossibleToUncomplete:
-            return Response(
-                {'message': 'It is impossible to uncomplete this task.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'uncomplete this')
 
     @action(detail=True, methods=['post', 'get'])
     def open_previous(self, request, pk=None):
@@ -815,10 +818,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             (prev_task, task) = task.open_previous()
             return Response({'status': 'Previous task opened.', 'id': prev_task.id})
         except Task.ImpossibleToOpenPrevious:
-            return Response(
-                {'message': 'It is impossible to open previous task.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'open previous')
 
     # @action(detail=True, methods=['post', 'get'])
     # def open_next(self, request, pk=None):
@@ -848,9 +848,11 @@ class TaskViewSet(viewsets.ModelViewSet):
                 return Response({"status": "Responses overwritten",
                                  "responses": altered_task.responses})
             else:
-                return Response({"error_message": error_description,
-                                 "status": response.status_code},
-                                status=status.HTTP_400_BAD_REQUEST)
+                err_msg = {"detail": {
+                    "message": error_description,
+                    "status": response.status_code
+                }}
+                raise CustomApiException(status.HTTP_400_BAD_REQUEST, err_msg)
         # django_response = HttpResponse(
         #     content=response.content,
         #     status=response.status_code,
