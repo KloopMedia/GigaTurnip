@@ -5,7 +5,7 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
-from api.constans import TaskStageConstants, AutoNotificationConstants
+from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
@@ -15,8 +15,8 @@ from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_u
 def evaluate_quiz(quiz, task):
     if quiz and quiz.is_ready():
         quiz_score, incorrect_questions = quiz.check_score(task)
-        task.responses["meta_quiz_score"] = quiz_score
-        task.responses["meta_quiz_incorrect_questions"] = incorrect_questions
+        task.responses[FieldsJsonConstants.META_QUIZ_SCORE] = quiz_score
+        task.responses[FieldsJsonConstants.META_QUIZ_INCORRECT_QUESTIONS] = incorrect_questions
         task.save()
         if quiz.threshold is not None and quiz_score < quiz.threshold:
             task.complete = False

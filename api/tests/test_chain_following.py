@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification
@@ -1189,7 +1189,7 @@ class GigaTurnipTest(APITestCase):
         responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
@@ -1237,8 +1237,8 @@ class GigaTurnipTest(APITestCase):
         responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses["meta_quiz_score"], 33)
-        self.assertEqual(task.responses["meta_quiz_incorrect_questions"], "Question 2\nQuestion 3")
+        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 33)
+        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_INCORRECT_QUESTIONS], "Question 2\nQuestion 3")
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
@@ -1288,7 +1288,7 @@ class GigaTurnipTest(APITestCase):
         responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 80)
         self.assertEqual(Task.objects.count(), 3)
         self.assertTrue(task.complete)
 
@@ -1337,7 +1337,7 @@ class GigaTurnipTest(APITestCase):
         responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses["meta_quiz_score"], 80)
+        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertFalse(task.complete)
 
@@ -3544,8 +3544,8 @@ class GigaTurnipTest(APITestCase):
         conditional_one = self.initial_stage.add_stage(ConditionalStage(
             name='60 <= x <= 90',
             conditions=[
-                {"field": "meta_quiz_score", "type":"integer", "value": "60", "condition": "<="},
-                {"field": "meta_quiz_score", "type":"integer", "value": "90", "condition": ">="},
+                {"field": FieldsJsonConstants.META_QUIZ_SCORE, "type":"integer", "value": "60", "condition": "<="},
+                {"field": FieldsJsonConstants.META_QUIZ_SCORE, "type":"integer", "value": "90", "condition": ">="},
             ]
         ))
 
