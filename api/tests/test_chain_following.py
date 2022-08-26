@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
+from api.constans import TaskStageConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification
@@ -1739,7 +1740,7 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
         verification_task_stage = self.initial_stage.add_stage(TaskStage(
             name='verification',
-            assign_user_by="RA"
+            assign_user_by=TaskStageConstants.RANK
         ))
         verification_task_stage.json_schema = json.dumps({
             "type": "object",
@@ -1821,7 +1822,7 @@ class GigaTurnipTest(APITestCase):
 
         verification_task_stage = self.initial_stage.add_stage(TaskStage(
             name='verification',
-            assign_user_by="RA"
+            assign_user_by=TaskStageConstants.RANK
         ))
         verification_task_stage.json_schema = json.dumps({
             "type": "object",
@@ -1909,7 +1910,7 @@ class GigaTurnipTest(APITestCase):
             assign_user_from_stage=self.initial_stage))
         verification_task_stage = second_task_stage.add_stage(TaskStage(
             name='verification',
-            assign_user_by="RA"
+            assign_user_by=TaskStageConstants.RANK
         ))
         verification_task_stage.json_schema = json.dumps({
             "type": "object",
@@ -2776,7 +2777,7 @@ class GigaTurnipTest(APITestCase):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name='Second stage',
-                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
                 json_schema=json.dumps(second_stage_schema)
             )
         )
@@ -2819,7 +2820,7 @@ class GigaTurnipTest(APITestCase):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name='Second stage',
-                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
                 json_schema=json.dumps(second_stage_schema)
             )
         )
@@ -2873,7 +2874,7 @@ class GigaTurnipTest(APITestCase):
         final_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Final stage',
-                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
                 json_schema=json.dumps(final_stage_schema)
             )
         )
@@ -2926,7 +2927,7 @@ class GigaTurnipTest(APITestCase):
         final_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Final stage',
-                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
                 json_schema=json.dumps(final_stage_schema)
             )
         )
@@ -2980,7 +2981,7 @@ class GigaTurnipTest(APITestCase):
         final_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Final stage',
-                assign_user_by=TaskStage.PREVIOUS_MANUAL,
+                assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
                 json_schema=json.dumps(final_stage_schema)
             )
         )
@@ -3027,7 +3028,7 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name="Test pronunciation",
                 json_schema=json.dumps(second_stage_schema),
-                assign_user_by=TaskStage.STAGE,
+                assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
         )
@@ -3053,7 +3054,7 @@ class GigaTurnipTest(APITestCase):
         final_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Final stage',
-                assign_user_by=TaskStage.STAGE,
+                assign_user_by=TaskStageConstants.STAGE,
                 json_schema=json.dumps(final_stage_schema)
             )
         )
@@ -3121,7 +3122,7 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name="Test pronunciation",
                 json_schema=json.dumps(second_stage_schema),
-                assign_user_by=TaskStage.RANK,
+                assign_user_by=TaskStageConstants.RANK,
             )
         )
         rank_l = RankLimit.objects.create(
@@ -3155,7 +3156,7 @@ class GigaTurnipTest(APITestCase):
         final_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Final stage',
-                assign_user_by=TaskStage.STAGE,
+                assign_user_by=TaskStageConstants.STAGE,
                 json_schema=json.dumps(final_stage_schema)
             )
         )
@@ -3203,7 +3204,7 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name='Completion stage',
                 json_schema='{"type": "object","properties": {"expression": {"title": "Expression", "type": "string"},"answer": {"type": "integer"}}}',
-                assign_user_by=TaskStage.STAGE,
+                assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage,
                 copy_input=True
             )
@@ -3230,7 +3231,7 @@ class GigaTurnipTest(APITestCase):
         award_stage = verification_webhook_stage.add_stage(
             TaskStage(
                 name='Award stage',
-                assign_user_by=TaskStage.AUTO_COMPLETE
+                assign_user_by=TaskStageConstants.AUTO_COMPLETE
             )
         )
         award_stage.add_stage(task_creation_stage)
@@ -3291,7 +3292,7 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name='Completion stage',
                 json_schema='{"type": "object","properties": {"exercise": {"title": "Put the words in the correct order", "type": "string"},"answer": {"type": "string"}}}',
-                assign_user_by=TaskStage.STAGE,
+                assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
         )
@@ -3329,7 +3330,7 @@ class GigaTurnipTest(APITestCase):
         award_stage = verification_webhook_stage.add_stage(
             TaskStage(
                 name='Award stage',
-                assign_user_by=TaskStage.AUTO_COMPLETE
+                assign_user_by=TaskStageConstants.AUTO_COMPLETE
             )
         )
         award_stage.add_stage(task_creation_stage)
@@ -3415,7 +3416,7 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name='Second stage',
                 json_schema=self.initial_stage.json_schema,
-                assign_user_by=TaskStage.STAGE
+                assign_user_by=TaskStageConstants.STAGE
             )
         )
 
@@ -3448,13 +3449,13 @@ class GigaTurnipTest(APITestCase):
         second_stage = self.initial_stage.add_stage(TaskStage(
             name='You have complete task successfully',
             json_schema=self.initial_stage.json_schema,
-            assign_user_by=TaskStage.STAGE,
+            assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage
         ))
         rating_stage = self.initial_stage.add_stage(TaskStage(
             name='Rating stage',
             json_schema=self.initial_stage.json_schema,
-            assign_user_by=TaskStage.STAGE,
+            assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage
         ))
 
@@ -3488,14 +3489,14 @@ class GigaTurnipTest(APITestCase):
         second_stage = first_cond_stage.add_stage(TaskStage(
             name='You have complete task successfully',
             json_schema=self.initial_stage.json_schema,
-            assign_user_by=TaskStage.STAGE,
+            assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage
         ))
 
         rating_stage = second_cond_stage.add_stage(TaskStage(
             name='Rating stage',
             json_schema=self.initial_stage.json_schema,
-            assign_user_by=TaskStage.STAGE,
+            assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage
         ))
 
@@ -3550,7 +3551,7 @@ class GigaTurnipTest(APITestCase):
 
         final = conditional_one.add_stage(TaskStage(
             name='Final stage',
-            assign_user_by=TaskStage.AUTO_COMPLETE,
+            assign_user_by=TaskStageConstants.AUTO_COMPLETE,
             json_schema='{}'
         ))
 
@@ -3618,7 +3619,7 @@ class GigaTurnipTest(APITestCase):
 
         second_stage = self.initial_stage.add_stage(TaskStage(
             name='Second stage',
-            assign_user_by=TaskStage.STAGE,
+            assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage,
             json_schema=self.initial_stage.json_schema
         ))

@@ -12,6 +12,7 @@ from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
+from api.constans import TaskStageConstants
 
 
 class BaseDatesModel(models.Model):
@@ -273,21 +274,16 @@ class TaskStage(Stage, SchemaProvider):
         )
     )
 
-    RANK = 'RA'
-    STAGE = 'ST'
-    INTEGRATOR = 'IN'
-    AUTO_COMPLETE = 'AU'
-    PREVIOUS_MANUAL = 'PA'
     ASSIGN_BY_CHOICES = [
-        (RANK, 'Rank'),
-        (STAGE, 'Stage'),
-        (AUTO_COMPLETE, 'Auto-complete'),
-        (PREVIOUS_MANUAL, 'Previous manual')
+        (TaskStageConstants.RANK, 'Rank'),
+        (TaskStageConstants.STAGE, 'Stage'),
+        (TaskStageConstants.AUTO_COMPLETE, 'Auto-complete'),
+        (TaskStageConstants.PREVIOUS_MANUAL, 'Previous manual')
     ]
     assign_user_by = models.CharField(
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
-        default=RANK,
+        default=TaskStageConstants.RANK,
         help_text='User assignment method.\n'
                   'Rank means that all task assignments will be based on ranks. If the user has this rank.\n'
                   'Stage means that created task will be assign automatically based on assign_user_from_stage. '

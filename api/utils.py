@@ -5,6 +5,7 @@ from json import JSONDecodeError
 from django.db.models import QuerySet, Count, Q
 from rest_framework.response import Response
 
+from api.constans import TaskStageConstants
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference, \
     CustomUser
 from django.contrib import messages
@@ -316,6 +317,6 @@ def give_task_awards(stage, task):
 
 
 def process_auto_completed_task(stage, task):
-    if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
+    if stage.assign_user_by == TaskStageConstants.AUTO_COMPLETE:
         task.complete = True
         task.save()

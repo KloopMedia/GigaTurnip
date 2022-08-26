@@ -5,6 +5,7 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
+from api.constans import TaskStageConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
@@ -140,7 +141,7 @@ def process_integration(stage, in_task):
 
 
 def process_stage_assign_by_ST(stage, data, in_task):
-    if stage.assign_user_by == TaskStage.STAGE:
+    if stage.assign_user_by == TaskStageConstants.STAGE:
         if stage.assign_user_from_stage is not None:
             assignee_task = Task.objects \
                 .filter(stage=stage.assign_user_from_stage) \
@@ -179,13 +180,13 @@ def set_copied_fields(stage, new_task, responses=None):
 
 
 def process_previous_manual_assign(stage, new_task, in_task):
-    if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
+    if stage.assign_user_by == TaskStageConstants.PREVIOUS_MANUAL:
         new_task = assign_by_previous_manual(stage, new_task, in_task)
     return new_task
 
 
 def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
-    if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
+    if stage.webhook_address or stage.assign_user_by in [TaskStageConstants.AUTO_COMPLETE, TaskStageConstants.INTEGRATOR]:
         task_award = stage.task_stage_verified.all()
         if not task_award:
             process_completed_task(new_task)
