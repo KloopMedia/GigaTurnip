@@ -54,49 +54,7 @@ class TaskTest(APITestCase):
         self.task_stage_json_modified['name'] = "Modified conditional stage"
         self.campaign_creator_group = Group.objects.create(name='campaign_creator')
 
-    ## there is task_stage after task. new tasks are creating depending on
+    # there is task_stage after task. new tasks are creating depending on
     def function(self, id):
         return self.client.patch(self.url_tasks + f"{id}/", {"complete": True})
-
-
-    def test_complete_next_task_stage_on_dublicate(self):
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=self.chain)
-        new_task_stage.in_stages.add(self.task_stage)
-        self.new_user.managed_campaigns.add(self.campaign)
-
-        case = Case.objects.create()
-        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
-
-        pool = ThreadPool(2)
-        pool.map(self.function, [task.id, task.id])
-        pool.close()
-        pool.join()
-        response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
-        created_tasks = Task.objects.filter(case=case).filter(stage__in_stages__in=[self.task_stage])
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-
-    def test_complete_next_task_stage_on_dublicate_differend_tasks(self):
-        new_another_task_stage = TaskStage.objects.create(name="another Task stage", x_pos=1, y_pos=1,
-                                                          chain=self.another_chain)
-
-        new_task_stage = TaskStage.objects.create(name="Task stage", x_pos=1, y_pos=1,
-                                                  chain=self.chain)
-        new_task_stage.in_stages.add(self.task_stage)
-        new_another_task_stage.in_stages.add(self.another_task_stage)
-        self.new_user.managed_campaigns.add(self.campaign)
-
-        case = Case.objects.create()
-        another_case = Case.objects.create()
-        task = Task.objects.create(assignee=self.user, stage=self.task_stage, case=case)
-        another_task = Task.objects.create(assignee=self.user, stage=self.another_task_stage, case=another_case)
-
-        pool = ThreadPool(2)
-        pool.map(self.function, [task.id, another_task.id])
-        pool.close()
-        pool.join()
-        # response = self.client.patch(self.url_tasks + f"{task.id}/", {"complete": True})
-        created_tasks = Task.objects.filter(case=case).filter(stage__in_stages__in=[self.task_stage])
-        # self.assertEqual(response.status_code, status.HTTP_200_OK)
 

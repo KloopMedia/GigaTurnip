@@ -125,20 +125,6 @@ class ChainTest(APITestCase):
         response = self.client.post(self.url_chain, self.chain_json)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    # create if user isn't manager of campaign it will fail
-    def test_create_not_my_campaign_fail(self):
-        new_campaign = Campaign.objects.create(name='new campaign')
-        self.new_user.managed_campaigns.add(new_campaign)
-        self.user.managed_campaigns.add(self.campaign)
-
-        chain_refers_not_my_campaign = self.chain_json
-        chain_refers_not_my_campaign['campaign'] = new_campaign.id
-        response = self.client.post(
-            self.url_chain,
-            chain_refers_not_my_campaign
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
     # if user is manager and chain refers on users campaign it will success
     def test_create_chain_refers_on_my_campaign_success(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -255,19 +241,6 @@ class ConditionalStageTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)['results']), 1)
 
-    # Manager can create chain refers on his campaigns
-    # user try create conditional stage refers on other chain
-    def test_create_campaign_not_my_chain_fail(self):
-        self.new_user.managed_campaigns.add(self.another_campaign)
-
-        self.user.managed_campaigns.add(self.campaign)
-
-        cond_stage = self.conditional_stage_json
-        cond_stage['chain'] = self.another_chain.id
-        response = self.client.post(self.url_conditional_stage, cond_stage)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertNotIn(self.user, self.another_chain.campaign.managers.all())
-
     # create cond_stage refers to my chain
     def test_create_my_chain_success(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -330,17 +303,6 @@ class ConditionalStageTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(self.another_conditional_stage.name,
                          ConditionalStage.objects.get(id=self.another_conditional_stage.id).name)
-
-    # manager try update his conditional stage
-    def test_partial_update_manager_success(self):
-        self.new_user.managed_campaigns.add(self.another_campaign)
-        self.user.managed_campaigns.add(self.campaign)
-
-        change_name = {"name": self.conditional_stage_json_modified['name']}
-        response = self.client.patch(self.url_conditional_stage + f"{self.conditional_stage.id}/", change_name)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(json.loads(response.content)['name'], ConditionalStage.objects.get(id=self.campaign.id).name)
-
 
 class TaskStageTest(APITestCase):
     def setUp(self):
@@ -419,16 +381,6 @@ class TaskStageTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_task_stage = TaskStage.objects.get(id=response.data.get('id'))
         self.assertEqual(json.loads(response.content)['id'], model_to_dict(created_task_stage)['id'])
-
-    # Only managers and stage user creatable users can retrieve task stage
-    # simple user try to retrieve task stage
-    def test_retrieve_simple_user_fail(self):
-        self.new_user.managed_campaigns.add(self.another_campaign)
-        self.new_user.managed_campaigns.add(self.campaign)
-
-        for i in [self.another_task_stage, self.task_stage]:
-            response = self.client.get(self.url_task_stage + f"{i.id}/")
-            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # manager try to retrieve task stage
     def test_retrieve_manager_success(self):
@@ -1010,15 +962,6 @@ class RankTest(APITestCase):
         response = self.client.patch(self.url_rank + f"{self.track.id}/", to_update)
         # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # there is hav to be 403 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    # manager update rank it will be successfully updated
-    def test_partial_update_manager_success(self):
-        self.user.managed_campaigns.add(self.campaign)
-        self.rank_json['track'] = self.track.id
-
-        to_update = {"name": "UPDATED"}
-        response = self.client.patch(self.url_rank + f"{self.track.id}/", to_update)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class RankRecordTest(APITestCase):
