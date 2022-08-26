@@ -5,7 +5,7 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
-from api.constans import TaskStageConstants
+from api.constans import TaskStageConstants, AutoNotificationConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
@@ -452,17 +452,17 @@ def remove_answers_in_turn(schema, fields, responses):
 def detecting_auto_notifications(stage, task):
     if task.out_tasks.all():
         if all(task.in_tasks.values_list('complete', flat=True)):
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.FORWARD})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.FORWARD})
     elif task.in_tasks.all():
         previous_task = task.in_tasks.all()[0]
         if previous_task.complete is False and previous_task.reopened is True:
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.BACKWARD})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.BACKWARD})
         else:
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.LAST_ONE})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.LAST_ONE})
     elif not stage.in_stages.count():
         in_tasks, out_tasks = task.in_tasks.all(), task.out_tasks.all()
         if (not in_tasks or in_tasks and in_tasks[0].complete) and task.complete and not out_tasks:
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.LAST_ONE})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.LAST_ONE})
 
 
 def send_auto_notifications(trigger, task, case, filters=None):

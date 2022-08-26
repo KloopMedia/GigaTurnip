@@ -12,7 +12,7 @@ from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
-from api.constans import TaskStageConstants, CopyFieldConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants
 
 
 class BaseDatesModel(models.Model):
@@ -1556,14 +1556,11 @@ class Notification(BaseDates, CampaignInterface):
         related_name="receiver_notifications"
     )
 
-    FORWARD = 'FW'
-    BACKWARD = 'BW'
-    LAST_ONE = 'LO'
     DIRECTIONS = [
         ('', ''),
-        (FORWARD, 'Forward'),
-        (BACKWARD, 'Backward'),
-        (LAST_ONE, 'Last-one')
+        (AutoNotificationConstants.FORWARD, 'Forward'),
+        (AutoNotificationConstants.BACKWARD, 'Backward'),
+        (AutoNotificationConstants.LAST_ONE, 'Last-one')
     ]
     trigger_go = models.CharField(
         max_length=2,
@@ -1614,18 +1611,15 @@ class AutoNotification(BaseDates):
         help_text='Notification that will be using for get user'
     )
 
-    FORWARD = 'FW'
-    BACKWARD = 'BW'
-    LAST_ONE = 'LO'
     ASSIGN_BY_CHOICES = [
-        (FORWARD, 'Forward'),
-        (BACKWARD, 'Backward'),
-        (LAST_ONE, 'Last-one')
+        (AutoNotificationConstants.FORWARD, 'Forward'),
+        (AutoNotificationConstants.BACKWARD, 'Backward'),
+        (AutoNotificationConstants.LAST_ONE, 'Last-one')
     ]
     go = models.CharField(
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
-        default=FORWARD,
+        default=AutoNotificationConstants.FORWARD,
         help_text=('You have to choose on what action notification would be sent.')
     )
 

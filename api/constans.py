@@ -9,3 +9,9 @@ class TaskStageConstants:
 class CopyFieldConstants:
     USER = 'US'
     CASE = 'CA'
+
+
+class AutoNotificationConstants:
+    FORWARD = 'FW'
+    BACKWARD = 'BW'
+    LAST_ONE = 'LO'

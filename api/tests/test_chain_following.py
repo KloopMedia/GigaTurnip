@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
-from api.constans import TaskStageConstants, CopyFieldConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification
@@ -1071,7 +1071,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=return_notification,
-            go=AutoNotification.BACKWARD
+            go=AutoNotificationConstants.BACKWARD
         )
 
         complete_notification = Notification.objects.create(
@@ -1082,7 +1082,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_task_stage,
             recipient_stage=self.initial_stage,
             notification=complete_notification,
-            go=AutoNotification.FORWARD
+            go=AutoNotificationConstants.FORWARD
         )
 
         verification_client = self.prepare_client(verification_task_stage)
@@ -1141,10 +1141,10 @@ class GigaTurnipTest(APITestCase):
 
         bw_notifications = self.user.notifications.filter(sender_task=verification_task,
                                                           receiver_task=initial_task,
-                                                          trigger_go=AutoNotification.BACKWARD)
+                                                          trigger_go=AutoNotificationConstants.BACKWARD)
         fw_notifications = self.user.notifications.filter(sender_task=verification_task,
                                                           receiver_task=initial_task,
-                                                          trigger_go=AutoNotification.FORWARD)
+                                                          trigger_go=AutoNotificationConstants.FORWARD)
         self.assertEqual(self.user.notifications.count(), 2)
         self.assertEqual(bw_notifications.count(), 1)
         self.assertEqual(fw_notifications.count(), 1)
@@ -3364,13 +3364,13 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=verification_webhook_stage,
             recipient_stage=self.initial_stage,
             notification=notification_good,
-            go=AutoNotification.FORWARD
+            go=AutoNotificationConstants.FORWARD
         )
         auto_notification_1 = AutoNotification.objects.create(
             trigger_stage=verification_webhook_stage,
             recipient_stage=self.initial_stage,
             notification=notification_bad,
-            go=AutoNotification.BACKWARD
+            go=AutoNotificationConstants.BACKWARD
 
         )
 
@@ -3563,7 +3563,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=final,
             recipient_stage=self.initial_stage,
             notification=notification,
-            go=AutoNotification.LAST_ONE
+            go=AutoNotificationConstants.LAST_ONE
         )
 
         task = self.create_initial_task()
@@ -3592,7 +3592,7 @@ class GigaTurnipTest(APITestCase):
             trigger_stage=self.initial_stage,
             recipient_stage=self.initial_stage,
             notification=notification,
-            go=AutoNotification.LAST_ONE
+            go=AutoNotificationConstants.LAST_ONE
         )
         task = self.create_initial_task()
         task = self.complete_task(task, {"foo": "boo"})
