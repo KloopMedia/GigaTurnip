@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
-from api.constans import TaskStageConstants
+from api.constans import TaskStageConstants, CopyFieldConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification
@@ -3297,7 +3297,7 @@ class GigaTurnipTest(APITestCase):
             )
         )
         CopyField.objects.create(
-            copy_by=CopyField.CASE,
+            copy_by=CopyFieldConstants.CASE,
             task_stage=completion_stage,
             copy_from_stage=task_creation_stage,
             fields_to_copy='exercise->exercise'
@@ -3321,7 +3321,7 @@ class GigaTurnipTest(APITestCase):
             )
         )
         CopyField.objects.create(
-            copy_by=CopyField.CASE,
+            copy_by=CopyFieldConstants.CASE,
             task_stage=verification_webhook_stage,
             copy_from_stage=task_creation_stage,
             fields_to_copy='sentence->sentence'

@@ -12,7 +12,7 @@ from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
-from api.constans import TaskStageConstants
+from api.constans import TaskStageConstants, CopyFieldConstants
 
 
 class BaseDatesModel(models.Model):
@@ -637,16 +637,14 @@ class Webhook(BaseDatesModel):
 
 
 class CopyField(BaseDatesModel):
-    USER = 'US'
-    CASE = 'CA'
     COPY_BY_CHOICES = [
-        (USER, 'User'),
-        (CASE, 'Case')
+        (CopyFieldConstants.USER, 'User'),
+        (CopyFieldConstants.CASE, 'Case')
     ]
     copy_by = models.CharField(
         max_length=2,
         choices=COPY_BY_CHOICES,
-        default=USER,
+        default=CopyFieldConstants.USER,
         help_text="Where to copy fields from"
     )
     task_stage = models.ForeignKey(
@@ -673,7 +671,7 @@ class CopyField(BaseDatesModel):
     def copy_response(self, task):
         if self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
             return task.responses
-        if self.copy_by == self.USER:
+        if self.copy_by == CopyFieldConstants.USER:
             if task.assignee is None:
                 return task.responses
             original_task = Task.objects.filter(
