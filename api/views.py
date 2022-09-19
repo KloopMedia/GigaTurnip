@@ -37,7 +37,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     DynamicJsonAccessPolicy
 from . import utils
 from .api_exceptions import CustomApiException
-from .constans import ErrorConstants
+from .constans import ErrorConstants, TaskStageConstants
 from .utils import paginate
 import json
 
@@ -468,16 +468,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     """
 
-    # filterset_fields = ['case',
-    #                     'stage',
-    #                     'stage__chain__campaign',
-    #                     'stage__chain',
-    #                     'assignee',
-    #                     'complete',
-    #                     'created_at',
-    #                     'created_at',
-    #                     'updated_at',
-    #                     'updated_at']
     filterset_fields = {
         'case': ['exact'],
         'stage': ['exact'],
@@ -621,7 +611,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         queryset = self.filter_queryset(self.get_queryset())
         tasks = queryset.filter(assignee=request.user) \
-            .exclude(stage__assign_user_by="IN")
+            .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
