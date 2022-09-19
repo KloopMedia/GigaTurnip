@@ -125,14 +125,14 @@ def process_webhook(stage, in_task, data=None):
 
 
 def process_integration(stage, in_task):
-    if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+    if not (in_task.complete and in_task.stage.assign_user_by == TaskStageConstants.INTEGRATOR):
         integration = stage.get_integration()
         (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
         if created:
             case = Case.objects.create()
             integrator_task.case = case
         if integrator_task.assignee is not None and \
-                in_task.stage.assign_user_by == "IN":
+                in_task.stage.assign_user_by == TaskStageConstants.INTEGRATOR:
             in_task.assignee = integrator_task.assignee
             in_task.save()
         integrator_task.in_tasks.add(in_task)
