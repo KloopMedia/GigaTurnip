@@ -265,7 +265,7 @@ class GigaTurnipTest(APITestCase):
         response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['message'],
-                         "Please, provide a valid data. The 'Нет' is incorrect for 'number' type.")
+                         "Invalid data in 1 index. 'Нет' is not of type 'number'")
 
         conditions[0]['value'] = 15
         conditional_stage['conditions'] = json.dumps(conditions)

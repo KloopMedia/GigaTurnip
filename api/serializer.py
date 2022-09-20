@@ -72,6 +72,33 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
         raise serializers.ValidationError("User may not add stage "
                                           "to this chain")
 
+    def validate_conditions(self, value):
+        validation_schema = {
+            "type": "object",
+            "properties": {
+                "field": {"type": "string"},
+                "value": {"type": "string"},
+                "condition": {"type": "string"},
+                "type": {"type": "string"}
+            },
+            "required": ["field", "value", "condition", "type"]
+        }
+        for cond_id, condition in enumerate(value):
+            try:
+                current_schema = validation_schema
+                if not condition.get('type'):
+                    raise Exception('type is absent')
+                else:
+                    current_schema['properties']['value']['type'] = condition.get('type')
+
+                validate(instance=condition, schema=current_schema)
+            except Exception as exc:
+                if exc.args and exc.args[0] == 'type is absent':
+                    msg = f"Invalid data in {cond_id + 1} index. Please, provide 'type' field"
+                else:
+                    msg = f"Invalid data in {cond_id + 1} index. " + exc.message
+                raise CustomApiException(400, msg)
+
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
