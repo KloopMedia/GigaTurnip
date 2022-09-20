@@ -755,7 +755,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
-        # todo: ask about post and get requests
         """
         Get:
         Request task assignment to user

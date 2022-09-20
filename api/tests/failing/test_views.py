@@ -15,7 +15,6 @@ from rest_framework import status
 
 
 class TaskTest(APITestCase):
-    # todo: test release_assignment, request_assignment, list_displayed_previous
     def setUp(self):
         self.url_campaign = reverse("campaign-list")
         self.url_chain = reverse("chain-list")

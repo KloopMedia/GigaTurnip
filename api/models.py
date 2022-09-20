@@ -119,7 +119,7 @@ class CampaignInterface:
 class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey(
         "Track",
-        on_delete=models.CASCADE,  # TODO Change deletion method
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name="default_campaigns",
@@ -783,7 +783,6 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         elif self.flatten_all and task.responses:
             result = self.flatten_all_response(task, result, ui)
         if self.copy_system_fields:
-            # todo: maybe I have to add prefix 'sys_' for system keys
             result.update(task.__dict__)
             list_of_unnecessary_keys = ['_state', 'responses']
             for unnecessary_key in list_of_unnecessary_keys:
@@ -1696,7 +1695,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         null=True,
         blank=True,
         help_text='Webhook using for updating schema answers'
-    )# todo форму и поля отправляю
+    )  # send schema and fields
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]

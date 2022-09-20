@@ -62,7 +62,7 @@ class NotificationTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # Only user with the same rank can retrieve notification, this request must create notification status instance
@@ -104,7 +104,7 @@ class NotificationTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url + f"list_user_notifications/")
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # Filter list user notification by viewed field (there is must be only read notification)
@@ -166,7 +166,7 @@ class NotificationTest(APITestCase):
 
         response = self.client.get(self.url + f"list_user_notifications/?campaign={new_campaign.id}")
         content = json.loads(response.content)['results']
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 status code
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(len(content), 0)
 
     # Filter list user notification by importance field

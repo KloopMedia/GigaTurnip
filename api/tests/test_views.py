@@ -12,7 +12,6 @@ from rest_framework import status
 
 
 class CampaignTest(APITestCase):
-    # todo: ask about tasks. querset filtered by campaign manager consequence simple user with rank would'n get any tasks. Only manager of campaign with special status can get tasks
     def setUp(self):
         self.url = reverse("campaign-list")
         self.user = CustomUser.objects.create_user(username="test", email='test@email.com', password='test')
@@ -83,8 +82,6 @@ class CampaignTest(APITestCase):
 
 
 class ChainTest(APITestCase):
-    # todo: ask about can_create condition
-    # todo: ask about scope_queryset
     def setUp(self):
         self.url_campaign = reverse("campaign-list")
         self.url_chain = reverse("chain-list")
@@ -104,7 +101,7 @@ class ChainTest(APITestCase):
     def test_list_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
         response = self.client.get(self.url_chain)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: uncomment it after fixing permissions
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(json.loads(response.content)['results'], [])
         self.assertEqual(Campaign.objects.count(), 1)
         self.assertEqual(Chain.objects.count(), 1)
@@ -147,7 +144,7 @@ class ChainTest(APITestCase):
 
         response = self.client.get(self.url_chain + f"{another_chain.id}/")
         self.assertEqual(response.status_code,
-                         status.HTTP_404_NOT_FOUND)  # todo: is there have to be 403 error
+                         status.HTTP_404_NOT_FOUND) 
         self.assertNotIn(self.user, another_chain.campaign.managers.all())
 
     # Manager retrieve his chain it will success
@@ -173,9 +170,8 @@ class ChainTest(APITestCase):
             {"name": "try to change chain name"}
         )
         self.assertEqual(response.status_code,
-                         status.HTTP_404_NOT_FOUND)  # todo: ask about 403 status code
+                         status.HTTP_404_NOT_FOUND)
 
-    # Manager try to update/partial update his chain it will success
     def test_partial_update_success(self):
         another_campaign = Campaign.objects.create(name='new campaign')
         another_chain = Chain.objects.create(name='new chain', campaign=another_campaign)
@@ -230,7 +226,7 @@ class ConditionalStageTest(APITestCase):
     def test_list_simple_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
         response = self.client.get(self.url_conditional_stage)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is must be 403 status_code
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # manager try list his conditional stage
@@ -258,7 +254,7 @@ class ConditionalStageTest(APITestCase):
     def test_retrieve_simple_user_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
         response = self.client.get(self.url_conditional_stage + f"{self.conditional_stage.id}/")
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: is there have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager try to retrieve other conditional stage
@@ -267,7 +263,7 @@ class ConditionalStageTest(APITestCase):
         self.user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url_conditional_stage + f"{self.another_conditional_stage.id}/")
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)# todo: is there have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager try to retrieve other conditional stage
@@ -288,7 +284,7 @@ class ConditionalStageTest(APITestCase):
 
         change_name = {"name": self.conditional_stage_json_modified['name']}
         response = self.client.patch(self.url_conditional_stage + f"{self.conditional_stage.id}/", change_name)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: is there have to be 403 status code
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(self.conditional_stage.name, ConditionalStage.objects.get(id=self.conditional_stage.id).name)
 
@@ -299,7 +295,7 @@ class ConditionalStageTest(APITestCase):
 
         change_name = {"name": self.conditional_stage_json_modified['name']}
         response = self.client.patch(self.url_conditional_stage + f"{self.another_conditional_stage.id}/", change_name)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: is there have to be 403 status code
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(self.another_conditional_stage.name,
                          ConditionalStage.objects.get(id=self.another_conditional_stage.id).name)
@@ -346,7 +342,7 @@ class TaskStageTest(APITestCase):
         self.assertNotIn(self.user, self.campaign.managers.all())
 
         response = self.client.get(self.url_task_stage)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: ask about error. there is habe to be 403 status code
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # Manager try to list campaigns
@@ -368,7 +364,7 @@ class TaskStageTest(APITestCase):
         task_stage_json = self.task_stage_json
         task_stage_json['chain'] = self.another_chain.id
         response = self.client.post(self.url_task_stage, task_stage_json)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)  # todo: is there have to be 403 status code
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)  
 
     # manager try create task stage
     def test_create_success(self):
@@ -426,7 +422,6 @@ class TaskStageTest(APITestCase):
 
 
 class TaskTest(APITestCase):
-    # todo: test release_assignment, request_assignment, list_displayed_previous
     def setUp(self):
         self.url_campaign = reverse("campaign-list")
         self.url_chain = reverse("chain-list")
@@ -481,7 +476,7 @@ class TaskTest(APITestCase):
                                     complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 5)
         response = self.client.get(self.url_tasks)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     def test_list_manager_success(self):
@@ -569,7 +564,7 @@ class TaskTest(APITestCase):
                              complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 5)
         response = self.client.get(self.url_tasks + "user_selectable/")
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) #todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # queryset satisfies filter_for_user_selectable_tasks
@@ -899,7 +894,7 @@ class RankTest(APITestCase):
         self.new_user.managed_campaigns.add(self.another_campaign)
 
         response = self.client.get(self.url_rank)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # manager gets his ranks
@@ -920,7 +915,7 @@ class RankTest(APITestCase):
 
         for rank in Rank.objects.all():
             response = self.client.get(self.url_rank + f"{rank.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager get his rank
@@ -1007,7 +1002,7 @@ class RankRecordTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url_rankrecord)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # manager gets his rank records it will be successful
@@ -1027,7 +1022,7 @@ class RankRecordTest(APITestCase):
 
         for rank_record in RankRecord.objects.all():
             response = self.client.get(self.url_rankrecord + f"{rank_record.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager get his rank_record
@@ -1134,7 +1129,7 @@ class RankLimitTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url_ranklimit)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # manager list his rank limits it will be success
@@ -1155,7 +1150,7 @@ class RankLimitTest(APITestCase):
 
         for rank_limit in RankLimit.objects.all():
             response = self.client.get(self.url_ranklimit + f"{rank_limit.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager get his rank limits
@@ -1253,7 +1248,7 @@ class TrackTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url_track)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # manager list his tracks it will be success
@@ -1274,7 +1269,7 @@ class TrackTest(APITestCase):
         tracks = self.tracks + self.another_tracks
         for rank_limit in tracks:
             response = self.client.get(self.url_track + f"{rank_limit.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager get not his tracks it will fail
@@ -1284,7 +1279,7 @@ class TrackTest(APITestCase):
 
         for track in self.another_tracks:
             response = self.client.get(self.url_track + f"{track.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) 
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # manager get his tracks
@@ -1299,7 +1294,7 @@ class TrackTest(APITestCase):
 
         for track in self.another_tracks:
             response = self.client.get(self.url_track + f"{track.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # only managers of any campaign can create track
