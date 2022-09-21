@@ -27,7 +27,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer
+    DynamicJsonReadSerializer, ResponseFlattenerCSVSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -797,7 +797,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         return
 
 
-
 class RankViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -1092,10 +1091,17 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
             return ResponseFlattenerCreateSerializer
         if self.action in ['retrieve', 'list']:
             return ResponseFlattenerReadSerializer
+        if self.action in ['csv']:
+            return ResponseFlattenerCSVSerializer
+
+    @action(detail=True)
+    def csv(self, request, pk=None):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TaskAwardViewSet(viewsets.ModelViewSet):
-
     filterset_fields = {
         'task_stage_completion': ['exact'],
         'task_stage_verified': ['exact'],
@@ -1130,5 +1136,3 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return DynamicJsonReadSerializer
-
-

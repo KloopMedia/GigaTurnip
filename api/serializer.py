@@ -429,6 +429,14 @@ class ResponseFlattenerReadSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ResponseFlattenerCSVSerializer(serializers.ModelSerializer):
+    tasks = TaskRequestAssignmentSerializer(source='task_stage.tasks', many=True)
+
+    class Meta:
+        model = ResponseFlattener
+        fields = ['tasks']
+
+
 class DynamicJsonReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = DynamicJson
