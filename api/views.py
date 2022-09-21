@@ -27,7 +27,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, ResponseFlattenerCSVSerializer
+    DynamicJsonReadSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -1091,14 +1091,41 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
             return ResponseFlattenerCreateSerializer
         if self.action in ['retrieve', 'list']:
             return ResponseFlattenerReadSerializer
-        if self.action in ['csv']:
-            return ResponseFlattenerCSVSerializer
 
     @action(detail=True)
     def csv(self, request, pk=None):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_flattener = self.get_object()
+        tasks = response_flattener.task_stage.tasks.all()
+        filename = 'results'
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}.csv"'
+            },
+        )
+        items = []
+        columns = set()
+        for task in tasks:
+            row = response_flattener.flatten_response(task)
+            items.append(row)
+            [columns.add(i) for i in row.keys()]
+        ordered_columns = response_flattener.ordered_columns()
+
+        columns_not_in_main_schema = utils.array_difference(columns,
+                                                            ordered_columns + response_flattener.columns)
+        if columns_not_in_main_schema:
+            for i in items:
+                for column in columns_not_in_main_schema:
+                    if column in i.keys():
+                        del i[column]
+            col = ["description"]
+            ordered_columns += col
+            items[0][col[0]] = ", ".join(columns_not_in_main_schema)
+
+        writer = csv.DictWriter(response, fieldnames=ordered_columns)
+        writer.writeheader()
+        writer.writerows(items)
+        return response
 
 
 class TaskAwardViewSet(viewsets.ModelViewSet):

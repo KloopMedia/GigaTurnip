@@ -390,8 +390,8 @@ class TaskStage(Stage, SchemaProvider):
 
     def get_columns_from_js_schema(self):
         ordered = {}
-        ui = json.loads(self.ui_schema)
-        schema = json.loads(self.json_schema)
+        ui = json.loads(self.get_ui_schema())
+        schema = json.loads(self.get_json_schema())
         for i, section_name in enumerate(ui.get("ui:order")):
             property = schema['properties'].get(section_name)
             if property:
@@ -516,6 +516,16 @@ class TaskStage(Stage, SchemaProvider):
                 self.make_1d_arr(i, end_arr)
             else:
                 end_arr.append(i)
+
+    def get_json_schema(self):
+        if not self.json_schema:
+            return '{}'
+        return self.json_schema
+
+    def get_ui_schema(self):
+        if not self.ui_schema:
+            return '{}'
+        return self.ui_schema
 
 
 class Integration(BaseDatesModel):
@@ -768,7 +778,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
     def flatten_response(self, task):
         result = {"id": task.id}
-        ui = json.loads(self.task_stage.ui_schema)
+        ui = json.loads(self.task_stage.get_ui_schema())
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():

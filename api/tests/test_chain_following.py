@@ -1412,7 +1412,7 @@ class GigaTurnipTest(APITestCase):
         new_client = self.create_client(self.employee)
 
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
-        response = self.get_objects("task-csv", params=params, client=new_client)
+        response = self.get_objects("responseflattener-csv", params=params, client=new_client, pk=response_flattener.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_response_flattener_unique_success(self):
@@ -1435,7 +1435,7 @@ class GigaTurnipTest(APITestCase):
         new_client = self.create_client(self.employee)
 
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
-        response = self.get_objects("task-csv", params=params, client=new_client)
+        response = self.get_objects("responseflattener-csv", params=params, client=new_client, pk=response_flattener.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_response_flattener_get_tasks_success(self):
@@ -1456,7 +1456,7 @@ class GigaTurnipTest(APITestCase):
         new_client = self.create_client(self.employee)
 
         params = {"response_flattener": response_flattener.id}
-        response = self.get_objects("task-csv", params=params, client=new_client)
+        response = self.get_objects("responseflattener-csv", params=params, client=new_client, pk=response_flattener.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         r = {"column2": "SecondColumn", "oik__uik1": "SecondLayer"}
         for t in tasks:
@@ -1544,14 +1544,14 @@ class GigaTurnipTest(APITestCase):
             tasks[i + 3] = task
 
         params = {"response_flattener": response_flattener.id}
-        response = self.get_objects("task-csv", params=params, client=new_client)
+        response = self.get_objects("responseflattener-csv", params=params, client=new_client, pk=response_flattener.id)
         columns = response.content.decode().split("\r\n", 1)[0].split(',')
         self.assertEqual(columns, ['id', 'column2', 'column1', 'oik__uik1', 'description'])
 
         response_flattener.columns = ['another']
         response_flattener.save()
 
-        response = self.get_objects("task-csv", params=params, client=new_client)
+        response = self.get_objects("responseflattener-csv", params=params, client=new_client, pk=response_flattener.id)
         columns = response.content.decode().split("\r\n", 1)[0].split(',')
         self.assertEqual(columns, ['id', 'another', 'column2', 'column1', 'oik__uik1'])
 
@@ -1561,7 +1561,7 @@ class GigaTurnipTest(APITestCase):
 
         new_client = self.create_client(self.employee)
         params = {"response_flattener": response_flattener.id, "stage": self.initial_stage.id}
-        response = self.get_objects("task-csv", params=params, client=new_client)
+        response = self.get_objects("responseflattener-csv", params=params, client=new_client, pk=response_flattener.id)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -1570,8 +1570,7 @@ class GigaTurnipTest(APITestCase):
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, copy_first_level=True,
                                                               columns=["oik__(i)uik"])
 
-        params = {"response_flattener": response_flattener.id + 111, "stage": 234}
-        response = self.get_objects("task-csv", params=params)
+        response = self.get_objects("responseflattener-csv", pk=response_flattener.id + 111)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
