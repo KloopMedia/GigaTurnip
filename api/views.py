@@ -689,59 +689,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         return Response(groups)
 
-    @action(detail=False, )  # pk is stage id
-    def csv(self, request):
-        """
-        Get:
-        Return csv file with tasks information. Note: params stage and response_flattener are important
-
-        Also for custom statistics you can use filters. And on top of all that you can use filters in csv using 'task_responses' key in params.
-        Params for example:
-        ?stage=1&response_flattener=1&task_responses={"a":"b"}
-        """
-        response_flattener_id = request.query_params.get('response_flattener')
-        items = []
-        if response_flattener_id and response_flattener_id.isdigit():
-            tasks = []
-            try:
-                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
-                tasks = self.filter_queryset(self.get_queryset()).filter(stage=response_flattener.task_stage)
-            except ResponseFlattener.DoesNotExist:
-                response_flattener = None
-            if tasks and response_flattener:
-                filename = "results"  # utils.request_to_name(request)
-                response = HttpResponse(
-                    content_type='text/csv',
-                    headers={
-                        'Content-Disposition': f'attachment; filename="{filename}.csv"'
-                    },
-                )
-                columns = set()
-                for task in tasks:
-                    row = response_flattener.flatten_response(task)
-                    items.append(row)
-                    [columns.add(i) for i in row.keys()]
-                ordered_columns = response_flattener.ordered_columns()
-
-                columns_not_in_main_schema = utils.array_difference(columns, ordered_columns+response_flattener.columns)
-                if columns_not_in_main_schema:
-                    for i in items:
-                        for column in columns_not_in_main_schema:
-                            if column in i.keys():
-                                del i[column]
-                    col = ["description"]
-                    ordered_columns += col
-                    items[0][col[0]] = ", ".join(columns_not_in_main_schema)
-
-                writer = csv.DictWriter(response, fieldnames=ordered_columns)
-                writer.writeheader()
-                writer.writerows(items)
-                return response
-        if items:
-            return Response(items)
-        else:
-            raise Http404
-
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
         """
