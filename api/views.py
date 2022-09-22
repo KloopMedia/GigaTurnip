@@ -979,7 +979,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True)
     def open_notification(self, request, pk):
-        created = self.get_object().open(request.user)
+        notification_status, created = self.get_object().open(request.user)
         return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
