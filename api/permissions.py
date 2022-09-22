@@ -391,10 +391,39 @@ class TrackAccessPolicy(ManagersOnlyAccessPolicy):
 
 
 class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
-    statements = ManagersOnlyAccessPolicy.statements + [
+    statements = [
         {
-            "action": ["list_user_notifications",
-                       "open_notification"],
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["retrieve", "open_notification"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_manager or is_user_have_rank or is_user_target"
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
+
+        },
+        {
+            "action": ["partial_update", "update"], # todo: before the web with admin nobody can update notification.
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        },
+        {
+            "action": ["list_user_notifications"],
             "principal": "authenticated",
             "effect": "allow",
         }
@@ -410,6 +439,23 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
         return notifications
 
+
+    @classmethod
+    def is_user_campaign_manager(cls, user, value):
+        return utils.is_user_campaign_manager(user, value.id)
+
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
+
+    def can_create(self, request, view, action) -> bool:
+        return bool(request.user.managed_campaigns.all())
+
+    def is_user_have_rank(self, request, view, action):
+        return view.get_object().rank in request.user.ransk.all()
+
+    def is_user_target(self, request, view, action):
+        return view.get_object().target_user == request.user
 
 class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod

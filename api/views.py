@@ -965,7 +965,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         queryset = Notification.objects.all()
         notification = get_object_or_404(queryset, pk=pk)
 
-        notification.open(request)
+        notification.open(request.user)
 
         serializer = NotificationSerializer(notification)
         return Response(serializer.data)
@@ -979,16 +979,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True)
     def open_notification(self, request, pk):
-        notification_status, created = self.get_object().open(request)
-        notification_status_json = NotificationStatusSerializer(instance=notification_status).data
-        if notification_status and created:
-            return Response({'status': status.HTTP_201_CREATED,
-                             'notification_status': notification_status_json})
-        elif notification_status and not created:
-            return Response({'status': status.HTTP_200_OK,
-                             'notification_status': notification_status_json})
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        created = self.get_object().open(request.user)
+        return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
