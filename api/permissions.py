@@ -401,7 +401,7 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
             "action": ["retrieve", "open_notification"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_manager or is_user_have_rank or is_user_target"
+            "condition_expression": "is_manager or is_user_target or is_user_have_rank"
         },
         {
             "action": ["create"],
@@ -452,7 +452,7 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
         return bool(request.user.managed_campaigns.all())
 
     def is_user_have_rank(self, request, view, action):
-        return view.get_object().rank in request.user.ransk.all()
+        return view.get_object().rank in request.user.ranks.all()
 
     def is_user_target(self, request, view, action):
         return view.get_object().target_user == request.user
