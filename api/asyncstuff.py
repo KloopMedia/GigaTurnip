@@ -5,6 +5,7 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
+from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
@@ -14,8 +15,8 @@ from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_u
 def evaluate_quiz(quiz, task):
     if quiz and quiz.is_ready():
         quiz_score, incorrect_questions = quiz.check_score(task)
-        task.responses["meta_quiz_score"] = quiz_score
-        task.responses["meta_quiz_incorrect_questions"] = incorrect_questions
+        task.responses[FieldsJsonConstants.META_QUIZ_SCORE] = quiz_score
+        task.responses[FieldsJsonConstants.META_QUIZ_INCORRECT_QUESTIONS] = incorrect_questions
         task.save()
         if quiz.threshold is not None and quiz_score < quiz.threshold:
             task.complete = False
@@ -124,14 +125,14 @@ def process_webhook(stage, in_task, data=None):
 
 
 def process_integration(stage, in_task):
-    if not (in_task.complete and in_task.stage.assign_user_by == "IN"):
+    if not (in_task.complete and in_task.stage.assign_user_by == TaskStageConstants.INTEGRATOR):
         integration = stage.get_integration()
         (integrator_task, created) = integration.get_or_create_integrator_task(in_task)
         if created:
             case = Case.objects.create()
             integrator_task.case = case
         if integrator_task.assignee is not None and \
-                in_task.stage.assign_user_by == "IN":
+                in_task.stage.assign_user_by == TaskStageConstants.INTEGRATOR:
             in_task.assignee = integrator_task.assignee
             in_task.save()
         integrator_task.in_tasks.add(in_task)
@@ -140,7 +141,7 @@ def process_integration(stage, in_task):
 
 
 def process_stage_assign_by_ST(stage, data, in_task):
-    if stage.assign_user_by == TaskStage.STAGE:
+    if stage.assign_user_by == TaskStageConstants.STAGE:
         if stage.assign_user_from_stage is not None:
             assignee_task = Task.objects \
                 .filter(stage=stage.assign_user_from_stage) \
@@ -179,13 +180,13 @@ def set_copied_fields(stage, new_task, responses=None):
 
 
 def process_previous_manual_assign(stage, new_task, in_task):
-    if stage.assign_user_by == TaskStage.PREVIOUS_MANUAL:
+    if stage.assign_user_by == TaskStageConstants.PREVIOUS_MANUAL:
         new_task = assign_by_previous_manual(stage, new_task, in_task)
     return new_task
 
 
 def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
-    if stage.webhook_address or stage.assign_user_by in [TaskStage.AUTO_COMPLETE, TaskStage.INTEGRATOR]:
+    if stage.webhook_address or stage.assign_user_by in [TaskStageConstants.AUTO_COMPLETE, TaskStageConstants.INTEGRATOR]:
         task_award = stage.task_stage_verified.all()
         if not task_award:
             process_completed_task(new_task)
@@ -275,9 +276,9 @@ def evaluate_conditional_stage(stage, task):
         type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
         if not supported_types.get(type_):
-            raise CustomApiException(
-                400, f"Unsupported '{type_}' type. Please send this to your moderators"
-            )
+
+            raise CustomApiException(status.HTTP_400_BAD_REQUEST,
+                                     f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
         control_value = supported_types.get(type_)(control_value)
 
         if condition == "==":
@@ -314,12 +315,12 @@ def assign_by_previous_manual(stage, new_task, in_task):
     if not user:
         reopen_task(task_with_email)
         new_task.delete()
-        raise CustomApiException(400, f"User {value} doesn't exist")
+        raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_DOESNT_EXIST % ('User', value))
 
     if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
         reopen_task(task_with_email)
         new_task.delete()
-        raise CustomApiException(400, f"User is not in the campaign.")
+        raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_IS_NOT_IN_CAMPAIGN % 'User')
 
     new_task.assignee = user
     new_task.save()
@@ -451,17 +452,17 @@ def remove_answers_in_turn(schema, fields, responses):
 def detecting_auto_notifications(stage, task):
     if task.out_tasks.all():
         if all(task.in_tasks.values_list('complete', flat=True)):
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.FORWARD})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.FORWARD})
     elif task.in_tasks.all():
         previous_task = task.in_tasks.all()[0]
         if previous_task.complete is False and previous_task.reopened is True:
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.BACKWARD})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.BACKWARD})
         else:
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.LAST_ONE})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.LAST_ONE})
     elif not stage.in_stages.count():
         in_tasks, out_tasks = task.in_tasks.all(), task.out_tasks.all()
         if (not in_tasks or in_tasks and in_tasks[0].complete) and task.complete and not out_tasks:
-            send_auto_notifications(stage, task, task.case, {'go': AutoNotification.LAST_ONE})
+            send_auto_notifications(stage, task, task.case, {'go': AutoNotificationConstants.LAST_ONE})
 
 
 def send_auto_notifications(trigger, task, case, filters=None):

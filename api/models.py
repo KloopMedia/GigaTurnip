@@ -12,6 +12,7 @@ from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants
 
 
 class BaseDatesModel(models.Model):
@@ -118,7 +119,7 @@ class CampaignInterface:
 class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey(
         "Track",
-        on_delete=models.CASCADE,  # TODO Change deletion method
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name="default_campaigns",
@@ -273,21 +274,16 @@ class TaskStage(Stage, SchemaProvider):
         )
     )
 
-    RANK = 'RA'
-    STAGE = 'ST'
-    INTEGRATOR = 'IN'
-    AUTO_COMPLETE = 'AU'
-    PREVIOUS_MANUAL = 'PA'
     ASSIGN_BY_CHOICES = [
-        (RANK, 'Rank'),
-        (STAGE, 'Stage'),
-        (AUTO_COMPLETE, 'Auto-complete'),
-        (PREVIOUS_MANUAL, 'Previous manual')
+        (TaskStageConstants.RANK, 'Rank'),
+        (TaskStageConstants.STAGE, 'Stage'),
+        (TaskStageConstants.AUTO_COMPLETE, 'Auto-complete'),
+        (TaskStageConstants.PREVIOUS_MANUAL, 'Previous manual')
     ]
     assign_user_by = models.CharField(
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
-        default=RANK,
+        default=TaskStageConstants.RANK,
         help_text='User assignment method.\n'
                   'Rank means that all task assignments will be based on ranks. If the user has this rank.\n'
                   'Stage means that created task will be assign automatically based on assign_user_from_stage. '
@@ -394,8 +390,8 @@ class TaskStage(Stage, SchemaProvider):
 
     def get_columns_from_js_schema(self):
         ordered = {}
-        ui = json.loads(self.ui_schema)
-        schema = json.loads(self.json_schema)
+        ui = json.loads(self.get_ui_schema())
+        schema = json.loads(self.get_json_schema())
         for i, section_name in enumerate(ui.get("ui:order")):
             property = schema['properties'].get(section_name)
             if property:
@@ -521,6 +517,16 @@ class TaskStage(Stage, SchemaProvider):
             else:
                 end_arr.append(i)
 
+    def get_json_schema(self):
+        if not self.json_schema:
+            return '{}'
+        return self.json_schema
+
+    def get_ui_schema(self):
+        if not self.ui_schema:
+            return '{}'
+        return self.ui_schema
+
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
@@ -641,16 +647,14 @@ class Webhook(BaseDatesModel):
 
 
 class CopyField(BaseDatesModel):
-    USER = 'US'
-    CASE = 'CA'
     COPY_BY_CHOICES = [
-        (USER, 'User'),
-        (CASE, 'Case')
+        (CopyFieldConstants.USER, 'User'),
+        (CopyFieldConstants.CASE, 'Case')
     ]
     copy_by = models.CharField(
         max_length=2,
         choices=COPY_BY_CHOICES,
-        default=USER,
+        default=CopyFieldConstants.USER,
         help_text="Where to copy fields from"
     )
     task_stage = models.ForeignKey(
@@ -677,7 +681,7 @@ class CopyField(BaseDatesModel):
     def copy_response(self, task):
         if self.task_stage.get_campaign() != self.copy_from_stage.get_campaign():
             return task.responses
-        if self.copy_by == self.USER:
+        if self.copy_by == CopyFieldConstants.USER:
             if task.assignee is None:
                 return task.responses
             original_task = Task.objects.filter(
@@ -774,7 +778,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
     def flatten_response(self, task):
         result = {"id": task.id}
-        ui = json.loads(self.task_stage.ui_schema)
+        ui = json.loads(self.task_stage.get_ui_schema())
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():
@@ -789,7 +793,6 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
         elif self.flatten_all and task.responses:
             result = self.flatten_all_response(task, result, ui)
         if self.copy_system_fields:
-            # todo: maybe I have to add prefix 'sys_' for system keys
             result.update(task.__dict__)
             list_of_unnecessary_keys = ['_state', 'responses']
             for unnecessary_key in list_of_unnecessary_keys:
@@ -1562,14 +1565,11 @@ class Notification(BaseDates, CampaignInterface):
         related_name="receiver_notifications"
     )
 
-    FORWARD = 'FW'
-    BACKWARD = 'BW'
-    LAST_ONE = 'LO'
     DIRECTIONS = [
         ('', ''),
-        (FORWARD, 'Forward'),
-        (BACKWARD, 'Backward'),
-        (LAST_ONE, 'Last-one')
+        (AutoNotificationConstants.FORWARD, 'Forward'),
+        (AutoNotificationConstants.BACKWARD, 'Backward'),
+        (AutoNotificationConstants.LAST_ONE, 'Last-one')
     ]
     trigger_go = models.CharField(
         max_length=2,
@@ -1620,18 +1620,15 @@ class AutoNotification(BaseDates):
         help_text='Notification that will be using for get user'
     )
 
-    FORWARD = 'FW'
-    BACKWARD = 'BW'
-    LAST_ONE = 'LO'
     ASSIGN_BY_CHOICES = [
-        (FORWARD, 'Forward'),
-        (BACKWARD, 'Backward'),
-        (LAST_ONE, 'Last-one')
+        (AutoNotificationConstants.FORWARD, 'Forward'),
+        (AutoNotificationConstants.BACKWARD, 'Backward'),
+        (AutoNotificationConstants.LAST_ONE, 'Last-one')
     ]
     go = models.CharField(
         max_length=2,
         choices=ASSIGN_BY_CHOICES,
-        default=FORWARD,
+        default=AutoNotificationConstants.FORWARD,
         help_text=('You have to choose on what action notification would be sent.')
     )
 
@@ -1708,7 +1705,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         null=True,
         blank=True,
         help_text='Webhook using for updating schema answers'
-    )# todo форму и поля отправляю
+    )  # send schema and fields
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]

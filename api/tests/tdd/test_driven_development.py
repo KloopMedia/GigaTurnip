@@ -48,15 +48,6 @@ class NotificationTest(APITestCase):
         # self.another_rank_limit = RankLimit.objects.create(rank=self.another_rank, stage=self.another_task_stage,
         #                                            open_limit=3, total_limit=4)
 
-    # only managers and users with some ranks can see notification with same rank
-    # Manager list his notification
-    def test_list_manager_success(self):
-        self.user.managed_campaigns.add(self.campaign)
-
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(json.loads(response.content)['results']), len(self.notification))
-
     # user with the same rank list notification
     def test_list_same_rank_success(self):
         self.new_user.managed_campaigns.add(self.campaign)
@@ -66,22 +57,12 @@ class NotificationTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)['results']), len(self.notification))
 
-    # Manager see only his notification
-    def test_list_many_notification_and_campaign_success(self):
-        self.user.managed_campaigns.add(self.campaign)
-        self.new_user.managed_campaigns.add(self.another_campaign)
-
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(json.loads(response.content)['results']), len(self.notification))
-        self.assertEqual(Notification.objects.count(), len(self.notification+self.another_notification))
-
     # Simple user can't see any notification
     def test_list_user_no_rank_fail(self):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url)
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # Only user with the same rank can retrieve notification, this request must create notification status instance
@@ -96,17 +77,6 @@ class NotificationTest(APITestCase):
 
         self.assertEqual(NotificationStatus.objects.filter(user=self.user).count(), 5)
 
-    # Mnager retrieve not his notification, notification status won't be created. Response status code must be 403
-    def test_retrieve_manager_another_notification_fail(self):
-        self.user.managed_campaigns.add(self.campaign)
-
-        for notification in self.another_notification:
-            response = self.client.get(self.url+f"{notification.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there have to be 403 status code
-            self.assertEqual(json.loads(response.content), {})
-
-        self.assertEqual(NotificationStatus.objects.filter(user=self.user).count(), 0)
-
     # user with the same rank retrieve his notification. response status code must be 200 and this request must create notification
     def test_retrieve_user_with_same_rank_success(self):
         self.new_user.managed_campaigns.add(self.campaign)
@@ -120,38 +90,10 @@ class NotificationTest(APITestCase):
 
         self.assertEqual(NotificationStatus.objects.filter(user=self.user).count(), 5)
 
-    # user with another rank can't retrieve another notification. Response status code must be 403
-    def test_retrieve_user_with_another_rank_fail(self):
-        self.new_user.managed_campaigns.add(self.campaign)
-        RankRecord.objects.create(user=self.user, rank=self.another_rank)
-
-        for notification in self.notification:
-            response = self.client.get(self.url+f"{notification.id}/")
-            # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
-            self.assertEqual(json.loads(response.content), {})
-
-    # only managers and users with some ranks can see notification with same rank
-    # Manager list his notification
-    def test_list_notif_manager_success(self):  # ?importance=&campaign=1&rank=2
-        self.user.managed_campaigns.add(self.campaign)
-
-        response = self.client.get(self.url + f"list_user_notifications/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(json.loads(response.content)['results']), len(self.notification))
-
     # user with the same rank list notification
     def test_list_notif_same_rank_success(self):
         self.new_user.managed_campaigns.add(self.campaign)
         RankRecord.objects.create(user=self.user, rank=self.rank)
-
-        response = self.client.get(self.url + f"list_user_notifications/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(json.loads(response.content)['results']), len(self.notification))
-
-    # Manager see only his notification
-    def test_list_notif_many_notification_and_campaign_success(self):
-        self.user.managed_campaigns.add(self.campaign)
-        self.new_user.managed_campaigns.add(self.another_campaign)
 
         response = self.client.get(self.url + f"list_user_notifications/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -162,7 +104,7 @@ class NotificationTest(APITestCase):
         self.new_user.managed_campaigns.add(self.campaign)
 
         response = self.client.get(self.url + f"list_user_notifications/")
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 error
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(json.loads(response.content)['results'], [])
 
     # Filter list user notification by viewed field (there is must be only read notification)
@@ -224,7 +166,7 @@ class NotificationTest(APITestCase):
 
         response = self.client.get(self.url + f"list_user_notifications/?campaign={new_campaign.id}")
         content = json.loads(response.content)['results']
-        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # todo: there is have to be 403 status code
+        # self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(len(content), 0)
 
     # Filter list user notification by importance field
@@ -241,19 +183,6 @@ class NotificationTest(APITestCase):
         content = json.loads(response.content)['results']
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(content), 3)
-
-    def test_open_notification_success(self):
-        RankRecord.objects.create(user=self.user, rank=self.rank)
-        notification_id = self.notification[0].id
-        notification_status = {"user": self.user.id, "notification": notification_id}
-        response = self.client.post(self.url + f"open_notification/{notification_id}/", notification_status)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_open_notification(self):
-        notification_id = self.notification[0].id
-        notification_status = {"user": self.user.id, "notification": notification_id}
-        response = self.client.post(self.url + f"open_notification/{notification_id}/", notification_status)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_list_with_target_success(self):
         RankRecord.objects.create(user=self.user, rank=self.rank)
@@ -283,83 +212,3 @@ class NotificationTest(APITestCase):
         response = self.client.get(self.url + f"{notification_with_target.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.content)['title'], notification_with_target.title)
-
-    def test_retrieve_with_target_fail(self):
-        RankRecord.objects.create(user=self.user, rank=self.rank)
-        notification_with_target = Notification.objects.create(title=f"HI! targeted", text=f'Hello world!', rank=None,
-                                                         campaign=self.campaign, target_user=self.employee)
-
-        response = self.client.get(self.url + f"{notification_with_target.id}/")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_search_by_responses(self):
-        self.user.managed_campaigns.add(self.campaign)
-
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
-        self.initial_stage.save()
-
-        task = self.create_initial_task()
-        responses = {"column1": "2022-04-03T03:20:00.974Z", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
-        task.responses = responses
-        task.save()
-
-        second_task = self.create_initial_task()
-        new_resp = responses
-        new_resp['column1'] = '2022-04-05T03:20:00.974Z'
-        second_task.responses = new_resp
-        second_task.save()
-
-        conditions = {
-            "all_conditions":
-                [
-                    {
-                        "conditions": [
-                            {
-                                "operator": "<=",
-                                "value": "2022-04-03"
-                            }
-                        ],
-                        "field": "column1"
-                    }
-                ],
-            "stage": self.initial_stage.id
-        }
-
-        responses_conditions = {'task_responses': json.dumps(conditions)}
-        response = self.get_objects('task-list', params=responses_conditions)
-        response_data = json.loads(response.content)
-
-        self.assertEqual(len(response_data['results']), 1)
-
-
-    def test_search_by_responses_contains(self):
-        self.user.managed_campaigns.add(self.campaign)
-
-        task = self.create_initial_task()
-        responses = {"column1": "3000", "column2": "SecondColumnt", "oik": {"uik1": "SecondLayer"}}
-        task = self.complete_task(task, responses)
-
-        conditions = {
-            "all_conditions":
-                [
-                    {
-                        "conditions": [
-                            {
-                                "operator": "in",
-                                "value": "Columnt"
-                            }
-                        ],
-                        "field": "column2"
-                    }
-                ],
-            "stage": self.initial_stage.id
-        }
-
-        responses_conditions = {'task_responses': json.dumps(conditions)}
-        response = self.get_objects('task-list', params=responses_conditions)
-        response_data = json.loads(response.content)
-
-        self.assertEqual(len(response_data['results']), 1)
-        self.assertEqual(response_data['results'][0]['id'], task.id)
-

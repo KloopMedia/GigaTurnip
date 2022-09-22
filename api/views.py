@@ -36,6 +36,8 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
     DynamicJsonAccessPolicy
 from . import utils
+from .api_exceptions import CustomApiException
+from .constans import ErrorConstants, TaskStageConstants
 from .utils import paginate
 import json
 
@@ -466,16 +468,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     """
 
-    # filterset_fields = ['case',
-    #                     'stage',
-    #                     'stage__chain__campaign',
-    #                     'stage__chain',
-    #                     'assignee',
-    #                     'complete',
-    #                     'created_at',
-    #                     'created_at',
-    #                     'updated_at',
-    #                     'updated_at']
     filterset_fields = {
         'case': ['exact'],
         'stage': ['exact'],
@@ -557,10 +549,11 @@ class TaskViewSet(viewsets.ModelViewSet):
             next_direct_task = None
             complete = serializer.validated_data.get("complete", False)
             if complete and not utils.can_complete(instance, request.user):
-                return Response(
-                    {"message": "You may not submit this task!",
-                     "id": instance.id},
-                    status=status.HTTP_403_FORBIDDEN)
+                err_message = {
+                    "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                    "id": instance.id
+                }
+                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
             try:
                 task = instance.set_complete(
                     responses=serializer.validated_data.get("responses", {}),
@@ -569,15 +562,20 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if complete:
                     next_direct_task = process_completed_task(task)
             except Task.CompletionInProgress:
-                return Response(
-                    {"message": "Task is being completed!",
-                     "id": instance.id},
-                    status=status.HTTP_403_FORBIDDEN)
+                err_message = {
+                    "detail": {
+                        "message": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                        "id": instance.id
+                    }
+                }
+                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
             except Task.AlreadyCompleted:
-                return Response(
-                    {"message": "Task is already complete!",
-                     "id": instance.id},
-                    status=status.HTTP_403_FORBIDDEN)
+                err_message = {
+                    "detail": {
+                        "message": ErrorConstants.TASK_ALREADY_COMPLETED,
+                        "id": instance.id}
+                }
+                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset,
                 # we need to forcibly invalidate the prefetch
@@ -613,7 +611,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         queryset = self.filter_queryset(self.get_queryset())
         tasks = queryset.filter(assignee=request.user) \
-            .exclude(stage__assign_user_by="IN")
+            .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
 
@@ -691,59 +689,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         return Response(groups)
 
-    @action(detail=False, )  # pk is stage id
-    def csv(self, request):
-        """
-        Get:
-        Return csv file with tasks information. Note: params stage and response_flattener are important
-
-        Also for custom statistics you can use filters. And on top of all that you can use filters in csv using 'task_responses' key in params.
-        Params for example:
-        ?stage=1&response_flattener=1&task_responses={"a":"b"}
-        """
-        response_flattener_id = request.query_params.get('response_flattener')
-        items = []
-        if response_flattener_id and response_flattener_id.isdigit():
-            tasks = []
-            try:
-                response_flattener = ResponseFlattener.objects.get(id=response_flattener_id)
-                tasks = self.filter_queryset(self.get_queryset()).filter(stage=response_flattener.task_stage)
-            except ResponseFlattener.DoesNotExist:
-                response_flattener = None
-            if tasks and response_flattener:
-                filename = "results"  # utils.request_to_name(request)
-                response = HttpResponse(
-                    content_type='text/csv',
-                    headers={
-                        'Content-Disposition': f'attachment; filename="{filename}.csv"'
-                    },
-                )
-                columns = set()
-                for task in tasks:
-                    row = response_flattener.flatten_response(task)
-                    items.append(row)
-                    [columns.add(i) for i in row.keys()]
-                ordered_columns = response_flattener.ordered_columns()
-
-                columns_not_in_main_schema = utils.array_difference(columns, ordered_columns+response_flattener.columns)
-                if columns_not_in_main_schema:
-                    for i in items:
-                        for column in columns_not_in_main_schema:
-                            if column in i.keys():
-                                del i[column]
-                    col = ["description"]
-                    ordered_columns += col
-                    items[0][col[0]] = ", ".join(columns_not_in_main_schema)
-
-                writer = csv.DictWriter(response, fieldnames=ordered_columns)
-                writer.writeheader()
-                writer.writerows(items)
-                return response
-        if items:
-            return Response(items)
-        else:
-            raise Http404
-
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
         """
@@ -757,7 +702,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
-        # todo: ask about post and get requests
         """
         Get:
         Request task assignment to user
@@ -792,9 +736,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if in_tasks:
                     in_tasks.update(assignee=None)
             return Response({'status': 'assignment released'})
-        return Response(
-            {'message': 'It is impossible to release this task.'},
-            status=status.HTTP_403_FORBIDDEN)
+        raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'release this')
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):
@@ -803,10 +745,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             task.set_not_complete()
             return Response({'status': 'Assignment uncompleted', 'id': task.id})
         except Task.ImpossibleToUncomplete:
-            return Response(
-                {'message': 'It is impossible to uncomplete this task.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'uncomplete this')
 
     @action(detail=True, methods=['post', 'get'])
     def open_previous(self, request, pk=None):
@@ -815,10 +754,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             (prev_task, task) = task.open_previous()
             return Response({'status': 'Previous task opened.', 'id': prev_task.id})
         except Task.ImpossibleToOpenPrevious:
-            return Response(
-                {'message': 'It is impossible to open previous task.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'open previous')
 
     # @action(detail=True, methods=['post', 'get'])
     # def open_next(self, request, pk=None):
@@ -848,16 +784,17 @@ class TaskViewSet(viewsets.ModelViewSet):
                 return Response({"status": "Responses overwritten",
                                  "responses": altered_task.responses})
             else:
-                return Response({"error_message": error_description,
-                                 "status": response.status_code},
-                                status=status.HTTP_400_BAD_REQUEST)
+                err_msg = {"detail": {
+                    "message": error_description,
+                    "status": response.status_code
+                }}
+                raise CustomApiException(status.HTTP_400_BAD_REQUEST, err_msg)
         # django_response = HttpResponse(
         #     content=response.content,
         #     status=response.status_code,
         #     content_type=response.headers['Content-Type']
         # )
         return
-
 
 
 class RankViewSet(viewsets.ModelViewSet):
@@ -1155,9 +1092,43 @@ class ResponseFlattenerViewSet(viewsets.ModelViewSet):
         if self.action in ['retrieve', 'list']:
             return ResponseFlattenerReadSerializer
 
+    @action(detail=True)
+    def csv(self, request, pk=None):
+        response_flattener = self.get_object()
+        tasks = response_flattener.task_stage.tasks.all()
+        filename = 'results'
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}.csv"'
+            },
+        )
+        items = []
+        columns = set()
+        for task in tasks:
+            row = response_flattener.flatten_response(task)
+            items.append(row)
+            [columns.add(i) for i in row.keys()]
+        ordered_columns = response_flattener.ordered_columns()
+
+        columns_not_in_main_schema = utils.array_difference(columns,
+                                                            ordered_columns + response_flattener.columns)
+        if columns_not_in_main_schema:
+            for i in items:
+                for column in columns_not_in_main_schema:
+                    if column in i.keys():
+                        del i[column]
+            col = ["description"]
+            ordered_columns += col
+            items[0][col[0]] = ", ".join(columns_not_in_main_schema)
+
+        writer = csv.DictWriter(response, fieldnames=ordered_columns)
+        writer.writeheader()
+        writer.writerows(items)
+        return response
+
 
 class TaskAwardViewSet(viewsets.ModelViewSet):
-
     filterset_fields = {
         'task_stage_completion': ['exact'],
         'task_stage_verified': ['exact'],
@@ -1192,5 +1163,3 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return DynamicJsonReadSerializer
-
-

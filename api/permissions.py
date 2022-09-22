@@ -236,13 +236,6 @@ class TaskAccessPolicy(AccessPolicy):
             "condition": "is_campaign_manager"
         },
         {
-
-            "action": ["csv"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition_expression": "is_campaign_manager"  # and is_manager_by_stage
-        },
-        {
             "action": ["retrieve", "get_integrated_tasks"],
             "principal": "authenticated",
             "effect": "allow",
@@ -448,7 +441,7 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
             "condition": "is_manager",
         },
         {
-            "action": ["create"],
+            "action": ["create", "csv"],
             "principal": "authenticated",
             "effect": "allow",
             "condition": "is_campaign_manager"

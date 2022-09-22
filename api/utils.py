@@ -5,6 +5,7 @@ from json import JSONDecodeError
 from django.db.models import QuerySet, Count, Q
 from rest_framework.response import Response
 
+from api.constans import TaskStageConstants
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference, \
     CustomUser
 from django.contrib import messages
@@ -50,7 +51,7 @@ def filter_for_user_selectable_tasks(queryset, request):
         .filter(stage__ranks__users=request.user.id) \
         .filter(stage__ranklimits__is_selection_open=True) \
         .filter(stage__ranklimits__is_listing_allowed=True) \
-        .exclude(stage__assign_user_by="IN") \
+        .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR) \
         .distinct()
     return tasks
 
@@ -89,12 +90,6 @@ def filter_for_user_notifications(queryset, request):
     все сообщения у которых ранг совпадает с рангом пользователя и целевой пользователь
 
     '''
-
-    # notifications_ranks = queryset.filter(rank__rankrecord__user__id=request.user.id)
-    #
-    # notifications_target_user = queryset.filter(target_user__id=request.user.id)
-    #
-    # notifications = notifications_ranks | notifications_target_user
 
     notifications = queryset
 
@@ -316,6 +311,6 @@ def give_task_awards(stage, task):
 
 
 def process_auto_completed_task(stage, task):
-    if stage.assign_user_by == TaskStage.AUTO_COMPLETE:
+    if stage.assign_user_by == TaskStageConstants.AUTO_COMPLETE:
         task.complete = True
         task.save()
