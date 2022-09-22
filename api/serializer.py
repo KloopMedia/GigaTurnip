@@ -407,13 +407,6 @@ class NotificationSerializer(serializers.ModelSerializer,
         fields = '__all__'
 
 
-class NotificationStatusSerializer(serializers.ModelSerializer,
-                                   CampaignValidationCheck):
-    class Meta:
-        model = NotificationStatus
-        fields = '__all__'
-
-
 class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):
 
     class Meta:

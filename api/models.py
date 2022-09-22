@@ -1579,17 +1579,12 @@ class Notification(BaseDates, CampaignInterface):
         help_text=('Trigger gone in this direction and this notification has been created.')
     )
 
-    def open(self, request):
-        if request.user is not None:
-            notification_status, created = NotificationStatus \
-                .objects.get_or_create(
-                user=request.user,
-                notification=self
-            )
-
-            return notification_status, created
-        else:
-            return None, None
+    def open(self, user):
+        notification_status, created = NotificationStatus \
+            .objects.get_or_create(
+                user=user,
+                notification=self)
+        return notification_status, created
 
     def get_campaign(self) -> Campaign:
         return self.campaign

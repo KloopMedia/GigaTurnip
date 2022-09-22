@@ -65,10 +65,6 @@ router.register(api_v1 + r'rankrecords',
 router.register(api_v1 + r'notifications',
                 turnip_app.NotificationViewSet,
                 basename='notification')
-# router.register(api_v1 + r'notificationstatuses',
-#                 turnip_app.NotificationStatusViewSet,
-#                 basename='notificationstatus')
-
 router.register(api_v1 + r'responseflatteners',
                 turnip_app.ResponseFlattenerViewSet,
                 basename='responseflattener')
