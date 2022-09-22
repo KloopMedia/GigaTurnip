@@ -33,7 +33,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
     ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, PublicCSVAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
+    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
     DynamicJsonAccessPolicy
 from . import utils
 from .api_exceptions import CustomApiException
@@ -1015,60 +1015,6 @@ class NotificationStatusViewSet(viewsets.ModelViewSet):
         return NotificationStatusesAccessPolicy.scope_queryset(
             self.request, NotificationStatus.objects.all()
         )
-
-
-class PublicCSVViewSet(viewsets.ViewSet):
-    """
-    A view that returns the count of active users, in JSON or YAML.
-    """
-
-    permission_classes = (PublicCSVAccessPolicy,)
-
-    # renderer_classes = (JSONRenderer, YAMLRenderer)
-
-    def list(self, request, format=None):
-        tasks = Task.objects.filter(stage__is_public=True, stage__id=871)
-        response = HttpResponse(
-            content_type='text/csv',
-            headers={'Content-Disposition': 'attachment; filename="results.csv"'},
-        )
-        fieldnames = ["uik",
-                      "text",
-                      "time",
-                      "files",
-                      "violation_type",
-                      "violation_subtype",
-                      "complaint",
-                      "location"]
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for task in tasks:
-            uik = task.responses.get("uik", "")
-            text = task.responses.get("text", "")
-            time = task.responses.get("time", "")
-            location = task.responses.get("uiks_location", "")
-            files = " ".join(task.responses.get("youtube", []))
-            violations = task.responses.get("violations", {})
-            violation_type = ""
-            violation_subtype = ""
-            complaint = ""
-            for key in violations:
-                if "type_violation" in key:
-                    violation_type = violations[key]
-                elif "subtype_violation" in key:
-                    violation_subtype = violations[key]
-                elif "complaint" in key:
-                    complaint = violations[key]
-            writer.writerow({"uik": uik,
-                             "text": text,
-                             "time": time,
-                             "files": files,
-                             "violation_type": violation_type,
-                             "violation_subtype": violation_subtype,
-                             "complaint": complaint,
-                             "location": location})
-        return response
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):

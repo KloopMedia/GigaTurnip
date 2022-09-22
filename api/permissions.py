@@ -418,14 +418,6 @@ class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
                                request.user)
 
 
-class PublicCSVAccessPolicy(AccessPolicy):
-    statements = [{
-        "action": ["list"],
-        "principal": "*",
-        "effect": "allow",
-    }]
-
-
 class ResponseFlattenerAccessPolicy(AccessPolicy):
     statements = [
         {
