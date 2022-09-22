@@ -25,7 +25,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, NotificationStatusSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
+    NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
@@ -989,32 +989,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
                              'notification_status': notification_status_json})
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-
-
-class NotificationStatusViewSet(viewsets.ModelViewSet):
-    """
-    list:
-    Return a list of all the existing notification statuses.
-    create:
-    Create a new campaign management notification status.
-    delete:
-    Delete notification status.
-    read:
-    Get notification status data.
-    update:
-    Update notification status data.
-    partial_update:
-    Partial update notification status data.
-    """
-
-    serializer_class = NotificationStatusSerializer
-
-    permission_classes = (NotificationStatusesAccessPolicy,)
-
-    def get_queryset(self):
-        return NotificationStatusesAccessPolicy.scope_queryset(
-            self.request, NotificationStatus.objects.all()
-        )
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
