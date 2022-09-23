@@ -2547,42 +2547,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-detail', pk=self.initial_stage.id)
         self.assertEqual(response.data['external_metadata'], external_metadata)
 
-    def test_dynamic_json_schema_webhook(self):
-        return  # todo: this test is valuable
-
-        js_schema = json.dumps({
-            "type": "object",
-            "title": "My form",
-            "properties": {},
-            "dependencies": {}}
-        )
-
-        ui_schema = json.dumps({"ui:order": ["time"]})
-        self.initial_stage.json_schema = js_schema
-        self.initial_stage.ui_schema = ui_schema
-        self.initial_stage.save()
-
-        dynamic_fields_json = {
-            "foreign": ['oblast', 'rayon', 'aymak', 'villages'],
-        }
-
-        webhook = Webhook.objects.create(
-            task_stage=self.initial_stage,
-            url='https://us-central1-valiant-cycle-353908.cloudfunctions.net/test_function',
-            is_triggered=False,
-            headers={"link": "https://storage.googleapis.com/media_journal_bucket/regions_data.xls", "sheet": "Sheet1"}
-        )
-
-        dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
-            dynamic_fields=dynamic_fields_json,
-            webhook=webhook
-        )
-        task = self.create_initial_task()
-
-        response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
-        self.assertNotEqual(response.data['schema'], self.initial_stage.json_schema)
-
     def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
@@ -3136,14 +3100,14 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
 
     def test_conditional_ping_pong_cyclic_chain(self):
-        return  # todo: this test is valuable
         # first book
         self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
         # second creating task
         task_creation_stage = self.initial_stage.add_stage(
             TaskStage(
                 name='Creating task using webhook',
-                webhook_address='https://us-central1-valiant-cycle-353908.cloudfunctions.net/random_int_between_0_9'
+                webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/random_int_between_0_9',
+                webhook_params={"action": "create"}
             )
         )
         # third taks
@@ -3169,8 +3133,9 @@ class GigaTurnipTest(APITestCase):
             TaskStage(
                 name='Verification stage using webhook',
                 json_schema='{"type":"object","properties":{"is_right":{"type":"string"}}}',
-                webhook_address='https://us-central1-valiant-cycle-353908.cloudfunctions.net/even_checker',
-                copy_input=True
+                webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/random_int_between_0_9',
+                copy_input=True,
+                webhook_params={"action": "check"}
 
             )
         )
@@ -3219,8 +3184,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks[20].stage, award_stage)
 
     def test_conditional_ping_pong_with_shuffle_sentence_webhook(self):
-        return  # todo: this test is valuable
-
         # first book
         self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
         # second creating task
@@ -3343,6 +3306,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
         self.assertEqual(task_awards.count * 2 + 1, self.user.notifications.count())
+
 
     def test_auto_notification_simple(self):
         js_schema = {
