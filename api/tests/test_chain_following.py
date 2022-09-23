@@ -11,7 +11,7 @@ from rest_framework.reverse import reverse
 from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification
+    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus
 from jsonschema import validate
 
 
@@ -51,6 +51,11 @@ class GigaTurnipTest(APITestCase):
 
     def setUp(self):
         self.campaign = Campaign.objects.create(name="Campaign")
+        self.default_track = Track.objects.create(campaign=self.campaign)
+        self.default_rank = Rank.objects.create(name="Default campaign rank", track=self.default_track)
+        self.default_track.default_rank = self.default_rank
+        self.campaign.default_track = self.default_track
+        self.default_track.save(), self.campaign.save()
         self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
         self.initial_stage = TaskStage.objects.create(
             name="Initial",
@@ -928,6 +933,81 @@ class GigaTurnipTest(APITestCase):
         final_task = Task.objects.get(case=initial_task.case, stage=final_task_stage)
 
         self.assertEqual(final_task.assignee, self.user)
+
+    def test_notification_with_target_user(self):
+        [Notification.objects.create(
+            title=f"Hello world{i}",
+            text="There are new chain for you",
+            campaign=self.campaign,
+            target_user=self.user
+        )
+            for i in range(5)]
+        user_notifications = self.user.notifications.all().order_by('-created_at')
+
+        for i in user_notifications[:2]:
+            response = self.get_objects("notification-detail", pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user.notifications.filter(notification_statuses__user=self.user).count(), 2)
+
+        for i in user_notifications[:2]:
+            response = self.get_objects("notification-detail", pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(user_notifications.filter(notification_statuses__user=self.user).count(), 2)
+
+        for i in user_notifications[:2]:
+            response = self.get_objects("notification-open-notification", pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(user_notifications.filter(notification_statuses__user=self.user).count(), 2)
+
+        for i in user_notifications[2:]:
+            response = self.get_objects("notification-open-notification", pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(user_notifications.filter(notification_statuses__user=self.user).count(), 5)
+
+        for i in user_notifications[:2]:
+            response = self.get_objects("notification-detail", client=self.employee_client, pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(NotificationStatus.objects.count(), 5)
+
+    def test_notification_with_manager(self):
+        notifications = [Notification.objects.create(
+            title=f"Hello world{i}",
+            text="There are new chain for you",
+            campaign=self.campaign,
+            target_user=self.user
+        )
+            for i in range(5)]
+        self.employee.managed_campaigns.add(self.campaign)
+        for i in notifications[:]:
+            response = self.get_objects("notification-detail", client=self.employee_client, pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Notification.objects.filter(notification_statuses__user=self.employee).count(), 5)
+        self.employee.managed_campaigns.remove(self.campaign)
+        self.assertEqual(NotificationStatus.objects.count(), 5)
+
+    def test_notification_with_target_rank(self):
+        ranks_notifications = [Notification.objects.create(
+            title=f"Hello world{i}",
+            text="There are new chain for you",
+            campaign=self.campaign,
+            rank=self.default_rank
+        )
+            for i in range(5)]
+
+        self.assertFalse(self.default_rank in self.user.ranks.all())
+        for i in ranks_notifications[:]:
+            response = self.get_objects("notification-detail", client=self.employee_client, pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            Notification.objects.filter(rank=self.default_rank, notification_statuses__user=self.user).count(), 0)
+
+        self.user.ranks.add(self.default_rank)
+        for i in ranks_notifications[:]:
+            response = self.get_objects("notification-detail", pk=i.id)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            Notification.objects.filter(rank=self.default_rank, notification_statuses__user=self.user).count(), 5)
+        self.assertEqual(NotificationStatus.objects.count(), 5)
 
     def test_conditional_ping_pong_copy_field_if_task_returned_again(self):
         self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
