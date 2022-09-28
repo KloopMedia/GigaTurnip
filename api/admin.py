@@ -622,10 +622,19 @@ class NotificationAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super(NotificationAdmin, self).get_queryset(request)
-        return queryset \
+        q = queryset \
             .filter(
             campaign__campaign_managements__user=request.user
         )
+        return q
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super(NotificationAdmin, self).get_form(request, obj, **kwargs)
+        # form.fields['rank'].queryset = Rank.objects.filter(name__iexact='company')
+        # form.fields['target_user'].queryset = CustomUser.objects.filter(name__iexact='company')
+        form.base_fields['sender_task'].queryset = Task.objects.none()
+        form.base_fields['receiver_task'].queryset = Task.objects.none()
+        return form
 
 
 class AutoNotificationAdmin(admin.ModelAdmin):
