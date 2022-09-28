@@ -521,22 +521,6 @@ class ModelsTest(GigaTurnip):
         self.assertLess(Track.objects.count(), old_count)
         self.assertEqual(Track.objects.count(), 0)
 
-    def test_track_on_delete_default_rank(self):
-        track = Track.objects.create(
-            name="Track",
-            campaign=self.campaign,
-        )
-        rank = Rank.objects.all()[0]
-
-        track.default_rank = rank
-        track.save()
-
-        old_count = Track.objects.count()
-        rank.delete()
-
-        # TODO: make decision with on_delete argument
-        self.assertEqual(old_count, Track.objects.count())
-
     def test_rank_record_on_delete_user(self):
         old_count = RankRecord.objects.count()
 

@@ -15,7 +15,7 @@ from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
-schema_provider_fields = ['json_schema', 'ui_schema', 'library']
+schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_ui_schema', 'library']
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -73,30 +73,31 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                                           "to this chain")
 
     def validate_conditions(self, value):
-        attrs = ["field", "value", "condition", "type"]
+        validation_schema = {
+            "type": "object",
+            "properties": {
+                "field": {"type": "string"},
+                "value": {"type": "string"},
+                "condition": {"type": "string"},
+                "type": {"type": "string"}
+            },
+            "required": ["field", "value", "condition", "type"]
+        }
         for cond_id, condition in enumerate(value):
-            for attr in attrs:
-                if attr not in condition.keys():
-                    raise CustomApiException(
-                        400, f"Invalid data in {cond_id+1} index. Please, provide '{attr}' field"
-                    )
-
-            supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
-            val = condition.get('value')
-            type_ = condition.get('type')
-            if not type_:
-                raise CustomApiException(
-                    400, f"Unsupported '{type_}' type."
-                )
             try:
-                condition['value'] = supported_types.get(type_)(val)
-                value[cond_id] = condition
-            except Exception as e:
-                raise CustomApiException(
-                    400, f"Please, provide a valid data. The '{val}' is incorrect for '{type_}' type."
-                )
+                current_schema = validation_schema
+                if not condition.get('type'):
+                    raise Exception('type is absent')
+                else:
+                    current_schema['properties']['value']['type'] = condition.get('type')
 
-        return value
+                validate(instance=condition, schema=current_schema)
+            except Exception as exc:
+                if exc.args and exc.args[0] == 'type is absent':
+                    msg = f"Invalid data in {cond_id + 1} index. Please, provide 'type' field"
+                else:
+                    msg = f"Invalid data in {cond_id + 1} index. " + exc.message
+                raise CustomApiException(400, msg)
 
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
@@ -403,13 +404,6 @@ class NotificationSerializer(serializers.ModelSerializer,
                              CampaignValidationCheck):
     class Meta:
         model = Notification
-        fields = '__all__'
-
-
-class NotificationStatusSerializer(serializers.ModelSerializer,
-                                   CampaignValidationCheck):
-    class Meta:
-        model = NotificationStatus
         fields = '__all__'
 
 

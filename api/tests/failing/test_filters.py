@@ -35,27 +35,6 @@ class FiltersTestCase(APITestCase):
         self.assertIn(self.user, self.campaign.managers.all())
         self.assertTrue(utils.is_user_campaign_manager(self.user, self.campaign.id))
 
-    # todo: we have to check tdd tasks
-    def test_filter_for_user_selectable_tasks(self):
-        self.user.managed_campaigns.add(self.campaign)
-        self.rank_limit = RankLimit.objects.create(rank=self.rank, stage=self.task_stage, open_limit=3, total_limit=5,
-                                                   is_selection_open=True, is_listing_allowed=True)
-        tasks_assigned = [Task.objects.create(assignee=self.employee, stage=self.task_stage) for i in range(5)]
-        tasks_not_assigned = [Task.objects.create(stage=self.task_stage) for i in range(5)]
-        rank_record = RankRecord.objects.create(user=self.employee, rank=self.rank)
-        request = self.factory.get(self.url)
-        request.user = self.employee
-        queryset = Task.objects.all()
-        filtered_queryset = utils.filter_for_user_selectable_tasks(queryset, request)
-
-        # employee can see only tasks_not_assigned
-        self.assertEqual(list(filtered_queryset), tasks_not_assigned)
-
-        request.user = self.user
-        filtered_queryset = utils.filter_for_user_selectable_tasks(queryset, request)
-        # i think taht manager of campaign can see his user_selectable tasks
-        # self.assertEqual(list(filtered_queryset), tasks_not_assigned + tasks_assigned)
-
     def test_filter_for_user_creatable_stages(self):
         # campaign, chain, task_stage, rank,
         # connect rank to user, create rank limit for user(is_creation_open = True)

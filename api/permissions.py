@@ -236,13 +236,6 @@ class TaskAccessPolicy(AccessPolicy):
             "condition": "is_campaign_manager"
         },
         {
-
-            "action": ["csv"],
-            "principal": "authenticated",
-            "effect": "allow",
-            "condition_expression": "is_campaign_manager"  # and is_manager_by_stage
-        },
-        {
             "action": ["retrieve", "get_integrated_tasks"],
             "principal": "authenticated",
             "effect": "allow",
@@ -398,10 +391,39 @@ class TrackAccessPolicy(ManagersOnlyAccessPolicy):
 
 
 class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
-    statements = ManagersOnlyAccessPolicy.statements + [
+    statements = [
         {
-            "action": ["list_user_notifications",
-                       "open_notification"],
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["retrieve", "open_notification"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition_expression": "is_manager or is_user_target or is_user_have_rank"
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
+
+        },
+        {
+            "action": ["partial_update", "update"], # todo: before the web with admin nobody can update notification.
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        },
+        {
+            "action": ["list_user_notifications"],
             "principal": "authenticated",
             "effect": "allow",
         }
@@ -409,28 +431,38 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        notifications_ranks = queryset.filter(rank__rankrecord__user=request.user)
+        notifications_manager = queryset.filter(campaign__campaign_managements__user=request.user).values_list('id', flat=True)
+        notifications_ranks = queryset.filter(rank__rankrecord__user=request.user).values_list('id', flat=True)
+        notifications_target_user = queryset.filter(target_user=request.user).values_list('id', flat=True)
+        available_ids = set(list(notifications_ranks) + list(notifications_target_user) + list(notifications_manager))
 
-        notifications_target_user = queryset.filter(target_user=request.user)
-
-        notifications = notifications_ranks | notifications_target_user
+        notifications = queryset.filter(id__in=available_ids)
 
         return notifications
 
+
+    @classmethod
+    def is_user_campaign_manager(cls, user, value):
+        return utils.is_user_campaign_manager(user, value.id)
+
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
+
+    def can_create(self, request, view, action) -> bool:
+        return bool(request.user.managed_campaigns.all())
+
+    def is_user_have_rank(self, request, view, action):
+        return view.get_object().rank in request.user.ranks.all()
+
+    def is_user_target(self, request, view, action):
+        return view.get_object().target_user == request.user
 
 class NotificationStatusesAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):
         return queryset.filter(notification__rank__rankrecord__user=
                                request.user)
-
-
-class PublicCSVAccessPolicy(AccessPolicy):
-    statements = [{
-        "action": ["list"],
-        "principal": "*",
-        "effect": "allow",
-    }]
 
 
 class ResponseFlattenerAccessPolicy(AccessPolicy):
@@ -448,7 +480,7 @@ class ResponseFlattenerAccessPolicy(AccessPolicy):
             "condition": "is_manager",
         },
         {
-            "action": ["create"],
+            "action": ["create", "csv"],
             "principal": "authenticated",
             "effect": "allow",
             "condition": "is_campaign_manager"
