@@ -618,7 +618,8 @@ class NotificationAdmin(admin.ModelAdmin):
     model = Notification
     search_fields = ('title', )
     list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
-    autocomplete_fields = ('campaign', 'rank', )
+    autocomplete_fields = ('campaign', 'rank', 'target_user')
+    readonly_fields = ('sender_task', 'receiver_task', 'trigger_go',)
 
     def get_queryset(self, request):
         queryset = super(NotificationAdmin, self).get_queryset(request)
@@ -630,10 +631,34 @@ class NotificationAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         form = super(NotificationAdmin, self).get_form(request, obj, **kwargs)
-        # form.fields['rank'].queryset = Rank.objects.filter(name__iexact='company')
-        # form.fields['target_user'].queryset = CustomUser.objects.filter(name__iexact='company')
-        form.base_fields['sender_task'].queryset = Task.objects.none()
-        form.base_fields['receiver_task'].queryset = Task.objects.none()
+
+        form.base_fields['campaign'].queryset = Campaign.objects.filter(
+            campaign_managements__user=request.user
+        )
+        form.base_fields['rank'].queryset = Rank.objects.filter(
+            track__campaign__campaign_managements__user=request.user
+        )
+
+        user_s = obj.target_user if obj else None
+        if user_s:
+            user_s = CustomUser.objects.filter(id=user_s.id)
+        else:
+            all_ranks = []
+            [all_ranks.extend(track.ranks.values_list('id', flat=True))
+             for track in AdminPreference.objects.get(user=request.user).campaign.tracks.all()]
+            user_s = CustomUser.objects.filter(
+                id__in=RankRecord.objects.filter(
+                    rank_id__in=all_ranks
+                ).values_list('user_id', flat=True)
+            )
+
+        form.base_fields['target_user'].queryset = user_s
+
+        ### Do it because sql query asks all tasks
+        # form.base_fields['sender_task'].queryset = Task.objects.filter(
+        #     id=obj.sender_task_id) if obj.sender_task else Task.objects.none()
+        # form.base_fields['receiver_task'].queryset = Task.objects.filter(
+        #     id=obj.receiver_task_id) if obj.receiver_task else Task.objects.none()
         return form
 
 
