@@ -73,28 +73,53 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                                           "to this chain")
 
     def validate_conditions(self, value):
-        validation_schema = {
+        TYPES_TO_CONVERT = {
+            'boolean': bool,
+            'string': str,
+            'number': float,
+            'integer': int
+        }
+        AVAILABLE_CONDITIONS = ['==', '!=', '>', '<', '>=', '<=', 'ARRAY-CONTAINS', 'ARRAY-CONTAINS-NOT']
+        VALIDATION_SCHEMA = {
             "type": "object",
             "properties": {
                 "field": {"type": "string"},
                 "value": {"type": "string"},
-                "condition": {"type": "string"},
-                "type": {"type": "string"}
+                "condition": {"type": "string", "enum": AVAILABLE_CONDITIONS},
+                "type": {"type": "string", "enum": list(TYPES_TO_CONVERT.keys())}
             },
             "required": ["field", "value", "condition", "type"]
         }
         for cond_id, condition in enumerate(value):
             try:
-                current_schema = validation_schema
+                current_schema = VALIDATION_SCHEMA
                 if not condition.get('type'):
                     raise Exception('type is absent')
+                elif not condition.get('value'):
+                    raise Exception('value is absent')
                 else:
-                    current_schema['properties']['value']['type'] = condition.get('type')
+                    current_schema['properties']['value']['type'] = condition['type']
+                    if condition['type'] == 'boolean':
+                        val = condition['value'].lower()
+                        condition['value'] = True if val in ['1', 'true'] else False
+                    else:
+                        try:
+                            condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
+                        except ValueError:
+                            raise ValueError(
+                                f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
+                            )
 
                 validate(instance=condition, schema=current_schema)
+                return value
+            except ValueError as exc:
+                msg = f"Invalid data in {cond_id + 1} index. " + str(exc)
+                raise CustomApiException(400, msg)
             except Exception as exc:
                 if exc.args and exc.args[0] == 'type is absent':
                     msg = f"Invalid data in {cond_id + 1} index. Please, provide 'type' field"
+                elif exc.args and exc.args[0] == 'value is absent':
+                    msg = f"Invalid data in {cond_id + 1} index. Please, provide 'value' field"
                 else:
                     msg = f"Invalid data in {cond_id + 1} index. " + exc.message
                 raise CustomApiException(400, msg)
