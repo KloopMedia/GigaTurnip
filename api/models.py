@@ -1665,6 +1665,7 @@ class AdminPreference(BaseDates):
     user = models.OneToOneField(
         CustomUser,
         on_delete=models.CASCADE,
+        related_name='admin_preference',
         blank=True,
         null=True
     )
