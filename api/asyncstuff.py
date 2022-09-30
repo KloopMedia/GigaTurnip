@@ -224,7 +224,7 @@ def create_new_task(stage, in_task):
 
 
 def process_conditional(stage, in_task):
-    if evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
+    if not stage.logic and evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
         process_out_stages(stage, in_task)
     elif stage.pingpong:
         out_task_stages = TaskStage.objects \
@@ -252,6 +252,8 @@ def process_conditional(stage, in_task):
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
+    elif stage.logic and evaluate_conditional_logic_stage(stage, in_task):
+        process_out_stages(stage, in_task)
 
 
 def evaluate_conditional_stage(stage, task):
@@ -278,6 +280,26 @@ def evaluate_conditional_stage(stage, task):
             raise CustomApiException(status.HTTP_400_BAD_REQUEST,
                                      f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
         control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
+
+        f = ConditionalStageConstants.OPERATORS.get(condition)
+        results.append(f(control_value, actual_value))
+
+    return all(results)
+
+
+def evaluate_conditional_logic_stage(stage: ConditionalStage, task: Task):
+    rules = stage.conditions
+    rules = rules if rules else []
+    responses = task.responses
+    results = list()
+
+    if responses is None:
+        return False
+
+    for rule in rules:
+        control_value = rule.get("value")
+        condition = rule.get("condition")
+        actual_value = stage.out_stages.get().tasks.count()
 
         f = ConditionalStageConstants.OPERATORS.get(condition)
         results.append(f(control_value, actual_value))
