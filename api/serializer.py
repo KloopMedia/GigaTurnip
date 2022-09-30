@@ -92,59 +92,39 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                 "field": {"type": "string"},
                 "value": {"type": "string"},
                 "condition": {"type": "string", "enum": AVAILABLE_CONDITIONS},
-                "type": {"type": "string", "enum": list(TYPES_TO_CONVERT.keys())}
+                "type": {"type": "string", "enum": list(TYPES_TO_CONVERT.keys())},
+                "system": {"type": "boolean", "default": False }
             },
             "required": ["field", "value", "condition", "type"]
         }
-        # VALIDATION_SCHEMA = {
-        #     "type": "object",
-        #     "properties": {
-        #         "field": {
-        #             "type": "string"
-        #         },
-        #         "value": {
-        #             "type": "string"
-        #         },
-        #         "condition": {
-        #             "type": "string",
-        #             "enum": AVAILABLE_CONDITIONS
-        #         },
-        #         "type": {
-        #             "type": "string",
-        #             "enum": list(TYPES_TO_CONVERT.keys())
-        #         },
-        #         "system": {
-        #             "type": "boolean",
-        #             "default": False,
-        #         }
-        #     },
-        #     "required": ["field", "value", "condition", "type", "system"]
-        # }
         for cond_id, condition in enumerate(value):
             try:
                 current_schema = VALIDATION_SCHEMA
 
-                if not condition.get('type'):
-                    raise Exception('type is absent')
-                elif condition.get('type') and condition['type'] not in list(TYPES_TO_CONVERT.keys()):
-                    raise Exception('type is undefined')
+                if not condition.get('system'):
+                    if not condition.get('type'):
+                        raise Exception('type is absent')
+                    elif condition.get('type') and condition['type'] not in list(TYPES_TO_CONVERT.keys()):
+                        raise Exception('type is undefined')
 
-                if not condition.get('value'):
-                    raise Exception('value is absent')
+                    if not condition.get('value'):
+                        raise Exception('value is absent')
 
-                if condition['type'] == 'boolean':
-                    val = condition['value'].lower()
-                    condition['value'] = True if val in ['1', 'true'] else False
+                    if condition['type'] == 'boolean':
+                        val = condition['value'].lower()
+                        condition['value'] = True if val in ['1', 'true'] else False
+                    else:
+                        try:
+                            condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
+                        except ValueError:
+                            raise ValueError(
+                                f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
+                            )
+
+                    validate(instance=condition, schema=current_schema)
+                    return value
                 else:
-                    try:
-                        condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
-                    except ValueError:
-                        raise ValueError(
-                            f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
-                        )
-
-                validate(instance=condition, schema=current_schema)
-                return value
+                    return value
             except ValueError as exc:
                 msg = f"Invalid data in {cond_id + 1} index. " + str(exc)
                 raise CustomApiException(400, msg)
