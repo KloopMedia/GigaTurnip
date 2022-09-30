@@ -962,11 +962,18 @@ class Quiz(BaseDatesModel):
 
 
 class ConditionalStage(Stage):
-    conditions = models.JSONField(null=True,
-                                  help_text="JSON logic conditions")
-    pingpong = models.BooleanField(default=False,
-                                   help_text="If True, makes 'in stages' "
-                                             "task incomplete")
+    conditions = models.JSONField(
+        null=True,
+        help_text='JSON logic conditions'
+    )
+    pingpong = models.BooleanField(
+        default=False,
+        help_text='If True, makes \'in stages\' task incomplete'
+    )
+    logic = models.BooleanField(
+        default=False,
+        help_text='Will allow us to get logic value during the passage of the chain'
+    )  # Todo: add help text
 
     # def __str__(self):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
