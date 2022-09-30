@@ -73,6 +73,11 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
         raise serializers.ValidationError("User may not add stage "
                                           "to this chain")
 
+    def is_valid(self, raise_exception=False):
+        if not self.initial_data.get('conditions'):
+            raise CustomApiException(400, "You must pass conditions.")
+        return super().is_valid(raise_exception)
+
     def validate_conditions(self, value):
         TYPES_TO_CONVERT = {
             'boolean': bool,
@@ -91,25 +96,52 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
             },
             "required": ["field", "value", "condition", "type"]
         }
+        # VALIDATION_SCHEMA = {
+        #     "type": "object",
+        #     "properties": {
+        #         "field": {
+        #             "type": "string"
+        #         },
+        #         "value": {
+        #             "type": "string"
+        #         },
+        #         "condition": {
+        #             "type": "string",
+        #             "enum": AVAILABLE_CONDITIONS
+        #         },
+        #         "type": {
+        #             "type": "string",
+        #             "enum": list(TYPES_TO_CONVERT.keys())
+        #         },
+        #         "system": {
+        #             "type": "boolean",
+        #             "default": False,
+        #         }
+        #     },
+        #     "required": ["field", "value", "condition", "type", "system"]
+        # }
         for cond_id, condition in enumerate(value):
             try:
                 current_schema = VALIDATION_SCHEMA
+
                 if not condition.get('type'):
                     raise Exception('type is absent')
-                elif not condition.get('value'):
+                elif condition.get('type') and condition['type'] not in list(TYPES_TO_CONVERT.keys()):
+                    raise Exception('type is undefined')
+
+                if not condition.get('value'):
                     raise Exception('value is absent')
+
+                if condition['type'] == 'boolean':
+                    val = condition['value'].lower()
+                    condition['value'] = True if val in ['1', 'true'] else False
                 else:
-                    current_schema['properties']['value']['type'] = condition['type']
-                    if condition['type'] == 'boolean':
-                        val = condition['value'].lower()
-                        condition['value'] = True if val in ['1', 'true'] else False
-                    else:
-                        try:
-                            condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
-                        except ValueError:
-                            raise ValueError(
-                                f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
-                            )
+                    try:
+                        condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
+                    except ValueError:
+                        raise ValueError(
+                            f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
+                        )
 
                 validate(instance=condition, schema=current_schema)
                 return value
@@ -119,6 +151,8 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
             except Exception as exc:
                 if exc.args and exc.args[0] == 'type is absent':
                     msg = f"Invalid data in {cond_id + 1} index. Please, provide 'type' field"
+                elif exc.args and exc.args[0] == 'type is undefined':
+                    msg = f"Invalid data in {cond_id + 1} index. Please, provide valid type"
                 elif exc.args and exc.args[0] == 'value is absent':
                     msg = f"Invalid data in {cond_id + 1} index. Please, provide 'value' field"
                 else:

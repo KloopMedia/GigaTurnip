@@ -246,6 +246,44 @@ class GigaTurnipTest(APITestCase):
         second_task = initial_task.out_tasks.get()
         self.check_task_auto_creation(second_task, second_stage, initial_task)
 
+    def test_conditional_stage_api_creation(self):
+        self.user.managed_campaigns.add(self.campaign)
+        url = 'conditionalstage-list'
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': []
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.data['message'], 'You must pass conditions.')
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': json.dumps([{"ssf": "world"}])
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.data['message'], 'Invalid data in 1 index. Please, provide \'type\' field')
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': json.dumps([{"type": "herere"}])
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.data['message'], 'Invalid data in 1 index. Please, provide valid type')
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': json.dumps([
+                {"type": "string", 'value': "something", 'field': 'verification', 'condition':'=='}
+            ])
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
     def test_conditional_stage(self):
         self.user.managed_campaigns.add(self.campaign)
         conditions = [{
