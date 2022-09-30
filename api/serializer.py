@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants
+from api.constans import NotificationConstants, ConditionalStageConstants
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
@@ -444,15 +444,7 @@ class NotificationSerializer(serializers.ModelSerializer,
                              CampaignValidationCheck):
     class Meta:
         model = Notification
-        read_only_fields = NotificationConstants.READ_ONLY_FIELDS
         fields = '__all__'
-
-
-class NotificationListSerializer(serializers.ModelSerializer, CampaignValidationCheck):
-    class Meta:
-        model = Notification
-        fields = ['id', 'title', 'text', 'created_at', 'importance']
-        read_only_fields = NotificationConstants.READ_ONLY_FIELDS
 
 
 class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):

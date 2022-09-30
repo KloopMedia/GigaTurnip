@@ -5,7 +5,8 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
-from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants
+from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
+    ConditionalStageConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
@@ -265,38 +266,21 @@ def evaluate_conditional_stage(stage, task):
     if responses is None:
         return False
 
-    supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
-
     for rule in rules:
         control_value = rule.get("value")
         condition = rule.get("condition")
         type_ = rule.get("type") if rule.get("type") else "string"
         actual_value = get_value_from_dotted(rule["field"], responses)
-        js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
-        type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
+        # js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
+        # type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
-        if not supported_types.get(type_):
-
+        if not ConditionalStageConstants.SUPPORTED_TYPES.get(type_):
             raise CustomApiException(status.HTTP_400_BAD_REQUEST,
                                      f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
-        control_value = supported_types.get(type_)(control_value)
+        control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
 
-        if condition == "==":
-            results.append(control_value == actual_value)
-        elif condition == "!=":
-            results.append(control_value != actual_value)
-        elif condition == ">":
-            results.append(control_value > actual_value)
-        elif condition == "<":
-            results.append(control_value < actual_value)
-        elif condition == ">=":
-            results.append(control_value >= actual_value)
-        elif condition == "<=":
-            results.append(control_value <= actual_value)
-        elif condition == "ARRAY-CONTAINS":
-            results.append(control_value in actual_value)
-        elif condition == "ARRAY-CONTAINS-NOT":
-            results.append(control_value not in actual_value)
+        f = ConditionalStageConstants.OPERATORS.get(condition)
+        results.append(f(control_value, actual_value))
 
     return all(results)
 
