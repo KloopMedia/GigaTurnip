@@ -970,7 +970,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             return NotificationSerializer
         if self.action in ['list']:
             return NotificationListSerializer
-        # return NotificationListSerializer
+        return NotificationListSerializer
 
     def get_queryset(self):
         return NotificationAccessPolicy.scope_queryset(
