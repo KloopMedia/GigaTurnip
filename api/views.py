@@ -1,5 +1,6 @@
 import csv
 
+import django_filters
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db.models import Count, Q, Subquery, F, When, Func, Value
@@ -17,7 +18,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, CustomUser
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -25,7 +26,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
+    NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
@@ -941,20 +942,35 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    filterset_fields = {
-        'importance': ['exact'],
-        'campaign': ['exact'],
-        'rank': ['exact'],
-        'receiver_task': ['exact'],
-        'sender_task': ['exact'],
-        'trigger_go': ['exact'],
-        'created_at': ['lte', 'gte'],
-        'updated_at': ['lte', 'gte']
-    }
-
-    serializer_class = NotificationSerializer
-
+    # filterset_fields = {
+    #     'importance': ['exact'],
+    #     'campaign': ['exact'],
+    #     'rank': ['exact'],
+    #     'receiver_task': ['exact'],
+    #     'sender_task': ['exact'],
+    #     'trigger_go': ['exact'],
+    #     'created_at': ['lte', 'gte'],
+    #     'updated_at': ['lte', 'gte']
+    # }
     permission_classes = (NotificationAccessPolicy,)
+
+    # todo: Create liba for filtering
+    def filter_queryset(self, queryset):
+        lookups = self.request.query_params.items()
+
+        attributes = dict()
+        for lookup_expr in lookups:
+            attributes[lookup_expr[0]] = lookup_expr[1]
+        if attributes:
+            return queryset.filter(**attributes)
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'partial_update', 'update', 'retrieve']:
+            return NotificationSerializer
+        if self.action in ['list']:
+            return NotificationListSerializer
+        # return NotificationListSerializer
 
     def get_queryset(self):
         return NotificationAccessPolicy.scope_queryset(
