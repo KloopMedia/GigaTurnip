@@ -1,7 +1,7 @@
 import datetime
 import json
 import re
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
 
 import requests
@@ -970,6 +970,15 @@ class ConditionalStage(Stage):
 
     # def __str__(self):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
+
+
+class ConditionalLimit(BaseDatesModel, CampaignInterface):
+    conditional_stage = models.OneToOneField(
+        ConditionalStage,
+        related_name='conditional_limit',
+        on_delete=models.CASCADE,
+        help_text='Allow to compare taskstage data in ConditionalStage'
+    )
 
 
 class Case(BaseDatesModel):
