@@ -980,6 +980,9 @@ class ConditionalLimit(BaseDatesModel, CampaignInterface):
         help_text='Allow to compare taskstage data in ConditionalStage'
     )
 
+    def get_campaign(self) -> Campaign:
+        return self.conditional_stage.get_campaign()
+
 
 class Case(BaseDatesModel):
 
