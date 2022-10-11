@@ -7,6 +7,7 @@ from json import JSONDecodeError
 import requests
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
+from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
@@ -982,7 +983,10 @@ class ConditionalLimit(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         help_text='Allow to compare taskstage data in ConditionalStage'
     )
-
+    order = models.PositiveIntegerField(
+        default=0,
+        validators=[MaxValueValidator(1000000)]
+    )
     def get_campaign(self) -> Campaign:
         return self.conditional_stage.get_campaign()
 
