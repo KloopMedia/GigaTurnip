@@ -96,7 +96,7 @@ def process_out_stages(current_stage, task):
     out_conditional_limit_stages = ConditionalStage.objects.filter(
         in_stages=current_stage,
         conditional_limit__isnull=False
-    )
+    ).order_by('conditional_limit__order', 'conditional_limit__created_at')
     for stage in out_conditional_stages:
         process_conditional(stage, task)
     for stage in out_conditional_limit_stages:
@@ -105,6 +105,7 @@ def process_out_stages(current_stage, task):
             break
     for stage in out_task_stages:
         create_new_task(stage, task)
+
 
 def process_conditional_limit(stage, in_task):
     if evaluate_conditional_stage(stage, in_task, is_limited=True):
