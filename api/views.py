@@ -961,6 +961,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
         attributes = dict()
         for lookup_expr in lookups:
             attributes[lookup_expr[0]] = lookup_expr[1]
+        attributes.pop('offset') if 'offset' in attributes.keys() else None
+        attributes.pop('limit') if 'limit' in attributes.keys() else None
+
         if attributes:
             return queryset.filter(**attributes)
         return queryset
