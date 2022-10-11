@@ -11,6 +11,10 @@ class CopyFieldConstants:
     CASE = 'CA'
 
 
+class NotificationConstants:
+    READ_ONLY_FIELDS = ['target_user', 'sender_task', 'receiver_task', 'trigger_go']
+
+
 class AutoNotificationConstants:
     FORWARD = 'FW'
     BACKWARD = 'BW'
