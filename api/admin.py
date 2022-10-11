@@ -8,7 +8,7 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -256,6 +256,22 @@ class StageAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super(StageAdmin, self).get_queryset(request)
         return filter_by_admin_preference(queryset, request, "chain__")
+
+
+class ConditionalLimitAdmin(admin.ModelAdmin):
+    model = ConditionalLimit
+    list_display = ('conditional_stage', )
+    autocomplete_fields = ('conditional_stage', )
+    list_filter = (
+        'conditional_stage__chain',
+    )
+
+    def get_queryset(self, request):
+        queryset = super(ConditionalLimitAdmin, self).get_queryset(request)
+        return queryset \
+            .filter(
+            conditional_stage__chain__campaign__campaign_managements__user=request.user
+        )
 
 
 class TaskStageAdmin(StageAdmin):
@@ -690,6 +706,7 @@ admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
 admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)
+admin.site.register(ConditionalLimit, ConditionalLimitAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
 admin.site.register(Webhook, WebhookAdmin)
