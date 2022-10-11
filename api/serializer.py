@@ -76,7 +76,7 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
     def is_valid(self, raise_exception=False):
         if not self.initial_data.get('conditions'):
             raise CustomApiException(400, "You must pass conditions.")
-        return super().is_valid(raise_exception)
+        return super(ConditionalStageSerializer, self).is_valid(raise_exception=raise_exception)
 
     def validate_conditions(self, value):
         TYPES_TO_CONVERT = {
@@ -101,30 +101,29 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
             try:
                 current_schema = VALIDATION_SCHEMA
 
-                if not condition.get('system'):
-                    if not condition.get('type'):
-                        raise Exception('type is absent')
-                    elif condition.get('type') and condition['type'] not in list(TYPES_TO_CONVERT.keys()):
-                        raise Exception('type is undefined')
 
-                    if not condition.get('value'):
-                        raise Exception('value is absent')
+                if not condition.get('type'):
+                    raise Exception('type is absent')
+                elif condition.get('type') and condition['type'] not in list(TYPES_TO_CONVERT.keys()):
+                    raise Exception('type is undefined')
 
-                    if condition['type'] == 'boolean':
-                        val = condition['value'].lower()
-                        condition['value'] = True if val in ['1', 'true'] else False
-                    else:
-                        try:
-                            condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
-                        except ValueError:
-                            raise ValueError(
-                                f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
-                            )
+                if not condition.get('value'):
+                    raise Exception('value is absent')
 
-                    validate(instance=condition, schema=current_schema)
-                    return value
+                if condition['type'] == 'boolean':
+                    val = condition['value'].lower()
+                    condition['value'] = True if val in ['1', 'true'] else False
                 else:
-                    return value
+                    try:
+                        condition['value'] = TYPES_TO_CONVERT[condition['type']](condition['value'])
+                        current_schema['properties']['value']['type'] = condition['type']
+                    except ValueError:
+                        raise ValueError(
+                            f'\'{condition["value"]}\' is not of type \'{condition["type"]}\''
+                        )
+
+                validate(instance=condition, schema=current_schema)
+                return value
             except ValueError as exc:
                 msg = f"Invalid data in {cond_id + 1} index. " + str(exc)
                 raise CustomApiException(400, msg)
@@ -445,6 +444,13 @@ class NotificationSerializer(serializers.ModelSerializer,
     class Meta:
         model = Notification
         fields = '__all__'
+
+
+class NotificationListSerializer(serializers.ModelSerializer, CampaignValidationCheck):
+    class Meta:
+        model = Notification
+        fields = ['id', 'title', 'text', 'created_at', 'importance']
+        read_only_fields = NotificationConstants.READ_ONLY_FIELDS
 
 
 class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):

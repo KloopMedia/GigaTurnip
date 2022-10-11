@@ -364,45 +364,6 @@ class GigaTurnipTest(APITestCase):
         new_task = initial_task.case.tasks.filter(stage=last_task_stage).exists()
         self.assertFalse(new_task)
 
-    def test_conditional_stage_logic_simple(self):
-        json_schema_answer = {"type": "object", "properties": {"answer": {"type": "string"}}}
-        self.initial_stage.json_schema = json.dumps(json_schema_answer)
-        self.initial_stage.save()
-        conditional_1 = self.initial_stage.add_stage(
-            ConditionalStage(
-                name='Logical checker #1',
-                conditions=[{"type": 'integer', 'value': 1, 'field': 'tests', 'condition': '>=', "system": True}],
-                logic=True,
-            )
-        )
-        conditional_2 = self.initial_stage.add_stage(
-            ConditionalStage(
-                name='Logical checker #2',
-                conditions=[{"type": 'integer', 'value': 1, 'field': 'tests', 'condition': '>=', "system": True}],
-                logic=True,
-            )
-        )
-
-        congrats_schema = {"title": "Congrautlations","type": "object","properties": {}}
-        finish_stage_1 = conditional_1.add_stage(
-            TaskStage(
-                name="Congrats stage #1",
-                json_schema=json.dumps(congrats_schema),
-            )
-        )
-        congrats_schema = {"title": "Congrautlations","type": "object","properties": {}}
-        finish_stage_2 = conditional_2.add_stage(
-            TaskStage(
-                name="Congrats stage #2",
-                json_schema=json.dumps(congrats_schema),
-            )
-        )
-
-        init_task = self.create_initial_task()
-        init_task = self.complete_task(init_task, {"answer": "foo"})
-        self.assertEqual(finish_stage_1.tasks.count(), 1)
-        self.assertEqual(finish_stage_2.tasks.count(), 1)
-
     def test_pingpong(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",

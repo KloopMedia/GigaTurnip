@@ -224,7 +224,7 @@ def create_new_task(stage, in_task):
 
 
 def process_conditional(stage, in_task):
-    if not stage.logic and evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
+    if evaluate_conditional_stage(stage, in_task) and not stage.pingpong:
         process_out_stages(stage, in_task)
     elif stage.pingpong:
         out_task_stages = TaskStage.objects \
@@ -252,8 +252,6 @@ def process_conditional(stage, in_task):
                         out_task.save()
             else:
                 create_new_task(stage, in_task)
-    elif stage.logic and evaluate_conditional_logic_stage(stage, in_task):
-        process_out_stages(stage, in_task)
 
 
 def evaluate_conditional_stage(stage, task):

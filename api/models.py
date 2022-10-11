@@ -970,10 +970,6 @@ class ConditionalStage(Stage):
         default=False,
         help_text='If True, makes \'in stages\' task incomplete'
     )
-    logic = models.BooleanField(
-        default=False,
-        help_text='Will allow us to get logic value during the passage of the chain'
-    )  # Todo: add help text
 
     # def __str__(self):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
