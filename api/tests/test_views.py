@@ -237,18 +237,6 @@ class ConditionalStageTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(json.loads(response.content)['results']), 1)
 
-    # create cond_stage refers to my chain
-    def test_create_my_chain_success(self):
-        self.user.managed_campaigns.add(self.campaign)
-
-        self.conditional_stage_json['chain'] = self.chain.id
-        response = self.client.post(self.url_conditional_stage, self.conditional_stage_json)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(ConditionalStage.objects.count(), 3)
-        my_conditional_stage = ConditionalStage.objects.get(id=response.data.get('id'))
-        self.assertIn(self.user, my_conditional_stage.chain.campaign.managers.all())
-        self.assertEqual(json.loads(response.content)['id'], model_to_dict(my_conditional_stage)['id'])
-
     # Only managers of campaign can retrieve their conditional stages
     # simple user try to retrieve conditional stage
     def test_retrieve_simple_user_fail(self):

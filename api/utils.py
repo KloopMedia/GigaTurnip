@@ -314,3 +314,7 @@ def process_auto_completed_task(stage, task):
     if stage.assign_user_by == TaskStageConstants.AUTO_COMPLETE:
         task.complete = True
         task.save()
+
+
+def get_conditional_limit_count(stage, filters):
+    return stage.out_stages.get().tasks.count()
