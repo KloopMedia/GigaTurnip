@@ -1,12 +1,13 @@
 import datetime
 import json
 import re
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
 
 import requests
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
+from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint
 from django.http import HttpResponse
@@ -962,14 +963,32 @@ class Quiz(BaseDatesModel):
 
 
 class ConditionalStage(Stage):
-    conditions = models.JSONField(null=True,
-                                  help_text="JSON logic conditions")
-    pingpong = models.BooleanField(default=False,
-                                   help_text="If True, makes 'in stages' "
-                                             "task incomplete")
+    conditions = models.JSONField(
+        null=True,
+        help_text='JSON logic conditions'
+    )
+    pingpong = models.BooleanField(
+        default=False,
+        help_text='If True, makes \'in stages\' task incomplete'
+    )
 
     # def __str__(self):
     #     return str("Conditional Stage Filler for " + self.stage__str__())
+
+
+class ConditionalLimit(BaseDatesModel, CampaignInterface):
+    conditional_stage = models.OneToOneField(
+        ConditionalStage,
+        related_name='conditional_limit',
+        on_delete=models.CASCADE,
+        help_text='Allow to compare taskstage data in ConditionalStage'
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        validators=[MaxValueValidator(1000000)]
+    )
+    def get_campaign(self) -> Campaign:
+        return self.conditional_stage.get_campaign()
 
 
 class Case(BaseDatesModel):

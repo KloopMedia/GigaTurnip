@@ -5,11 +5,12 @@ from django.db.models import Q, F, Count
 from rest_framework import status
 import math
 from api.api_exceptions import CustomApiException
-from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants
+from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
+    ConditionalStageConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
     AutoNotification
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
-    connect_user_with_ranks, give_task_awards, process_auto_completed_task
+    connect_user_with_ranks, give_task_awards, process_auto_completed_task, get_conditional_limit_count
 
 
 def evaluate_quiz(quiz, task):
@@ -89,12 +90,28 @@ def process_out_stages(current_stage, task):
     out_task_stages = TaskStage.objects \
         .filter(in_stages=current_stage)
     out_conditional_stages = ConditionalStage.objects \
-        .filter(in_stages=current_stage)
+        .filter(in_stages=current_stage).exclude(
+        conditional_limit__isnull=False
+    )
+    out_conditional_limit_stages = ConditionalStage.objects.filter(
+        in_stages=current_stage,
+        conditional_limit__isnull=False
+    ).order_by('conditional_limit__order', 'conditional_limit__created_at')
     for stage in out_conditional_stages:
         process_conditional(stage, task)
+    for stage in out_conditional_limit_stages:
+        is_conditional_limit_created = process_conditional_limit(stage, task)
+        if is_conditional_limit_created:
+            break
     for stage in out_task_stages:
         create_new_task(stage, task)
 
+
+def process_conditional_limit(stage, in_task):
+    if evaluate_conditional_stage(stage, in_task, is_limited=True):
+        process_out_stages(stage, in_task)
+        return True
+    return False
 
 def send_webhook_request(stage, in_task):
     params = {}
@@ -253,7 +270,7 @@ def process_conditional(stage, in_task):
                 create_new_task(stage, in_task)
 
 
-def evaluate_conditional_stage(stage, task):
+def evaluate_conditional_stage(stage, task, is_limited=False):
     """Checks each response
        Returns True if all responses exist and fit to the conditions
     """
@@ -265,38 +282,45 @@ def evaluate_conditional_stage(stage, task):
     if responses is None:
         return False
 
-    supported_types = {"boolean": bool, "number": float, "integer": int, "string": str}
-
     for rule in rules:
         control_value = rule.get("value")
         condition = rule.get("condition")
         type_ = rule.get("type") if rule.get("type") else "string"
-        actual_value = get_value_from_dotted(rule["field"], responses)
-        js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
-        type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
-        if not supported_types.get(type_):
+        if not is_limited:
+            actual_value = get_value_from_dotted(rule["field"], responses)
+        elif is_limited:
+            actual_value = get_conditional_limit_count(stage, rule)
+        # js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
+        # type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
+        if not ConditionalStageConstants.SUPPORTED_TYPES.get(type_):
             raise CustomApiException(status.HTTP_400_BAD_REQUEST,
                                      f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
-        control_value = supported_types.get(type_)(control_value)
+        control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
 
-        if condition == "==":
-            results.append(control_value == actual_value)
-        elif condition == "!=":
-            results.append(control_value != actual_value)
-        elif condition == ">":
-            results.append(control_value > actual_value)
-        elif condition == "<":
-            results.append(control_value < actual_value)
-        elif condition == ">=":
-            results.append(control_value >= actual_value)
-        elif condition == "<=":
-            results.append(control_value <= actual_value)
-        elif condition == "ARRAY-CONTAINS":
-            results.append(control_value in actual_value)
-        elif condition == "ARRAY-CONTAINS-NOT":
-            results.append(control_value not in actual_value)
+        f = ConditionalStageConstants.OPERATORS.get(condition)
+        results.append(f(control_value, actual_value))
+
+    return all(results)
+
+
+def evaluate_conditional_logic_stage(stage: ConditionalStage, task: Task):
+    rules = stage.conditions
+    rules = rules if rules else []
+    responses = task.responses
+    results = list()
+
+    if responses is None:
+        return False
+
+    for rule in rules:
+        control_value = rule.get("value")
+        condition = rule.get("condition")
+        actual_value = stage.out_stages.get().tasks.count()
+
+        f = ConditionalStageConstants.OPERATORS.get(condition)
+        results.append(f(control_value, actual_value))
 
     return all(results)
 

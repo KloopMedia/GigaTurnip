@@ -6,6 +6,40 @@ class TaskStageConstants:
     PREVIOUS_MANUAL = 'PA'
 
 
+class ConditionalStageConstants:
+    from api.functions_utils import eq, ne, gt, lt, ge, le, contains, not_contains
+
+    OPERATORS = {
+        "==": eq,
+        "!=": ne,
+        ">": gt,
+        "<": lt,
+        ">=": ge,
+        "<=": le,
+        "ARRAY-CONTAINS": contains,
+        "ARRAY-CONTAINS-NOT": not_contains
+    }
+
+    SUPPORTED_TYPES = {
+        "boolean": bool,
+        "number": float,
+        "integer": int,
+        "string": str
+    }
+
+    VALIDATION_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "field": {"type": "string"},
+            "value": {"type": "string"},
+            "condition": {"type": "string", "enum": list(OPERATORS.keys())},
+            "type": {"type": "string", "enum": list(SUPPORTED_TYPES.keys())},
+            "system": {"type": "boolean", "default": False}
+        },
+        "required": ["field", "value", "condition", "type"]
+    }
+
+
 class CopyFieldConstants:
     USER = 'US'
     CASE = 'CA'

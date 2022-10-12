@@ -11,7 +11,7 @@ from rest_framework.reverse import reverse
 from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus
+    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit
 from jsonschema import validate
 
 
@@ -246,6 +246,44 @@ class GigaTurnipTest(APITestCase):
         second_task = initial_task.out_tasks.get()
         self.check_task_auto_creation(second_task, second_stage, initial_task)
 
+    def test_conditional_stage_api_creation(self):
+        self.user.managed_campaigns.add(self.campaign)
+        url = 'conditionalstage-list'
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': []
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.data['message'], 'You must pass conditions.')
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': json.dumps([{"ssf": "world"}])
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.data['message'], 'Invalid data in 1 index. Please, provide \'type\' field')
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': json.dumps([{"type": "herere"}])
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.data['message'], 'Invalid data in 1 index. Please, provide valid type')
+
+        conditional = {
+            'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
+            'conditions': json.dumps([
+                {"type": "string", 'value': "something", 'field': 'verification', 'condition':'=='}
+            ])
+        }
+
+        response = self.client.post(reverse(url), data=conditional)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
     def test_conditional_stage(self):
         self.user.managed_campaigns.add(self.campaign)
         conditions = [{
@@ -276,6 +314,93 @@ class GigaTurnipTest(APITestCase):
         conditional_stage['conditions'] = json.dumps(conditions)
         response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_conditional_limit_main_logic(self):
+        first_schema = {"type": "object", "title": "Поздоровайтесь ", "properties": {"newInput1": {"title": "Hi!", "type": "integer"}},
+         "dependencies": {}, "required": []}
+        self.initial_stage.json_schema = json.dumps(first_schema)
+        self.initial_stage.save()
+
+        # create conditional stages and limits
+        conditional_water = self.initial_stage.add_stage(
+            ConditionalStage(
+                name='Вопрос воды',
+                conditions=[{"type": "integer", "field": "newInput1", "value": 1, "condition": ">"}]
+            )
+        )
+        cond_limit_1 = ConditionalLimit.objects.create(
+            conditional_stage=conditional_water,
+            order=3
+        )
+
+        conditional_gas = self.initial_stage.add_stage(
+            ConditionalStage(
+                name='Вопрос газа',
+                conditions=[{"type": "integer", "field": "newInput1", "value": 1, "condition": ">"}]
+            )
+        )
+        cond_limit_2 = ConditionalLimit.objects.create(
+            conditional_stage=conditional_gas,
+            order=1
+        )
+
+        conditional_cheburek = self.initial_stage.add_stage(
+            ConditionalStage(
+                name='Вопрос чебуреков',
+                conditions=[{"type": "integer", "field": "newInput1", "value": 1, "condition": ">"}]
+            )
+        )
+        cond_limit_3 = ConditionalLimit.objects.create(
+            conditional_stage=conditional_cheburek,
+            order=2
+        )
+
+        # create further stages with questions
+        finish_water = conditional_water.add_stage(
+            TaskStage(
+                name='Цена воды',
+                json_schema='{"type":"object","title":"цена воды такая-то"}',
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+        finish_gas = conditional_gas.add_stage(
+            TaskStage(
+                name='Цена газа',
+                json_schema='{"type":"object","title":"цена газа такая-то"}',
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+        finish_cheburek = conditional_cheburek.add_stage(
+            TaskStage(
+                name='Цена чебуреков',
+                json_schema='{"type":"object","title":"цена чебуреков такая-то"}',
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+
+        responses = {'newInput1': 0}
+        initial_task = self.create_initial_task()
+        initial_task = self.complete_task(initial_task, responses)
+        self.assertEqual(initial_task.out_tasks.count(), 1)
+        self.assertEqual(initial_task.out_tasks.get().stage, finish_gas)
+        next_task = self.complete_task(initial_task.out_tasks.get())
+
+        initial_task = self.create_initial_task()
+        initial_task = self.complete_task(initial_task, responses)
+        self.assertEqual(initial_task.out_tasks.count(), 1)
+        self.assertEqual(initial_task.out_tasks.get().stage, finish_cheburek)
+        next_task = self.complete_task(initial_task.out_tasks.get())
+
+        initial_task = self.create_initial_task()
+        initial_task = self.complete_task(initial_task, responses)
+        self.assertEqual(initial_task.out_tasks.count(), 1)
+        self.assertEqual(initial_task.out_tasks.get().stage, finish_water)
+        next_task = self.complete_task(initial_task.out_tasks.get())
+
+        self.assertEqual(Task.objects.filter(assignee=self.user).count(), 6)
 
     def test_passing_conditional(self):
         self.initial_stage.json_schema = json.dumps({
