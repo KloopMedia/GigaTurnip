@@ -56,6 +56,17 @@ def filter_for_user_selectable_tasks(queryset, request):
     return tasks
 
 
+def filter_for_datetime(tasks):
+    filtered_tasks = tasks.filter(stage__datetime_sort__isnull=False) \
+        .filter(
+        (Q(stage__datetime_sort__start_time__lte=datetime.now()) | Q(stage__datetime_sort__start_time__isnull=True))
+    ) \
+        .filter(
+        (Q(stage__datetime_sort__end_time__gte=datetime.now()) | Q(stage__datetime_sort__end_time__isnull=True))
+    )
+    return filtered_tasks
+
+
 def filter_for_user_campaigns(queryset, request):
     stages = TaskStage.objects.filter(ranks__users=request.user).distinct()
     chains = Chain.objects.filter(stages__in=stages).distinct()
