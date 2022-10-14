@@ -8,7 +8,7 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit, DatetimeSort
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -701,6 +701,23 @@ class AutoNotificationAdmin(admin.ModelAdmin):
             trigger_stage__chain__campaign__campaign_managements__user=request.user
         )
 
+
+class DatetimeSortAdmin(admin.ModelAdmin):
+    model = DatetimeSort
+    list_display = ('id',
+                    'stage',
+                    'start_time',
+                    'end_time',
+                    'created_at',
+                    'updated_at'
+                    )
+    autocomplete_fields = ('stage', )
+
+    def get_queryset(self, request):
+        queryset = super(DatetimeSortAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, 'stage__chain__')
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
@@ -729,3 +746,4 @@ admin.site.register(Notification, NotificationAdmin)
 admin.site.register(AutoNotification, AutoNotificationAdmin)
 admin.site.register(NotificationStatus)
 admin.site.register(AdminPreference, AdminPreferenceAdmin)
+admin.site.register(DatetimeSort, DatetimeSortAdmin)
