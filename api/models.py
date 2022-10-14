@@ -647,6 +647,26 @@ class Webhook(BaseDatesModel):
         return response
 
 
+class DatetimeSort(BaseDatesModel):
+    stage = models.OneToOneField(
+        Stage,
+        related_name='datetime_sort',
+        blank=False,
+        help_text='step sorted by datetime',
+        on_delete=models.CASCADE
+    )
+    start_time = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='the time when the task should open'
+    )
+    end_time = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='the time when the task should close'
+    )
+
+
 class CopyField(BaseDatesModel):
     COPY_BY_CHOICES = [
         (CopyFieldConstants.USER, 'User'),
