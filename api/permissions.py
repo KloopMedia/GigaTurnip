@@ -435,7 +435,7 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
             Q(campaign__campaign_managements__user=request.user) |
             Q(rank__rankrecord__user=request.user) |
             Q(target_user=request.user)
-        )
+        ).distinct()
         return notifications
 
 
