@@ -57,7 +57,7 @@ def filter_for_user_selectable_tasks(queryset, request):
 
 
 def filter_for_datetime(tasks):
-    filtered_tasks = tasks.filter(stage__datetime_sort__isnull=False) \
+    filtered_tasks = tasks \
         .filter(
         (Q(stage__datetime_sort__start_time__lte=datetime.now()) | Q(stage__datetime_sort__start_time__isnull=True))
     ) \
