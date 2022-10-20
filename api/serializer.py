@@ -74,8 +74,8 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                                           "to this chain")
 
     def is_valid(self, raise_exception=False):
-        if not self.initial_data.get('conditions'):
-            raise CustomApiException(400, "You must pass conditions.")
+        # if not self.initial_data.get('conditions'):
+        #     raise CustomApiException(400, "You must pass conditions.")
         return super(ConditionalStageSerializer, self).is_valid(raise_exception=raise_exception)
 
     def validate_conditions(self, value):

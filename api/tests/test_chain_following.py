@@ -256,7 +256,7 @@ class GigaTurnipTest(APITestCase):
         }
 
         response = self.client.post(reverse(url), data=conditional)
-        self.assertEqual(response.data['message'], 'You must pass conditions.')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         conditional = {
             'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
