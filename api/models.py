@@ -587,8 +587,6 @@ class Webhook(BaseDatesModel):
         help_text="Parent TaskStage")
 
     url = models.URLField(
-        blank=True,
-        null=True,
         max_length=1000,
         help_text=(
             "Webhook URL address. If not empty, field indicates that "
