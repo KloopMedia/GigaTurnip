@@ -11,7 +11,7 @@ from rest_framework.reverse import reverse
 from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit
+    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort
 from jsonschema import validate
 
 
@@ -2051,6 +2051,79 @@ class GigaTurnipTest(APITestCase):
         user_notifications = Notification.objects.filter(target_user=self.employee,
                                                          title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 1)
+
+
+    def test_datetime_sort_for_tasks(self):
+        from datetime import datetime
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            assign_user_by="RA"
+        ))
+        third_stage = second_stage.add_stage(TaskStage(
+            assign_user_by="RA"
+        ))
+        verifier_rank = Rank.objects.create(name="verifier")
+        RankRecord.objects.create(
+            user=self.employee,
+            rank=verifier_rank)
+        RankLimit.objects.create(
+            rank=verifier_rank,
+            stage=second_stage,
+            open_limit=5,
+            total_limit=0,
+            is_creation_open=False,
+            is_listing_allowed=True,
+            is_selection_open=True,
+            is_submission_open=True
+        )
+        RankLimit.objects.create(
+            rank=verifier_rank,
+            stage=third_stage,
+            open_limit=5,
+            total_limit=0,
+            is_creation_open=False,
+            is_listing_allowed=True,
+            is_selection_open=True,
+            is_submission_open=True
+        )
+        time_limit = datetime(year=2020, month=1, day=1)
+        DatetimeSort.objects.create(
+            stage=second_stage,
+            start_time=time_limit
+        )
+        DatetimeSort.objects.create(
+            stage=third_stage,
+            end_time=time_limit
+        )
+
+        task1 = self.create_initial_task()
+        task1 = self.complete_task(task1)
+        task2 = task1.out_tasks.get()
+
+        response = self.get_objects('task-user-selectable', client=self.employee_client)
+        content = json.loads(response.content)
+        self.assertEqual(len(content['results']), 1)
+        self.assertEqual(content['results'][0]['id'], task2.id)
+
+        response_assign = self.get_objects('task-request-assignment', pk=task2.id, client=self.employee_client)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.employee.tasks.count(), 1)
+
+        task2 = Task.objects.get(id=task2.id)
+        task2 = self.complete_task(task2, client=self.employee_client)
+
+        last_task = task2.out_tasks.get()
+
+        response = self.get_objects('task-user-selectable', client=self.employee_client)
+        content = json.loads(response.content)
+        self.assertEqual(len(content['results']), 0)
+
+        response_assign = self.get_objects('task-request-assignment', pk=last_task.id, client=self.employee_client)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+
+        last_task = Task.objects.get(id=last_task.id)
+        self.complete_task(last_task, client=self.employee_client)
+
 
     def test_task_awards_for_giving_ranks(self):
         self.initial_stage.json_schema = json.dumps({

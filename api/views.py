@@ -625,7 +625,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         uncompleted tasks that are allowed to the user.
         """
         tasks = self.filter_queryset(self.get_queryset())
-        return utils.filter_for_user_selectable_tasks(tasks, request)
+        return utils.filter_for_datetime(utils.filter_for_user_selectable_tasks(tasks, request))
 
     @paginate
     @action(detail=False)

@@ -372,8 +372,7 @@ def update_responses(responses_to_update, responses):
 
 
 def process_updating_schema_answers(task_stage, responses={}):
-    schema = task_stage.json_schema if task_stage.json_schema else '{}'
-    schema = json.loads(schema)
+    schema = json.loads(task_stage.get_json_schema())
     dynamic_properties = task_stage.dynamic_jsons.all()
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
@@ -453,12 +452,14 @@ def remove_unavailable_enums_from_answers(schema, to_delete):
     for key, answers in to_delete.items():
         k = key.replace('responses__', '')
         for a in answers:
-            idx = schema['properties'][k]['enum'].index(a)
-            del schema['properties'][k]['enum'][idx]
-            if schema['properties'][k].get('enumNames'):
-                del schema['properties'][k]['enumNames'][idx]
+            idx = schema['properties'][k]['enum'].index(a) if a in schema['properties'][k]['enum'] else None
+            if idx is not None:
+                del schema['properties'][k]['enum'][idx]
+                if schema['properties'][k].get('enumNames'):
+                    del schema['properties'][k]['enumNames'][idx]
 
     return schema
+
 
 
 def remove_answers_in_turn(schema, fields, responses):
