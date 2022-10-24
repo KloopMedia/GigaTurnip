@@ -589,13 +589,13 @@ class CampaignManagementAdmin(admin.ModelAdmin):
 
 class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
-    list_display = ('task_stage', 'webhook', 'id', 'created_at', 'updated_at', )
-    search_fields = ('task_stage', 'webhook', )
-    autocomplete_fields = ('task_stage', 'webhook', )
+    list_display = ('target', 'webhook', 'id', 'created_at', 'updated_at', )
+    search_fields = ('target', 'webhook', )
+    autocomplete_fields = ('target', 'webhook', )
     list_filter = (
-        "task_stage",
-        "task_stage__chain",
-        "task_stage__chain__campaign",
+        "target",
+        "target__chain",
+        "target__chain__campaign",
         "webhook",
     )
 

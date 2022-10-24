@@ -373,7 +373,7 @@ def update_responses(responses_to_update, responses):
 
 def process_updating_schema_answers(task_stage, responses={}):
     schema = json.loads(task_stage.get_json_schema())
-    dynamic_properties = task_stage.dynamic_jsons.all()
+    dynamic_properties = task_stage.dynamic_jsons_target.all()
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
             if not dynamic_json.webhook:
@@ -386,7 +386,7 @@ def process_updating_schema_answers(task_stage, responses={}):
 
 
 def update_schema_dynamic_answers(dynamic_json, responses, schema):
-    tasks = dynamic_json.task_stage.tasks.all()
+    tasks = dynamic_json.target.tasks.all()
     tasks = tasks.filter(complete=True, force_complete=False).order_by('updated_at')
 
     main_key = dynamic_json.dynamic_fields['main']

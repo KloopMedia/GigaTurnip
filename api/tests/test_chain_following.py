@@ -2413,7 +2413,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2463,7 +2463,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2514,7 +2514,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json_weekday = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_weekday
         )
 
@@ -2569,7 +2569,7 @@ class GigaTurnipTest(APITestCase):
             "count": 1
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2636,7 +2636,7 @@ class GigaTurnipTest(APITestCase):
             "count": 1
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2701,7 +2701,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json_weekday = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_weekday
         )
 
@@ -2711,7 +2711,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json_day_part = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_day_parts
         )
 
@@ -2774,7 +2774,7 @@ class GigaTurnipTest(APITestCase):
             "count": 1
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 

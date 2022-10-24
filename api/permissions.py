@@ -539,7 +539,7 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
             request.user.tasks
         )
         tasks_for_current_stage = all_available_tasks.filter(
-            stage__id=view.get_object().task_stage.id
+            stage__id=view.get_object().target.id
         )
 
         return tasks_for_current_stage.count() > 0
