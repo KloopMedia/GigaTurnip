@@ -1718,6 +1718,14 @@ class AdminPreference(BaseDates):
 
 
 class DynamicJson(BaseDatesModel, CampaignInterface):
+    source = models.ForeignKey(
+        TaskStage,
+        on_delete=models.SET_NULL,
+        related_name='dynamic_jsons_source',
+        blank=True,
+        null=True,
+        help_text="Stage where we want get main field data"
+    )
     target = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
