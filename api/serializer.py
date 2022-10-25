@@ -210,8 +210,7 @@ class TaskEditSerializer(serializers.ModelSerializer):
                     update_responses = {}
 
                 old_responses.update(update_responses)
-
-                schema = process_updating_schema_answers(stage, update_responses)
+                schema = process_updating_schema_answers(stage, instance.case.id, update_responses)
 
                 validate(instance=old_responses, schema=schema)
                 return attrs

@@ -235,8 +235,14 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             responses = {}
 
+        case = None
+        current_task = request.query_params.get('current_task')
+        if current_task and current_task.isdigit():
+            case = Task.objects.get(id=int(request.query_params.get('current_task'))).case.id or None
+
+
         if task_stage.json_schema:
-            schema = process_updating_schema_answers(task_stage, responses)
+            schema = process_updating_schema_answers(task_stage, case, responses)
             return Response({'status': status.HTTP_200_OK,
                              'schema': schema})
         else:
