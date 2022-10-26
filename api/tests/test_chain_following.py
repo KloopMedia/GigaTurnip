@@ -2493,21 +2493,6 @@ class GigaTurnipTest(APITestCase):
     def test_dynamic_json_schema_related_fields_from_another_stage(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-        js_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "weekday": {
-                    "type": "string",
-                    "title": "Select Weekday",
-                    "enum": weekdays
-                },
-                "time": {
-                    "type": "string",
-                    "title": "What time",
-                    "enum": time_slots
-                }
-            }
-        })
 
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
@@ -2552,23 +2537,31 @@ class GigaTurnipTest(APITestCase):
             dynamic_fields=dynamic_fields_json
         )
 
-        task1 = self.create_initial_task()
-        responses1 = {'weekday': weekdays[0]}
-        task1 = self.complete_task(task1, responses1)
-        task1_next = task1.out_tasks.get()
-        task1_next = self.complete_task(task1_next, {'time': time_slots[0]})
-        self.assertEqual(Task.objects.count(), 2)
-        self.assertEqual(Task.objects.filter(complete=True).count(), 2)
+        responses = {'weekday': weekdays[0]}
+        for i in range(3):
+            t = self.create_initial_task()
+            t = self.complete_task(t, responses)
+            self.complete_task(t.out_tasks.get(), {'time': time_slots[i]})
 
-        task2 = self.create_initial_task()
-        task2 = self.complete_task(task2, responses1)
-        task2_next = task2.out_tasks.get()
-
+        t2 = self.create_initial_task()
+        t2 = self.complete_task(t2, responses)
+        t2_next = t2.out_tasks.get()
         response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
-                                    params={"current_task": task2_next.id})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+                                    params={"current_task": t2_next.id})
         updated_schema = json.loads(second_stage.json_schema)
         del updated_schema['properties']['time']['enum'][0]
+        del updated_schema['properties']['time']['enum'][0]
+        del updated_schema['properties']['time']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+        t2_next = self.complete_task(t2_next, {'time': time_slots[3]})
+
+        t3 = self.create_initial_task()
+        t3 = self.complete_task(t3, {'weekday': weekdays[1]})
+        t3_next = t3.out_tasks.get()
+        response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
+                                    params={"current_task": t3_next.id})
+
+        updated_schema = json.loads(second_stage.json_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_single_unique_field(self):
