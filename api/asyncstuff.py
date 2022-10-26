@@ -371,28 +371,39 @@ def update_responses(responses_to_update, responses):
     return responses_to_update
 
 
-def process_updating_schema_answers(task_stage, case, responses={}):
+def process_updating_schema_answers(task_stage, case=None, responses=dict()):
     if case:
         case = Case.objects.get(id=case)
+
     schema = json.loads(task_stage.get_json_schema())
     dynamic_properties = task_stage.dynamic_jsons_target.all()
+
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
             previous_responses = {}
+            if not case and dynamic_json.source:
+                raise CustomApiException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "You may not update this task until you haven't pass task id in attributes query. "
+                    + ErrorConstants.SEND_TO_MODERATORS
+                )
+
             if case and dynamic_json.source:
                 previous_tasks = case.tasks.filter(stage_id=dynamic_json.source.id)
                 previous_responses = previous_tasks[0].responses if previous_tasks.count() else dict()
 
+            kwargs = {"dynamic_json": dynamic_json, "schema": schema, "responses": responses}
             if not dynamic_json.webhook:
-                schema = update_schema_dynamic_answers(dynamic_json, responses, schema, previous_responses)
+                kwargs['previous_responses'] = previous_responses
+                schema = update_schema_dynamic_answers(**kwargs)
             else:
-                schema = update_schema_dynamic_answers_webhook(dynamic_json, schema, responses)
+                schema = update_schema_dynamic_answers_webhook(**kwargs)
         return schema
     else:
         return schema
 
 
-def update_schema_dynamic_answers(dynamic_json, responses, schema, previous_responses):
+def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previous_responses=dict()):
     main_key = dynamic_json.dynamic_fields['main']
     foreign_fields = dynamic_json.dynamic_fields['foreign']
     count = dynamic_json.dynamic_fields['count']
@@ -408,10 +419,6 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema, previous_resp
         by_main_filter = 'in_tasks__' + by_main_filter
         c = 'in_tasks'
     elif not dynamic_json.source:
-        main_tasks = dynamic_json.target.tasks.filter(
-            complete=True,
-            force_complete=False
-        )
         all_fields = [main_key] + all_fields
         to_delete = {'responses__' + main_key: []}
         available_by_main.append(len(schema['properties'][main_key]['enum']))
