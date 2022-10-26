@@ -406,6 +406,7 @@ def process_updating_schema_answers(task_stage, case=None, responses=dict()):
 def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previous_responses=dict()):
     main_key = dynamic_json.dynamic_fields['main']
     foreign_fields = dynamic_json.dynamic_fields['foreign']
+    constants_values = dynamic_json.dynamic_fields.get('constants', dict())
     count = dynamic_json.dynamic_fields['count']
 
     to_delete = dict()
@@ -466,6 +467,7 @@ def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previo
                 if len(foreign_fields) >= idx + 2:
                     filtered_by_main = available.filter(**{responses_key: responses[key]}).annotate(count=Count('pk'))
 
+    to_delete = remove_constants_vals(constants_values, to_delete) if constants_values else to_delete
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
     schema = remove_answers_in_turn(schema, all_fields, responses)
     return schema
@@ -496,6 +498,14 @@ def remove_unavailable_enums_from_answers(schema, to_delete):
 
     return schema
 
+
+def remove_constants_vals(constants_vals, to_delete):
+    for key, constants in constants_vals.get('foreign', {}).items():
+        for c in constants:
+            if c in to_delete.get('responses__'+key, []):
+                idx = to_delete['responses__'+key].index(c)
+                del to_delete['responses__'+key][idx]
+    return to_delete
 
 
 def remove_answers_in_turn(schema, fields, responses):
