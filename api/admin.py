@@ -603,7 +603,7 @@ class DynamicJsonAdmin(admin.ModelAdmin):
         queryset = super(DynamicJsonAdmin, self).get_queryset(request)
         return queryset \
             .filter(
-            task_stage__chain__campaign__campaign_managements__user=request.user
+            target__chain__campaign__campaign_managements__user=request.user
         )
 
 
