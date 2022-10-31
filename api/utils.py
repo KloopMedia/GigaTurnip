@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.utils.translation import ngettext
 from datetime import datetime
 
+
 def is_user_campaign_manager(user, campaign_id):
     campaigns = Campaign.objects \
         .filter(id=campaign_id) \
@@ -63,6 +64,12 @@ def filter_for_datetime(tasks):
     ) \
         .filter(
         (Q(stage__datetime_sort__end_time__gte=datetime.now()) | Q(stage__datetime_sort__end_time__isnull=True))
+    ) \
+        .filter(
+        (Q(start_period__lte=datetime.now()) | Q(start_period__isnull=True))
+    ) \
+        .filter(
+        (Q(end_period__lte=datetime.now()) | Q(end_period__isnull=True))
     )
     return filtered_tasks
 
@@ -183,8 +190,8 @@ def str_to_responses_dict(params):
 
 def can_complete(task, user):
     rank_limits = RankLimit.objects \
-        .filter(stage=task.stage)\
-        .filter(rank__users=user)\
+        .filter(stage=task.stage) \
+        .filter(rank__users=user) \
         .filter(is_submission_open=False)
     if rank_limits:
         return False
@@ -238,12 +245,12 @@ def conditions_to_dj_filters(filterest_fields):
 
 def task_stage_queries():
     return {
-            "complete_true": Count('pk', Q(complete=True)),
-            "complete_false": Count('pk', Q(complete=False)),
-            "force_complete_false": Count('pk', Q(force_complete=False)),
-            "force_complete_true": Count('pk', Q(force_complete=True)),
-            "count_tasks": Count('pk')
-        }
+        "complete_true": Count('pk', Q(complete=True)),
+        "complete_false": Count('pk', Q(complete=False)),
+        "force_complete_false": Count('pk', Q(force_complete=False)),
+        "force_complete_true": Count('pk', Q(force_complete=True)),
+        "count_tasks": Count('pk')
+    }
 
 
 def all_uncompleted_tasks(tasks):
@@ -299,9 +306,9 @@ def get_ranks_where_user_have_parent_ranks(user, rank):
     new_available_ranks = []
     list_user_ranks = list(user.ranks.values_list('id', flat=True))
     for r in user.ranks.all():
-        prerequisite_ranks = r.postrequisite_ranks.exclude(id__in=new_available_ranks+list_user_ranks)
+        prerequisite_ranks = r.postrequisite_ranks.exclude(id__in=new_available_ranks + list_user_ranks)
         for post_requisite_rank in prerequisite_ranks:
-            user_ranks = set(new_available_ranks+list_user_ranks)
+            user_ranks = set(new_available_ranks + list_user_ranks)
             if all([r in user_ranks for r in post_requisite_rank.prerequisite_ranks.values_list('id', flat=True)]):
                 new_available_ranks.append(post_requisite_rank.id)
     return new_available_ranks
