@@ -205,7 +205,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     def is_available_stage(self, request, view, action) -> bool:
 
         all_available_tasks = utils.all_uncompleted_tasks(
-            request.user.tasks
+            request.user.tasks.select_related('stage')
         )
         tasks_for_current_stage = all_available_tasks.filter(
             stage__id=view.get_object().id
@@ -536,7 +536,7 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
     def is_available_stage(self, request, view, action) -> bool:
 
         all_available_tasks = utils.all_uncompleted_tasks(
-            request.user.tasks
+            request.user.tasks.select_related('stage')
         )
         tasks_for_current_stage = all_available_tasks.filter(
             stage__id=view.get_object().task_stage.id
