@@ -1,3 +1,4 @@
+import datetime
 import json
 
 import requests
@@ -8,7 +9,7 @@ from api.api_exceptions import CustomApiException
 from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
     ConditionalStageConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
-    AutoNotification
+    AutoNotification, DatetimeSort
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
     connect_user_with_ranks, give_task_awards, process_auto_completed_task, get_conditional_limit_count
 
@@ -232,11 +233,24 @@ def create_new_task(stage, in_task):
         new_task = process_stage_assign_by_ST(stage, data, in_task)
         new_task = trigger_on_copy_input(stage, new_task, in_task)
         trigger_on_webhook(stage, new_task)
+        set_period(stage, new_task)
         new_task = set_copied_fields(stage, new_task)
         process_auto_completed_task(stage, new_task)
         new_task = process_previous_manual_assign(stage, new_task, in_task)
 
     process_create_new_task_based_and_stage_assign(stage, new_task, in_task)
+
+
+def set_period(stage, new_task):
+    datetime_task = DatetimeSort.objects.filter(stage_id=stage.id)
+    if datetime_task:
+        datetime_task = datetime_task[0]
+        if datetime_task.how_much and datetime_task.after_how_much:
+            start_period = datetime.datetime.now() + \
+                           datetime.timedelta(hours=datetime_task.after_how_much)
+            end_period = start_period + datetime.timedelta(hours=datetime_task.how_much)
+            new_task.start_period = start_period
+            new_task.end_period = end_period
 
 
 def process_conditional(stage, in_task):
