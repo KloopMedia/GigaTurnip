@@ -3,7 +3,8 @@ import csv
 import django_filters
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
-from django.db.models import Count, Q, Subquery, F, When, Func, Value
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
+from django.db.models.functions import Cast
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -361,6 +362,12 @@ class ResponsesFilter(filters.SearchFilter):
         return template.render(context)
 
 
+class ResponsesContainsFilter(filters.SearchFilter):
+    search_param = "responses_contains"
+    template = 'rest_framework/filters/search.html'
+    search_title = _('Task Responses Filter if responses contains')
+    search_description = _("Find tasks by their responses if task contains")
+
 # class ResponsesContainFilter(filters.SearchFilter):
 #
 #     search_param = "responses_contain"
@@ -480,8 +487,12 @@ class TaskViewSet(viewsets.ModelViewSet):
         'created_at': ['lte', 'gte', 'lt', 'gt'],
         'updated_at': ['lte', 'gte', 'lt', 'gt']
     }
-    search_fields = ['responses']
-    filter_backends = [DjangoFilterBackend, ResponsesFilter, ResponsesContainFilter]
+    search_fields = ('responses', )
+    filter_backends = [
+        DjangoFilterBackend,
+        ResponsesFilter,
+        ResponsesContainsFilter,
+        ResponsesContainFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
