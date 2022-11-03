@@ -1701,25 +1701,26 @@ class GigaTurnipTest(APITestCase):
     def test_get_response_flattener_order_columns(self):
 
         task = self.create_task(self.initial_stage)
-        self.initial_stage.ui_schema = '{"ui:order": ["BBB", "DDD", "AAA"]}'
-        self.initial_stage.json_schema = '{"properties":{"AAA": {"AAA":{}}, "BBB": {"AAA":{}}, "DDD": {"properties": {"d": {"properties": {"d": {}}}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": [ "col2", "col3", "col1"]}'
+        self.initial_stage.json_schema = '{"properties":{"col1": {"col1_1":{}}, "col2": {"col2_1":{}}, "col3": {"properties": {"d": {"properties": {"d": {}}}}}}}'
         self.initial_stage.save()
 
-        responses = {"BBB": "First", "AAA": "SecondColumn", "DDD": {"d": {"d": 122}}}
+        responses = {"col1": "SecondColumn", "col2": "First", "col3": {"d": {"d": 122}}}
         task.responses = responses
         task.save()
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
 
         ordered_columns = response_flattener.ordered_columns()
-        self.assertEqual(ordered_columns, ["id", "BBB", "DDD__d__d", "AAA"])
+        self.assertEqual(ordered_columns, ["id", "col2", "col3__d__d", "col1"])
 
         # Testing system fields
         response_flattener.copy_system_fields = True
         response_flattener.save()
         ordered_columns = response_flattener.ordered_columns()
         system_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
-                          'integrator_group', 'complete', 'force_complete', 'reopened', 'internal_metadata']
-        responses_fields = ["BBB", "DDD__d__d", "AAA"]
+                          'integrator_group', 'complete', 'force_complete', 'reopened',
+                          'internal_metadata', 'start_period', 'end_period']
+        responses_fields = ["col2", "col3__d__d", "col1"]
 
         all_columns = system_columns + responses_fields
         self.assertEqual(ordered_columns, all_columns)
