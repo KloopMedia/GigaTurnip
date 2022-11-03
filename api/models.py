@@ -663,6 +663,16 @@ class DatetimeSort(BaseDatesModel):
         null=True,
         help_text='the time when the task should close'
     )
+    how_much = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='how long to open the task'
+    )
+    after_how_much = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='how long does it take to open a task'
+    )
 
 
 class CopyField(BaseDatesModel):
@@ -1070,6 +1080,16 @@ class Task(BaseDatesModel, CampaignInterface):
         blank=True,
         default=None,
         help_text='The field for internal data that wouldn\'t be shown to the user.'
+    )
+    start_period = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='the time from which this task is available'
+    )
+    end_period = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='the time until which this task is available'
     )
 
     class Meta:
