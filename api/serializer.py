@@ -141,7 +141,12 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
-    dynamic_jsons = serializers.SlugRelatedField(
+    dynamic_jsons_target = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='dynamic_fields'
+    )
+    dynamic_jsons_source = serializers.SlugRelatedField(
         many=True,
         read_only=True,
         slug_field='dynamic_fields'
@@ -153,7 +158,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                  ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
                   'displayed_prev_stages', 'assign_user_by', 'ranks',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params', 'dynamic_jsons',
+                  'webhook_payload_field', 'webhook_params', 'dynamic_jsons_source', 'dynamic_jsons_target',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
 
@@ -210,8 +215,7 @@ class TaskEditSerializer(serializers.ModelSerializer):
                     update_responses = {}
 
                 old_responses.update(update_responses)
-
-                schema = process_updating_schema_answers(stage, update_responses)
+                schema = process_updating_schema_answers(stage, instance.case.id, update_responses)
 
                 validate(instance=old_responses, schema=schema)
                 return attrs

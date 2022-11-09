@@ -663,6 +663,16 @@ class DatetimeSort(BaseDatesModel):
         null=True,
         help_text='the time when the task should close'
     )
+    how_much = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='how long to open the task'
+    )
+    after_how_much = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='how long does it take to open a task'
+    )
 
 
 class CopyField(BaseDatesModel):
@@ -1070,6 +1080,16 @@ class Task(BaseDatesModel, CampaignInterface):
         blank=True,
         default=None,
         help_text='The field for internal data that wouldn\'t be shown to the user.'
+    )
+    start_period = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='the time from which this task is available'
+    )
+    end_period = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='the time until which this task is available'
     )
 
     class Meta:
@@ -1718,12 +1738,21 @@ class AdminPreference(BaseDates):
 
 
 class DynamicJson(BaseDatesModel, CampaignInterface):
-    task_stage = models.ForeignKey(
+    source = models.ForeignKey(
+        TaskStage,
+        on_delete=models.SET_NULL,
+        related_name='dynamic_jsons_source',
+        blank=True,
+        null=True,
+        help_text="Stage where we want get main field data"
+    )
+    target = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
-        related_name='dynamic_jsons',
+        related_name='dynamic_jsons_target',
+        blank=False,
         null=False,
-        help_text="Stage where we want set answers dynamicly"
+        help_text="Stage where we want set answers dynamically"
     )
     dynamic_fields = models.JSONField(
         default=None,
@@ -1744,7 +1773,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         ordering = ['created_at', 'updated_at', ]
 
     def get_campaign(self):
-        return self.task_stage.get_campaign()
+        return self.target.get_campaign()
 
     def __str__(self):
-        return self.task_stage.name
+        return self.target.name

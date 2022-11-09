@@ -3,7 +3,8 @@ import csv
 import django_filters
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
-from django.db.models import Count, Q, Subquery, F, When, Func, Value
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
+from django.db.models.functions import Cast
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -228,15 +229,25 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         :return:
         """
 
+        kwargs = dict()
         task_stage = self.get_object()
+        kwargs['task_stage'] = task_stage
+
         responses = request.query_params.get('responses')
         if responses:
-            responses = json.loads(responses)
-        else:
-            responses = {}
+            kwargs['responses'] = json.loads(responses)
+
+        task_id = request.query_params.get('current_task')
+        if task_id and task_id.isdigit():
+            try:
+                task = Task.objects.get(id=task_id)
+                kwargs['case'] = task.case.id if task.case else None
+            except Task.DoesNotExist:
+                raise CustomApiException(status.HTTP_400_BAD_REQUEST,
+                                         ErrorConstants.ENTITY_DOESNT_EXIST % ('Task', task_id))
 
         if task_stage.json_schema:
-            schema = process_updating_schema_answers(task_stage, responses)
+            schema = process_updating_schema_answers(**kwargs)
             return Response({'status': status.HTTP_200_OK,
                              'schema': schema})
         else:
@@ -361,6 +372,12 @@ class ResponsesFilter(filters.SearchFilter):
         return template.render(context)
 
 
+class ResponsesContainsFilter(filters.SearchFilter):
+    search_param = "responses_contains"
+    template = 'rest_framework/filters/search.html'
+    search_title = _('Task Responses Filter if responses contains')
+    search_description = _("Find tasks by their responses if task contains")
+
 # class ResponsesContainFilter(filters.SearchFilter):
 #
 #     search_param = "responses_contain"
@@ -480,8 +497,12 @@ class TaskViewSet(viewsets.ModelViewSet):
         'created_at': ['lte', 'gte', 'lt', 'gt'],
         'updated_at': ['lte', 'gte', 'lt', 'gt']
     }
-    search_fields = ['responses']
-    filter_backends = [DjangoFilterBackend, ResponsesFilter, ResponsesContainFilter]
+    search_fields = ('responses', )
+    filter_backends = [
+        DjangoFilterBackend,
+        ResponsesFilter,
+        ResponsesContainsFilter,
+        ResponsesContainFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):

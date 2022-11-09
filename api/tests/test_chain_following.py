@@ -1701,25 +1701,26 @@ class GigaTurnipTest(APITestCase):
     def test_get_response_flattener_order_columns(self):
 
         task = self.create_task(self.initial_stage)
-        self.initial_stage.ui_schema = '{"ui:order": ["BBB", "DDD", "AAA"]}'
-        self.initial_stage.json_schema = '{"properties":{"AAA": {"AAA":{}}, "BBB": {"AAA":{}}, "DDD": {"properties": {"d": {"properties": {"d": {}}}}}}}'
+        self.initial_stage.ui_schema = '{"ui:order": [ "col2", "col3", "col1"]}'
+        self.initial_stage.json_schema = '{"properties":{"col1": {"col1_1":{}}, "col2": {"col2_1":{}}, "col3": {"properties": {"d": {"properties": {"d": {}}}}}}}'
         self.initial_stage.save()
 
-        responses = {"BBB": "First", "AAA": "SecondColumn", "DDD": {"d": {"d": 122}}}
+        responses = {"col1": "SecondColumn", "col2": "First", "col3": {"d": {"d": 122}}}
         task.responses = responses
         task.save()
         response_flattener = ResponseFlattener.objects.create(task_stage=self.initial_stage, flatten_all=True)
 
         ordered_columns = response_flattener.ordered_columns()
-        self.assertEqual(ordered_columns, ["id", "BBB", "DDD__d__d", "AAA"])
+        self.assertEqual(ordered_columns, ["id", "col2", "col3__d__d", "col1"])
 
         # Testing system fields
         response_flattener.copy_system_fields = True
         response_flattener.save()
         ordered_columns = response_flattener.ordered_columns()
         system_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
-                          'integrator_group', 'complete', 'force_complete', 'reopened', 'internal_metadata']
-        responses_fields = ["BBB", "DDD__d__d", "AAA"]
+                          'integrator_group', 'complete', 'force_complete', 'reopened',
+                          'internal_metadata', 'start_period', 'end_period']
+        responses_fields = ["col2", "col3__d__d", "col1"]
 
         all_columns = system_columns + responses_fields
         self.assertEqual(ordered_columns, all_columns)
@@ -2124,6 +2125,35 @@ class GigaTurnipTest(APITestCase):
         last_task = Task.objects.get(id=last_task.id)
         self.complete_task(last_task, client=self.employee_client)
 
+    def test_timer_for_tasks(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            assign_user_by="RA"
+        ))
+        verifier_rank = Rank.objects.create(name="verifier")
+        RankRecord.objects.create(
+            user=self.employee,
+            rank=verifier_rank)
+        RankLimit.objects.create(
+            rank=verifier_rank,
+            stage=second_stage,
+            open_limit=5,
+            total_limit=0,
+            is_creation_open=False,
+            is_listing_allowed=True,
+            is_selection_open=True,
+            is_submission_open=True
+        )
+        DatetimeSort.objects.create(
+            stage=second_stage,
+            how_much=2,
+            after_how_much=0.1
+        )
+        task1 = self.create_initial_task()
+        task1 = self.complete_task(task1)
+        task1.out_tasks.get()
+        response = self.get_objects('task-user-selectable', client=self.employee_client)
+        content = json.loads(response.content)
+        self.assertEqual(len(content['results']), 0)
 
     def test_task_awards_for_giving_ranks(self):
         self.initial_stage.json_schema = json.dumps({
@@ -2413,7 +2443,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2463,7 +2493,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2490,6 +2520,80 @@ class GigaTurnipTest(APITestCase):
                                     params={'responses': json.dumps(responses3)})
         self.assertEqual(response.data['schema'], updated_schema)
 
+    def test_dynamic_json_schema_related_fields_from_another_stage(self):
+        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
+        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
+
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "weekday": {
+                    "type": "string",
+                    "title": "Select Weekday",
+                    "enum": weekdays
+                }
+            }
+        })
+        self.initial_stage.save()
+
+        json_schema_time = json.dumps({
+            "type": "object",
+            "properties": {
+                "time": {
+                    "type": "string",
+                    "title": "What time",
+                    "enum": time_slots
+                }
+            }
+        })
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Complete time',
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage,
+                json_schema=json_schema_time,
+                ui_schema=json.dumps({"ui:order": ["time"]})
+            )
+        )
+
+        dynamic_fields_json = {
+            "main": "weekday",
+            "foreign": ['time'],
+            "count": 1
+        }
+        dynamic_json = DynamicJson.objects.create(
+            source=self.initial_stage,
+            target=second_stage,
+            dynamic_fields=dynamic_fields_json
+        )
+
+        responses = {'weekday': weekdays[0]}
+        for i in range(3):
+            t = self.create_initial_task()
+            t = self.complete_task(t, responses)
+            self.complete_task(t.out_tasks.get(), {'time': time_slots[i]})
+
+        t2 = self.create_initial_task()
+        t2 = self.complete_task(t2, responses)
+        t2_next = t2.out_tasks.get()
+        response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
+                                    params={"current_task": t2_next.id})
+        updated_schema = json.loads(second_stage.json_schema)
+        del updated_schema['properties']['time']['enum'][0]
+        del updated_schema['properties']['time']['enum'][0]
+        del updated_schema['properties']['time']['enum'][0]
+        self.assertEqual(response.data['schema'], updated_schema)
+        t2_next = self.complete_task(t2_next, {'time': time_slots[3]})
+
+        t3 = self.create_initial_task()
+        t3 = self.complete_task(t3, {'weekday': weekdays[1]})
+        t3_next = t3.out_tasks.get()
+        response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
+                                    params={"current_task": t3_next.id})
+
+        updated_schema = json.loads(second_stage.json_schema)
+        self.assertEqual(response.data['schema'], updated_schema)
+
     def test_dynamic_json_schema_single_unique_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         js_schema = json.dumps({
@@ -2514,7 +2618,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json_weekday = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_weekday
         )
 
@@ -2569,7 +2673,7 @@ class GigaTurnipTest(APITestCase):
             "count": 1
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2636,7 +2740,7 @@ class GigaTurnipTest(APITestCase):
             "count": 1
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
@@ -2701,7 +2805,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json_weekday = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_weekday
         )
 
@@ -2711,7 +2815,7 @@ class GigaTurnipTest(APITestCase):
             "count": 2
         }
         dynamic_json_day_part = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_day_parts
         )
 
@@ -2774,7 +2878,7 @@ class GigaTurnipTest(APITestCase):
             "count": 1
         }
         dynamic_json = DynamicJson.objects.create(
-            task_stage=self.initial_stage,
+            target=self.initial_stage,
             dynamic_fields=dynamic_fields_json
         )
 
