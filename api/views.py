@@ -229,15 +229,25 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         :return:
         """
 
+        kwargs = dict()
         task_stage = self.get_object()
+        kwargs['task_stage'] = task_stage
+
         responses = request.query_params.get('responses')
         if responses:
-            responses = json.loads(responses)
-        else:
-            responses = {}
+            kwargs['responses'] = json.loads(responses)
+
+        task_id = request.query_params.get('current_task')
+        if task_id and task_id.isdigit():
+            try:
+                task = Task.objects.get(id=task_id)
+                kwargs['case'] = task.case.id if task.case else None
+            except Task.DoesNotExist:
+                raise CustomApiException(status.HTTP_400_BAD_REQUEST,
+                                         ErrorConstants.ENTITY_DOESNT_EXIST % ('Task', task_id))
 
         if task_stage.json_schema:
-            schema = process_updating_schema_answers(task_stage, responses)
+            schema = process_updating_schema_answers(**kwargs)
             return Response({'status': status.HTTP_200_OK,
                              'schema': schema})
         else:

@@ -385,41 +385,74 @@ def update_responses(responses_to_update, responses):
     return responses_to_update
 
 
-def process_updating_schema_answers(task_stage, responses={}):
+def process_updating_schema_answers(task_stage, case=None, responses=dict()):
+    if case:
+        case = Case.objects.get(id=case)
+
     schema = json.loads(task_stage.get_json_schema())
-    dynamic_properties = task_stage.dynamic_jsons.all()
+    dynamic_properties = task_stage.dynamic_jsons_target.all()
+
     if dynamic_properties and task_stage.json_schema:
         for dynamic_json in dynamic_properties:
+            previous_responses = {}
+            if not case and dynamic_json.source:
+                raise CustomApiException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "You may not update this task until you haven't pass task id in attributes query. "
+                    + ErrorConstants.SEND_TO_MODERATORS
+                )
+
+            if case and dynamic_json.source:
+                previous_tasks = case.tasks.filter(stage_id=dynamic_json.source.id)
+                previous_responses = previous_tasks[0].responses if previous_tasks.count() else dict()
+
+            kwargs = {"dynamic_json": dynamic_json, "schema": schema, "responses": responses}
             if not dynamic_json.webhook:
-                schema = update_schema_dynamic_answers(dynamic_json, responses, schema)
+                kwargs['previous_responses'] = previous_responses
+                schema = update_schema_dynamic_answers(**kwargs)
             else:
-                schema = update_schema_dynamic_answers_webhook(dynamic_json, schema, responses)
+                schema = update_schema_dynamic_answers_webhook(**kwargs)
         return schema
     else:
         return schema
 
 
-def update_schema_dynamic_answers(dynamic_json, responses, schema):
-    tasks = dynamic_json.task_stage.tasks.all()
-    tasks = tasks.filter(complete=True, force_complete=False).order_by('updated_at')
-
+def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previous_responses=dict()):
     main_key = dynamic_json.dynamic_fields['main']
     foreign_fields = dynamic_json.dynamic_fields['foreign']
+    constants_values = dynamic_json.dynamic_fields.get('constants', dict())
     count = dynamic_json.dynamic_fields['count']
 
-    to_delete = {'responses__' + main_key: []}
-    available_by_main = [len(schema['properties'][main_key]['enum'])]
-    all_fields = [main_key] + foreign_fields
+    to_delete = dict()
+    all_fields = [] + foreign_fields
+    available_by_main = []
+
+    by_main_filter = 'responses__'
+    c = 'pk'
+    if dynamic_json.source:
+        available_by_main.append(len(json.loads(dynamic_json.source.json_schema)['properties'][main_key]['enum']))
+        by_main_filter = 'in_tasks__' + by_main_filter
+        c = 'in_tasks'
+    elif not dynamic_json.source:
+        all_fields = [main_key] + all_fields
+        to_delete = {'responses__' + main_key: []}
+        available_by_main.append(len(schema['properties'][main_key]['enum']))
+
+    tasks = dynamic_json.target.tasks.filter(
+        complete=True,
+        force_complete=False
+    )
 
     if foreign_fields:
         for i in foreign_fields:
-            key = 'responses__' + i
-            to_delete[key] = []
+            to_delete['responses__' + i] = []
             available_by_main.append(len(schema['properties'][i]['enum']))
 
     total_available_answers = math.prod(available_by_main)
+    filtered_by_main = tasks.values(
+        **{'responses__'+main_key: F(by_main_filter + main_key)}
+    ).annotate(count=Count(c)).order_by()
 
-    filtered_by_main = tasks.values('responses__' + main_key).annotate(count=Count('pk')).order_by()
     for i in filtered_by_main:
         if i['count'] > total_available_answers or (not foreign_fields and count >= i['count']):
             to_delete['responses__' + main_key].append(i['responses__' + main_key])
@@ -428,10 +461,14 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
         schema = remove_unavailable_enums_from_answers(schema, to_delete)
         return schema
 
-    if main_key in responses.keys():
-        filtered_by_main = filtered_by_main.filter(**{'responses__' + main_key: responses[main_key]})
-        for idx, key in enumerate(foreign_fields):
+    if main_key in responses.keys() or main_key in previous_responses.keys():
+        if main_key in responses.keys():
+            searched_main = responses[main_key]
+        else:
+            searched_main = previous_responses[main_key]
+        filtered_by_main = filtered_by_main.filter(**{'responses__' + main_key: searched_main})
 
+        for idx, key in enumerate(foreign_fields):
             if key in responses.keys() or key == all_fields[-1]:
                 responses_key = 'responses__' + key
                 available = filtered_by_main.values(responses_key).annotate(count=Count('pk'))
@@ -444,6 +481,7 @@ def update_schema_dynamic_answers(dynamic_json, responses, schema):
                 if len(foreign_fields) >= idx + 2:
                     filtered_by_main = available.filter(**{responses_key: responses[key]}).annotate(count=Count('pk'))
 
+    to_delete = remove_constants_vals(constants_values, to_delete) if constants_values else to_delete
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
     schema = remove_answers_in_turn(schema, all_fields, responses)
     return schema
@@ -474,6 +512,14 @@ def remove_unavailable_enums_from_answers(schema, to_delete):
 
     return schema
 
+
+def remove_constants_vals(constants_vals, to_delete):
+    for key, constants in constants_vals.get('foreign', {}).items():
+        for c in constants:
+            if c in to_delete.get('responses__'+key, []):
+                idx = to_delete['responses__'+key].index(c)
+                del to_delete['responses__'+key][idx]
+    return to_delete
 
 
 def remove_answers_in_turn(schema, fields, responses):
