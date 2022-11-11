@@ -645,8 +645,18 @@ class TaskViewSet(viewsets.ModelViewSet):
         Return a list of not assigned
         uncompleted tasks that are allowed to the user.
         """
-        tasks = self.filter_queryset(self.get_queryset())
-        return utils.filter_for_datetime(utils.filter_for_user_selectable_tasks(tasks, request))
+        queryset = self.filter_queryset(
+            self.get_queryset()
+            .select_related('stage__chain__campaign')
+            .prefetch_related('stage__ranks__users',
+                              'out_tasks',
+                              'stage__ranklimits'))
+        tasks = queryset
+        if request.query_params.get('responses_contains'):
+            tasks = Task.objects.filter(id__in=Subquery(queryset.filter(out_tasks__isnull=False).values('out_tasks')))
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
+        by_datetime = utils.filter_for_datetime(tasks_selectable)
+        return by_datetime
 
     @paginate
     @action(detail=False)
