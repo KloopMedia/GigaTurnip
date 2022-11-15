@@ -40,6 +40,23 @@ class ConditionalStageConstants:
     }
 
 
+class DynamicJsonConstants:
+    DYNAMIC_FIELDS = {
+        "main": "main_key",
+        "foreign": ["foreign_fields"],
+        "count": "optional | int()",
+        "constants": {
+            "main": "str",
+            "foreign": {
+                "<field_#1_name>": ["constant val #1", "constant val #n"],
+                # ....
+                "<field_#k_name>": ["constant val #1", "constant val #n"],
+
+            }
+        }
+    }
+
+
 class CopyFieldConstants:
     USER = 'US'
     CASE = 'CA'
