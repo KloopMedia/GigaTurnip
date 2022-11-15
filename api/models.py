@@ -1767,7 +1767,11 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         null=True,
         blank=True,
         help_text='Webhook using for updating schema answers'
-    )  # send schema and fields
+    )
+    obtain_options_from_stage = models.BooleanField(
+        default=False,
+        help_text='Get options from another stages.'
+    )
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]
