@@ -591,7 +591,7 @@ class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
     list_display = ('target', 'webhook', 'id', 'created_at', 'updated_at', )
     search_fields = ('target', 'webhook', )
-    autocomplete_fields = ('target', 'webhook', )
+    autocomplete_fields = ('target', 'source', 'webhook', )
     list_filter = (
         "target",
         "target__chain",
