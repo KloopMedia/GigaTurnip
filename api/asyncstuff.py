@@ -407,21 +407,20 @@ def process_updating_schema_answers(task_stage, case=None, responses=dict()):
                 previous_responses = previous_tasks[0].responses if previous_tasks.count() else dict()
 
             kwargs = {"dynamic_json": dynamic_json, "schema": schema, "responses": responses}
-            if not dynamic_json.webhook:
+            if not dynamic_json.webhook and not dynamic_json.obtain_options_from_stage:
                 kwargs['previous_responses'] = previous_responses
                 schema = update_schema_dynamic_answers(**kwargs)
-            else:
+            elif dynamic_json.webhook and not dynamic_json.obtain_options_from_stage:
                 schema = update_schema_dynamic_answers_webhook(**kwargs)
+            else:
+                schema = dynamic_answers_obtain_options(dynamic_json, schema)
         return schema
     else:
         return schema
 
 
 def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previous_responses=dict()):
-    main_key = dynamic_json.dynamic_fields['main']
-    foreign_fields = dynamic_json.dynamic_fields['foreign']
-    constants_values = dynamic_json.dynamic_fields.get('constants', dict())
-    count = dynamic_json.dynamic_fields['count']
+    main_key, foreign_fields, constants_values, count = get_dynamic_dict_fields(dynamic_json.dynamic_fields)
 
     to_delete = dict()
     all_fields = [] + foreign_fields
@@ -485,6 +484,28 @@ def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previo
     schema = remove_unavailable_enums_from_answers(schema, to_delete)
     schema = remove_answers_in_turn(schema, all_fields, responses)
     return schema
+
+
+def dynamic_answers_obtain_options(dynamic_json, schema):
+    main_key, foreign_fields, constants_values, count = get_dynamic_dict_fields(dynamic_json.dynamic_fields)
+    all_options = list(dynamic_json.source.tasks.filter(complete=True, assignee__isnull=False).
+                       values_list(
+        'responses__' + main_key, flat=True
+    ).order_by().distinct()
+                       )
+    for field in foreign_fields:
+        previous_answers = schema['properties'][field].get('enums', [])
+        schema['properties'][field]['enums'] = previous_answers + all_options
+
+    return schema
+
+
+def get_dynamic_dict_fields(dynamic_fields):
+    main_key = dynamic_fields.get('main')
+    foreign_fields = dynamic_fields.get('foreign')
+    constants_values = dynamic_fields.get('constants', dict())
+    count = dynamic_fields.get('count')
+    return main_key, foreign_fields, constants_values, count
 
 
 def update_schema_dynamic_answers_webhook(dynamic_json, schema, responses):
