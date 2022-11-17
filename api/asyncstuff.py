@@ -496,7 +496,7 @@ def dynamic_answers_obtain_options(dynamic_json, schema):
     for field in foreign_fields:
         previous_answers = schema['properties'][field].get('enum', [])
         schema['properties'][field]['enum'] = previous_answers + all_options
-        if schema['properties'][field]['enumNames']:
+        if schema['properties'][field].get('enumNames', []):
             previous_answers = schema['properties'][field].get('enumNames', [])
             schema['properties'][field]['enumNames'] = previous_answers + all_options
 

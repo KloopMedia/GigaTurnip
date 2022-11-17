@@ -2966,6 +2966,75 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses)
         self.assertEqual(task.responses, responses)
 
+    def test_dynamic_json_obtain_options_from_stages(self):
+        tasks_to_complete = self.create_initial_tasks(5)
+        tasks_in_completion = self.create_initial_tasks(3)
+        i = 5
+        completed = []
+        for t in tasks_to_complete:
+            completed.append(self.complete_task(t, {"name": f"Person #{i}"}))
+            i -= 1
+
+        in_progress = []
+        for t in tasks_in_completion:
+            in_progress.append(self.update_task_responses(t, {"name": f"Person #{i}"}))
+            i += 1
+
+
+        new_chain = Chain.objects.create(
+            name='Persons names chain',
+            campaign=self.campaign
+        )
+        choose_name_stage = TaskStage.objects.create(
+            name='Choose name',
+            chain=new_chain,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True,
+            json_schema='{"type": "object","properties": {"choose_name": {"type": "string", "enum":[]}}}'
+        )
+        RankLimit.objects.create(
+            open_limit=0,
+            total_limit=0,
+            is_creation_open=True,
+            rank=self.user.ranks.all()[0],
+            stage=choose_name_stage
+        )
+
+        dynamic_fields = {
+            "main": "name",
+            "foreign": ["choose_name"],
+
+        }
+        DynamicJson.objects.create(
+            source=self.initial_stage,
+            target=choose_name_stage,
+            dynamic_fields=dynamic_fields,
+            obtain_options_from_stage=True
+        )
+
+        task = self.create_task(choose_name_stage)
+        response = self.get_objects('taskstage-load-schema-answers', pk=choose_name_stage.id,
+                                    params={"current_task":task.id})
+        updated_enums = response.data['schema']['properties']['choose_name']['enum']
+        print(response.data)
+        self.assertEqual(len(updated_enums), 5)
+        self.assertEqual(['Person #1', 'Person #2', 'Person #3', 'Person #4', 'Person #5'], updated_enums)
+        right_return = {
+            'status': 200,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'choose_name': {
+                        'type': 'string',
+                        'enum': ['Person #1', 'Person #2', 'Person #3', 'Person #4', 'Person #5']
+                    }
+                }
+            }
+        }
+
+        self.assertEqual(right_return, response.data)
+
     def test_case_info_for_map(self):
         json_schema = {
             "type": "object",
