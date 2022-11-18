@@ -489,6 +489,7 @@ def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previo
 def dynamic_answers_obtain_options(dynamic_json, schema):
     main_key, foreign_fields, constants_values, count = get_dynamic_dict_fields(dynamic_json.dynamic_fields)
     all_options = list(dynamic_json.source.tasks.filter(complete=True, assignee__isnull=False).
+                       exclude(**{'responses__' + main_key: None}).
                        values_list(
         'responses__' + main_key, flat=True
     ).order_by().distinct()
