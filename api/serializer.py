@@ -1,13 +1,14 @@
 import json
-from abc import ABCMeta
+from abc import ABCMeta, ABC
 
 from django.core.exceptions import ObjectDoesNotExist
 from jsonschema import validate
 from rest_framework import serializers
+from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants
+from api.constans import NotificationConstants, ConditionalStageConstants, TaskConstants
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
@@ -246,6 +247,36 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'force_complete',
                             'complete']
 
+
+class TaskResponsesFilterSerializer(serializers.Serializer):
+    stage = serializers.IntegerField(min_value=1)  # из этого стейджа берутся поля
+    search_stage = serializers.IntegerField(min_value=1)  # возвращаются таски с этого стейджа
+    all_conditions = serializers.ListField(child=serializers.JSONField())  # сама схема
+
+    def validate_stage(self, value):
+        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
+
+    def validate_search_stage(self, value):
+        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
+
+    def validate_filter_conditions(self, stage, items):
+        SCHEMA = TaskConstants.TASK_RESPONSES_SCHEMA
+        SCHEMA['items']['properties']['field']['enum'] = [i.split('__', 1)[1] for i in stage.make_columns_ordered()]
+        validate(instance=items, schema=SCHEMA)
+        for item in items:
+            current_type = ConditionalStageConstants.SUPPORTED_TYPES.get(item['type'])
+            for condition in item['conditions']:
+                try:
+                    current_type(condition['value'])
+                except:
+                    raise CustomApiException(400, f"Value '{condition['value']}' is not {item['type']}")
+        return items
+
+    def validate(self, data):
+        if data['stage'].chain.id != data['search_stage'].chain.id:
+            raise serializers.ValidationError("Stages must be relate to the same chain.")
+        self.validate_filter_conditions(data['stage'], data['all_conditions'])
+        return data
 
 class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:

@@ -40,6 +40,41 @@ class ConditionalStageConstants:
     }
 
 
+class TaskConstants:
+    TASK_RESPONSES_SCHEMA = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "required": ["field", "type"],
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "enum": []  # вставить поля которые у меня есть
+                },
+                "type": {
+                    "type": "string",
+                    "enum": list(ConditionalStageConstants.SUPPORTED_TYPES.keys()),  # вставить возможные типы
+                },
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "operator": {
+                                "type": "string",
+                                "enum": list(ConditionalStageConstants.OPERATORS.keys()),  # вставить возможные операторы
+                            },
+                            "value": {  # сюда пишутся значения с которыми будут сравнивать
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 class DynamicJsonConstants:
     DYNAMIC_FIELDS = {
         "main": "main_key",
