@@ -1,3 +1,5 @@
+from django.db import models
+
 class TaskStageConstants:
     RANK = 'RA'
     STAGE = 'ST'
@@ -121,3 +123,25 @@ class ErrorConstants:
     SEND_TO_MODERATORS = 'Please send this message to your moderators.'
     ENTITY_DOESNT_EXIST = '%s %s doesn\'t exist.'
     ENTITY_IS_NOT_IN_CAMPAIGN = '%s is not in the campaign.'
+
+
+class DjangoORMConstants:
+    LOOKUP_SEP = '__'
+    LOOKUP_PREFIXES = {
+        '^': 'istartswith',
+        '@': 'search',
+        '$': 'iregex',
+        '==': 'iexact',
+        '!=': 'ne',
+        '>': 'gt',
+        '<': 'lt',
+        '>=': 'gte',
+        '<=': 'lte',
+        'ARRAY-CONTAINS': 'contains',
+    }
+    CAST_PAIRS = {
+        "boolean": models.BooleanField,
+        "number": models.FloatField,
+        "integer": models.IntegerField,
+        "string": models.CharField
+    }

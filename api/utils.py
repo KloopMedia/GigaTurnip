@@ -5,7 +5,8 @@ from json import JSONDecodeError
 from django.db.models import QuerySet, Count, Q
 from rest_framework.response import Response
 
-from api.constans import TaskStageConstants
+from api.api_exceptions import CustomApiException
+from api.constans import TaskStageConstants, DjangoORMConstants, ConditionalStageConstants
 from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification, RankRecord, AdminPreference, \
     CustomUser
 from django.contrib import messages
@@ -336,3 +337,28 @@ def process_auto_completed_task(stage, task):
 
 def get_conditional_limit_count(stage, filters):
     return stage.out_stages.get().tasks.count()
+
+
+def filter_by_responses_using_cast(queryset, filters_set):
+    stage = filters_set['stage']
+    base = queryset.filter(stage=stage)
+    for item in filters_set['items_conditions']:
+        searched_field = 'responses__' + item.get('field')
+        val_type = ConditionalStageConstants.SUPPORTED_TYPES.get(item.get('type'), None)
+        base = base.filter(**{searched_field + '__isnull': False})
+        for condition in item.get('conditions'):
+            filter_field = construct_search(searched_field, condition.get('operator'))
+            val = condition.get('value')
+            try:
+                base = base.filter(**{filter_field: val_type(val)})
+            except Exception as e:
+                raise CustomApiException(400, f'Can not convert "{val}" to the {val_type}')
+    print(base)
+    return base
+
+
+def construct_search(field_name, op):
+    lookup = DjangoORMConstants.LOOKUP_PREFIXES.get(op)
+    if not lookup:
+        lookup = 'icontains'
+    return DjangoORMConstants.LOOKUP_SEP.join([field_name, lookup])

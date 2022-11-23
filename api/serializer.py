@@ -251,7 +251,7 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
 class TaskResponsesFilterSerializer(serializers.Serializer):
     stage = serializers.IntegerField(min_value=1)  # из этого стейджа берутся поля
     search_stage = serializers.IntegerField(min_value=1)  # возвращаются таски с этого стейджа
-    all_conditions = serializers.ListField(child=serializers.JSONField())  # сама схема
+    items_conditions = serializers.ListField(child=serializers.JSONField())  # сама схема
 
     def validate_stage(self, value):
         return get_object_or_404(TaskStage.objects.filter(id=value), **{})
@@ -275,8 +275,11 @@ class TaskResponsesFilterSerializer(serializers.Serializer):
     def validate(self, data):
         if data['stage'].chain.id != data['search_stage'].chain.id:
             raise serializers.ValidationError("Stages must be relate to the same chain.")
-        self.validate_filter_conditions(data['stage'], data['all_conditions'])
+        self.validate_filter_conditions(data['stage'], data['items_conditions'])
         return data
+
+    def get_object(self):
+        return {"items_conditions": self.items_conditions, 'stage': self.stage, 'search_stage': self.search_stage}
 
 class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:
