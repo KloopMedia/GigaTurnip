@@ -8,7 +8,7 @@ from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants, TaskConstants
+from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
@@ -248,20 +248,12 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'complete']
 
 
-class TaskResponsesFilterSerializer(serializers.Serializer):
-    stage = serializers.IntegerField(min_value=1)  # из этого стейджа берутся поля
-    search_stage = serializers.IntegerField(min_value=1)  # возвращаются таски с этого стейджа
-    items_conditions = serializers.ListField(child=serializers.JSONField())  # сама схема
+class PostJSONFilterSerializer(serializers.Serializer):
+    items_conditions = serializers.ListField(child=serializers.JSONField()) # filters
 
-    def validate_stage(self, value):
-        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
-
-    def validate_search_stage(self, value):
-        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
-
-    def validate_filter_conditions(self, stage, items):
-        SCHEMA = TaskConstants.TASK_RESPONSES_SCHEMA
-        SCHEMA['items']['properties']['field']['enum'] = [i.split('__', 1)[1] for i in stage.make_columns_ordered()]
+    def _validate_filter_conditions(self, items):
+        SCHEMA = JSONFilterConstants.JSON_Filter_Validation_Schema
+        SCHEMA['items']['properties']['field']['enum'] = self.get_columns()
         validate(instance=items, schema=SCHEMA)
         for item in items:
             current_type = ConditionalStageConstants.SUPPORTED_TYPES.get(item['type'])
@@ -272,14 +264,44 @@ class TaskResponsesFilterSerializer(serializers.Serializer):
                     raise CustomApiException(400, f"Value '{condition['value']}' is not {item['type']}")
         return items
 
+    def get_columns(self):
+        raise NotImplementedError('Post JSON filter can not get fields to validate data')
+
+    def get_object(self):
+        raise NotImplementedError('Can not get serialized instance')
+
+    def validate(self, data):
+        self._validate_filter_conditions(data['items_conditions'])
+        return data
+
+
+class TaskResponsesFilterSerializer(PostJSONFilterSerializer):
+    stage = serializers.IntegerField(min_value=1)  # из этого стейджа берутся поля
+    search_stage = serializers.IntegerField(min_value=1)  # возвращаются таски с этого стейджа
+
+    def validate_stage(self, value):
+        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
+
+    def validate_search_stage(self, value):
+        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
+
     def validate(self, data):
         if data['stage'].chain.id != data['search_stage'].chain.id:
             raise serializers.ValidationError("Stages must be relate to the same chain.")
-        self.validate_filter_conditions(data['stage'], data['items_conditions'])
+        super(TaskResponsesFilterSerializer, self).validate(data)
         return data
 
+    def get_columns(self):
+        columns = self.validate_stage(self.initial_data['stage']).make_columns_ordered()
+        return [i.split('__', 1)[1] for i in columns]
+
     def get_object(self):
-        return {"items_conditions": self.items_conditions, 'stage': self.stage, 'search_stage': self.search_stage}
+        item = self.validated_data
+        return {
+            "items_conditions": item.get('items_conditions', None),
+            'stage': item.get('stage', None),
+            'search_stage': item.get('search_stage', None)
+        }
 
 class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:

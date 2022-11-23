@@ -44,6 +44,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
 from . import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
+from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
 from .utils import paginate
 import json
 
@@ -324,12 +325,6 @@ class CaseViewSet(viewsets.ModelViewSet):
         })
 
 
-class ResponsesContainsFilter(filters.SearchFilter):
-    search_param = "responses_contains"
-    template = 'rest_framework/filters/search.html'
-    search_title = _('Task Responses Filter if responses contains')
-    search_description = _("Find tasks by their responses if task contains")
-
 # class ResponsesContainFilter(filters.SearchFilter):
 #
 #     search_param = "responses_contain"
@@ -363,33 +358,6 @@ class ResponsesContainsFilter(filters.SearchFilter):
 #         cases = Case.objects.filter(tasks__in=tasks).distinct()
 #         response = queryset.filter(case__in=cases)
 #         return response
-
-
-class ResponsesContainFilter(filters.SearchFilter):
-    search_param = "responses_contain"
-    search_title = _('Responses Contain Filter')
-
-    def get_search_terms(self, request):
-        """
-        Search term is set by a ?responses_contain=... query parameter.
-        """
-        params = request.query_params.get(self.search_param, '')
-        if not params:
-            return None
-
-        return params
-
-    def filter_queryset(self, request, queryset, view):
-        search_fields = self.get_search_fields(view, request)
-        search_term = self.get_search_terms(request)
-
-        if not search_fields or not search_term:
-            return queryset
-
-        queryset = super().filter_queryset(request, queryset, view)
-        cases = Case.objects.filter(tasks__in=queryset).distinct()
-        response = Task.objects.filter(case__in=cases)
-        return response
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -453,7 +421,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [
         DjangoFilterBackend,
         ResponsesContainsFilter,
-        ResponsesContainFilter]
+        TaskResponsesContainsFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
@@ -602,11 +570,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             .prefetch_related('stage__ranks__users',
                               'out_tasks',
                               'stage__ranklimits'))
-
-        if request.method == "POST":
-            filter_serializer = TaskResponsesFilterSerializer(data=request.data)
-            filter_serializer.is_valid(raise_exception=True)
-            queryset = utils.filter_by_responses_using_cast(queryset, filter_serializer.validated_data)
 
         tasks = queryset
         if request.query_params.get('responses_contains') or request.method == "POST":

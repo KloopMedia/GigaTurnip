@@ -42,8 +42,8 @@ class ConditionalStageConstants:
     }
 
 
-class TaskConstants:
-    TASK_RESPONSES_SCHEMA = {
+class JSONFilterConstants:
+    JSON_Filter_Validation_Schema = {
         "type": "array",
         "items": {
             "type": "object",
