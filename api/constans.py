@@ -18,8 +18,8 @@ class ConditionalStageConstants:
         "<": lt,
         ">=": ge,
         "<=": le,
-        "ARRAY-CONTAINS": contains,
-        "ARRAY-CONTAINS-NOT": not_contains
+        "in": contains,
+        "nin": not_contains
     }
 
     SUPPORTED_TYPES = {
@@ -39,41 +39,6 @@ class ConditionalStageConstants:
             "system": {"type": "boolean", "default": False}
         },
         "required": ["field", "value", "condition", "type"]
-    }
-
-
-class JSONFilterConstants:
-    JSON_Filter_Validation_Schema = {
-        "type": "array",
-        "items": {
-            "type": "object",
-            "required": ["field", "type"],
-            "properties": {
-                "field": {
-                    "type": "string",
-                    "enum": []  # вставить поля которые у меня есть
-                },
-                "type": {
-                    "type": "string",
-                    "enum": list(ConditionalStageConstants.SUPPORTED_TYPES.keys()),  # вставить возможные типы
-                },
-                "conditions": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "operator": {
-                                "type": "string",
-                                "enum": list(ConditionalStageConstants.OPERATORS.keys()),  # вставить возможные операторы
-                            },
-                            "value": {  # сюда пишутся значения с которыми будут сравнивать
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
 
@@ -137,11 +102,46 @@ class DjangoORMConstants:
         '<': 'lt',
         '>=': 'gte',
         '<=': 'lte',
-        'ARRAY-CONTAINS': 'contains',
+        'in': 'icontains',
     }
     CAST_PAIRS = {
         "boolean": models.BooleanField,
         "number": models.FloatField,
         "integer": models.IntegerField,
         "string": models.CharField
+    }
+
+
+class JSONFilterConstants:
+    JSON_Filter_Validation_Schema = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "required": ["field", "type"],
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "enum": []  # вставить поля которые у меня есть
+                },
+                "type": {
+                    "type": "string",
+                    "enum": list(ConditionalStageConstants.SUPPORTED_TYPES.keys()),  # вставить возможные типы
+                },
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "operator": {
+                                "type": "string",
+                                "enum": list(DjangoORMConstants.LOOKUP_PREFIXES.keys()),  # вставить возможные операторы
+                            },
+                            "value": {  # сюда пишутся значения с которыми будут сравнивать
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
