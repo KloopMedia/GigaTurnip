@@ -1,3 +1,5 @@
+from django.db import models
+
 class TaskStageConstants:
     RANK = 'RA'
     STAGE = 'ST'
@@ -16,8 +18,8 @@ class ConditionalStageConstants:
         "<": lt,
         ">=": ge,
         "<=": le,
-        "ARRAY-CONTAINS": contains,
-        "ARRAY-CONTAINS-NOT": not_contains
+        "in": contains,
+        "nin": not_contains
     }
 
     SUPPORTED_TYPES = {
@@ -86,3 +88,60 @@ class ErrorConstants:
     SEND_TO_MODERATORS = 'Please send this message to your moderators.'
     ENTITY_DOESNT_EXIST = '%s %s doesn\'t exist.'
     ENTITY_IS_NOT_IN_CAMPAIGN = '%s is not in the campaign.'
+
+
+class DjangoORMConstants:
+    LOOKUP_SEP = '__'
+    LOOKUP_PREFIXES = {
+        '^': 'istartswith',
+        '@': 'search',
+        '$': 'iregex',
+        '==': 'iexact',
+        '!=': 'ne',
+        '>': 'gt',
+        '<': 'lt',
+        '>=': 'gte',
+        '<=': 'lte',
+        'in': 'icontains',
+    }
+    CAST_PAIRS = {
+        "boolean": models.BooleanField,
+        "number": models.FloatField,
+        "integer": models.IntegerField,
+        "string": models.CharField
+    }
+
+
+class JSONFilterConstants:
+    JSON_Filter_Validation_Schema = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "required": ["field", "type"],
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "enum": []  # вставить поля которые у меня есть
+                },
+                "type": {
+                    "type": "string",
+                    "enum": list(ConditionalStageConstants.SUPPORTED_TYPES.keys()),  # вставить возможные типы
+                },
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "operator": {
+                                "type": "string",
+                                "enum": list(DjangoORMConstants.LOOKUP_PREFIXES.keys()),  # вставить возможные операторы
+                            },
+                            "value": {  # сюда пишутся значения с которыми будут сравнивать
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
