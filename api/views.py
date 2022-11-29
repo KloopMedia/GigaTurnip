@@ -1,8 +1,11 @@
 import csv
+import operator
+from functools import reduce
 
 import django_filters
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
+from django.db import models
 from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
 from django.db.models.functions import Cast
 from django.http import HttpResponse, Http404
@@ -29,7 +32,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer
+    DynamicJsonReadSerializer, TaskResponsesFilterSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -40,6 +43,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
 from . import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
+from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
 from .utils import paginate
 import json
 
@@ -320,64 +324,6 @@ class CaseViewSet(viewsets.ModelViewSet):
         })
 
 
-class ResponsesFilter(filters.SearchFilter):
-    search_param = "task_responses"
-    template = 'rest_framework/filters/search.html'
-    search_title = _('Task Responses Filter')
-    search_description = _("Find tasks by their responses")
-
-    def get_search_fields(self, view, request):
-        return getattr(view, 'search_fields', None)
-
-    def get_search_terms(self, request):
-        """
-        Search term is set by a ?task_responses=... query parameter.
-        """
-        params = request.query_params.get(self.search_param, '')
-        if not params:
-            return None
-
-        params = json.loads(params)
-        filterest_fields = utils.conditions_to_dj_filters(params)
-
-        return filterest_fields
-
-    def filter_queryset(self, request, queryset, view):
-
-        search_fields = self.get_search_fields(view, request)
-        search_term = self.get_search_terms(request)
-
-        if not search_fields or not search_term:
-            return queryset
-
-        if search_term.get("search_stage"):
-            search_stage = search_term["search_stage"]
-            del search_term["search_stage"]
-            tasks = queryset.filter(**search_term)
-            tasks = queryset.filter(in_tasks__in=tasks, stage=search_stage)
-        else:
-            tasks = queryset.filter(**search_term)
-        return tasks
-
-    def to_html(self, request, queryset, view):
-        if not getattr(view, 'search_fields', None):
-            return ''
-
-        term = self.get_search_terms(request)
-        context = {
-            'param': self.search_param,
-            'term': term
-        }
-        template = loader.get_template(self.template)
-        return template.render(context)
-
-
-class ResponsesContainsFilter(filters.SearchFilter):
-    search_param = "responses_contains"
-    template = 'rest_framework/filters/search.html'
-    search_title = _('Task Responses Filter if responses contains')
-    search_description = _("Find tasks by their responses if task contains")
-
 # class ResponsesContainFilter(filters.SearchFilter):
 #
 #     search_param = "responses_contain"
@@ -411,33 +357,6 @@ class ResponsesContainsFilter(filters.SearchFilter):
 #         cases = Case.objects.filter(tasks__in=tasks).distinct()
 #         response = queryset.filter(case__in=cases)
 #         return response
-
-
-class ResponsesContainFilter(filters.SearchFilter):
-    search_param = "responses_contain"
-    search_title = _('Responses Contain Filter')
-
-    def get_search_terms(self, request):
-        """
-        Search term is set by a ?responses_contain=... query parameter.
-        """
-        params = request.query_params.get(self.search_param, '')
-        if not params:
-            return None
-
-        return params
-
-    def filter_queryset(self, request, queryset, view):
-        search_fields = self.get_search_fields(view, request)
-        search_term = self.get_search_terms(request)
-
-        if not search_fields or not search_term:
-            return queryset
-
-        queryset = super().filter_queryset(request, queryset, view)
-        cases = Case.objects.filter(tasks__in=queryset).distinct()
-        response = Task.objects.filter(case__in=cases)
-        return response
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -500,9 +419,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     search_fields = ('responses', )
     filter_backends = [
         DjangoFilterBackend,
-        ResponsesFilter,
         ResponsesContainsFilter,
-        ResponsesContainFilter]
+        TaskResponsesContainsFilter]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
@@ -638,7 +556,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @paginate
-    @action(detail=False)
+    @action(detail=False, methods=["GET", "POST"])
     def user_selectable(self, request):
         """
         Get:
@@ -647,12 +565,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         queryset = self.filter_queryset(
             self.get_queryset()
-            .select_related('stage__chain__campaign')
+            .select_related('stage', 'stage__chain__campaign')
             .prefetch_related('stage__ranks__users',
                               'out_tasks',
                               'stage__ranklimits'))
+
         tasks = queryset
-        if request.query_params.get('responses_contains'):
+        if request.query_params.get('responses_contains') or request.method == "POST":
             tasks = Task.objects.filter(id__in=Subquery(queryset.filter(out_tasks__isnull=False).values('out_tasks')))
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
