@@ -622,7 +622,7 @@ class Webhook(BaseDatesModel):
     )
 
     def trigger(self, task):
-        data = task.in_tasks.values_list('responses', flat=True)
+        data = list(task.in_tasks.values_list('responses', flat=True))
 
         response = requests.post(self.url, json=data, headers=self.headers)
         if response:
