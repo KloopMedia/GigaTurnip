@@ -10,7 +10,7 @@ from api.models import TaskStage, Task, RankLimit, Campaign, Chain, Notification
     CustomUser
 from django.contrib import messages
 from django.utils.translation import ngettext
-from datetime import datetime
+from django.utils import timezone
 
 
 def is_user_campaign_manager(user, campaign_id):
@@ -60,17 +60,12 @@ def filter_for_user_selectable_tasks(queryset, request):
 def filter_for_datetime(tasks):
     filtered_tasks = tasks \
         .filter(
-        (Q(stage__datetime_sort__start_time__lte=datetime.now()) | Q(stage__datetime_sort__start_time__isnull=True))
+        (Q(stage__datetime_sort__start_time__lte=timezone.now()) | Q(stage__datetime_sort__start_time__isnull=True))
     ) \
         .filter(
-        (Q(stage__datetime_sort__end_time__gte=datetime.now()) | Q(stage__datetime_sort__end_time__isnull=True))
+        (Q(stage__datetime_sort__end_time__gte=timezone.now()) | Q(stage__datetime_sort__end_time__isnull=True))
     ) \
-        .filter(
-        (Q(start_period__lte=datetime.now()) | Q(start_period__isnull=True))
-    ) \
-        .filter(
-        (Q(end_period__lte=datetime.now()) | Q(end_period__isnull=True))
-    )
+        .filter(start_period__lte=timezone.now()).filter(end_period__gte=timezone.now())
     return filtered_tasks
 
 
