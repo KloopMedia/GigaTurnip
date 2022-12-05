@@ -66,7 +66,12 @@ def filter_for_datetime(tasks):
         .filter(
         (Q(stage__datetime_sort__end_time__gte=timezone.now()) | Q(stage__datetime_sort__end_time__isnull=True))
     ) \
-        .filter(start_period__lte=timezone.now()).filter(end_period__gte=timezone.now())
+        .filter(
+        (Q(start_period__lte=timezone.now())) | (Q(start_period__isnull=True))
+    )\
+        .filter(
+        (Q(end_period__gte=timezone.now())) | (Q(end_period__isnull=True))
+    )
     return filtered_tasks
 
 
