@@ -205,7 +205,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     def is_available_stage(self, request, view, action) -> bool:
 
         all_available_tasks = utils.all_uncompleted_tasks(
-            request.user.tasks
+            request.user.tasks.select_related('stage')
         )
         tasks_for_current_stage = all_available_tasks.filter(
             stage__id=view.get_object().id
@@ -298,7 +298,7 @@ class TaskAccessPolicy(AccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset. \
+        return queryset.prefetch_related('stage', 'stage__chain'). \
             filter(stage__chain__campaign__campaign_managements__user=
                    request.user).distinct()
 
@@ -536,10 +536,10 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
     def is_available_stage(self, request, view, action) -> bool:
 
         all_available_tasks = utils.all_uncompleted_tasks(
-            request.user.tasks
+            request.user.tasks.select_related('stage')
         )
         tasks_for_current_stage = all_available_tasks.filter(
-            stage__id=view.get_object().task_stage.id
+            stage__id=view.get_object().target.id
         )
 
         return tasks_for_current_stage.count() > 0

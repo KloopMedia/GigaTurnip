@@ -622,9 +622,8 @@ class Webhook(BaseDatesModel):
     )
 
     def trigger(self, task):
-        data = []
-        for in_task in task.in_tasks.all():
-            data.append(in_task.responses)
+        data = list(task.in_tasks.values_list('responses', flat=True))
+
         response = requests.post(self.url, json=data, headers=self.headers)
         if response:
             try:
@@ -1738,12 +1737,21 @@ class AdminPreference(BaseDates):
 
 
 class DynamicJson(BaseDatesModel, CampaignInterface):
-    task_stage = models.ForeignKey(
+    source = models.ForeignKey(
+        TaskStage,
+        on_delete=models.SET_NULL,
+        related_name='dynamic_jsons_source',
+        blank=True,
+        null=True,
+        help_text="Stage where we want get main field data"
+    )
+    target = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
-        related_name='dynamic_jsons',
+        related_name='dynamic_jsons_target',
+        blank=False,
         null=False,
-        help_text="Stage where we want set answers dynamicly"
+        help_text="Stage where we want set answers dynamically"
     )
     dynamic_fields = models.JSONField(
         default=None,
@@ -1758,13 +1766,17 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         null=True,
         blank=True,
         help_text='Webhook using for updating schema answers'
-    )  # send schema and fields
+    )
+    obtain_options_from_stage = models.BooleanField(
+        default=False,
+        help_text='Get options from another stages.'
+    )
 
     class Meta:
         ordering = ['created_at', 'updated_at', ]
 
     def get_campaign(self):
-        return self.task_stage.get_campaign()
+        return self.target.get_campaign()
 
     def __str__(self):
-        return self.task_stage.name
+        return self.target.name
