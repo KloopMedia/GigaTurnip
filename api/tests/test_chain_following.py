@@ -2151,9 +2151,17 @@ class GigaTurnipTest(APITestCase):
         task1 = self.create_initial_task()
         task1 = self.complete_task(task1)
         task1.out_tasks.get()
+
+        # check that the task did not appear in the available
         response = self.get_objects('task-user-selectable', client=self.employee_client)
         content = json.loads(response.content)
         self.assertEqual(len(content['results']), 0)
+
+        # check that the task exists at all
+        response = self.get_objects('task-user-relevant')
+        content = json.loads(response.content)
+        self.assertEqual(len(content), 1)
+
 
     def test_task_awards_for_giving_ranks(self):
         self.initial_stage.json_schema = json.dumps({
