@@ -1,6 +1,5 @@
-import datetime
 import json
-
+from django.utils import timezone
 import requests
 from django.db.models import Q, F, Count
 from rest_framework import status
@@ -246,9 +245,9 @@ def set_period(stage, new_task):
     if datetime_task:
         datetime_task = datetime_task[0]
         if datetime_task.how_much and datetime_task.after_how_much:
-            start_period = datetime.datetime.now() + \
-                           datetime.timedelta(hours=datetime_task.after_how_much)
-            end_period = start_period + datetime.timedelta(hours=datetime_task.how_much)
+            start_period = timezone.now() + \
+                           timezone.timedelta(hours=datetime_task.after_how_much)
+            end_period = start_period + timezone.timedelta(hours=datetime_task.how_much)
             new_task.start_period = start_period
             new_task.end_period = end_period
 
