@@ -665,12 +665,12 @@ class DatetimeSort(BaseDatesModel):
     how_much = models.FloatField(
         blank=True,
         null=True,
-        help_text='how long to open the task'
+        help_text='how long to open the task (measurement in hours)'
     )
     after_how_much = models.FloatField(
         blank=True,
         null=True,
-        help_text='how long does it take to open a task'
+        help_text='how long does it take to open a task (measurement in hours)'
     )
 
 
