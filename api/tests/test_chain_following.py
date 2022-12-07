@@ -180,6 +180,25 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
 
+    def test_task_stage_serializers_by_flag(self):
+        self.user.managed_campaigns.add(self.campaign)
+        response = self.get_objects('taskstage-list')
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.initial_stage.id)
+        ranks = response.data['results'][0]['ranks']
+        self.assertEqual(len(ranks), self.initial_stage.ranks.count())
+        self.assertEqual(ranks, list(self.initial_stage.ranks.values_list('id', flat=True)))
+
+        image = '<i class="fa-solid fa-filter"></i>'
+        rank = self.initial_stage.ranks.filter(id=self.initial_stage.ranks.all()[0].id).update(avatar=image)
+        response = self.get_objects('taskstage-list', params={"ranks_avatars": "yes"})
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.initial_stage.id)
+        ranks = response.data['results'][0]['ranks']
+        stage_rank = self.initial_stage.ranks.all()[0]
+        self.assertEqual(len(ranks), self.initial_stage.ranks.count())
+        self.assertEqual(ranks[0]['avatar'], stage_rank.avatar)
+
     def test_initial_task_completion(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",

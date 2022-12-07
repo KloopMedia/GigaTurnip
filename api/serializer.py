@@ -425,6 +425,10 @@ class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
                                           "to this track")
 
 
+class TaskStageFullRankReadSerializer(TaskStageReadSerializer):
+    ranks = RankSerializer(many=True)
+
+
 class RankRecordSerializer(serializers.ModelSerializer,
                            CampaignValidationCheck):
     class Meta:
