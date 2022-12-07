@@ -1269,6 +1269,10 @@ class Rank(BaseModel, CampaignInterface):
         symmetrical=False,
         help_text="Preceded tasks"
     )
+    avatar = models.TextField(
+        blank=True,
+        help_text="Text or url to the SVG"
+    )
 
     def get_campaign(self):
         return self.track.campaign
