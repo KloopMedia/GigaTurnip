@@ -32,7 +32,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer
+    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -181,6 +181,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         elif self.action == 'public':
             return TaskStagePublicSerializer
         else:
+            if self.request.query_params.get('ranks_avatars'):
+                return TaskStageFullRankReadSerializer
             return TaskStageReadSerializer
 
     def get_queryset(self):
