@@ -1791,6 +1791,7 @@ class Error(BaseDatesModel, CampaignInterface):
         Campaign,
         null=False,
         blank=False,
+        on_delete=models.SET_NULL,
         help_text='In which campaign exception is occur.'
     )
     title = models.TextField(
