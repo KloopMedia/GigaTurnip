@@ -1784,3 +1784,23 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
 
     def __str__(self):
         return self.target.name
+
+
+class Error(BaseDatesModel, CampaignInterface):
+    campaign = models.ForeignKey(
+        Campaign,
+        null=False,
+        blank=False,
+        help_text='In which campaign exception is occur.'
+    )
+    title = models.TextField(
+        null=False,
+        blank=False,
+        help_text='Error type or title.'
+    )
+    details = models.TextField(
+        help_text='Error details.'
+    )
+
+    def get_campaign(self):
+        return self.campaign
