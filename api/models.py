@@ -1789,7 +1789,7 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
 class Error(BaseDatesModel, CampaignInterface):
     campaign = models.ForeignKey(
         Campaign,
-        null=False,
+        null=True,
         blank=False,
         on_delete=models.SET_NULL,
         help_text='In which campaign exception is occur.'
