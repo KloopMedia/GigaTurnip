@@ -1,5 +1,5 @@
 import datetime
-import json
+import json, os
 import re
 from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
@@ -116,6 +116,8 @@ class CampaignInterface:
     def get_campaign(self):
         pass
 
+    def generate_error(self, exc_type: type, details: str, tb, tb_info, data=None):
+        ErrorItem.create_from_data(self.get_campaign(), exc_type, details, tb, tb_info, data)
 
 class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey(
@@ -1786,7 +1788,19 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
         return self.target.name
 
 
-class Error(BaseDatesModel, CampaignInterface):
+class ErrorGroup(BaseDatesModel, CampaignInterface):
+    type_name = models.CharField(
+        verbose_name='type',
+        max_length=512
+    )
+
+    @staticmethod
+    def get_group(exc: type):
+        group = ErrorGroup.objects.get_or_create(type=exc.__name__)
+        return group
+
+
+class ErrorItem(BaseDatesModel, CampaignInterface):
     campaign = models.ForeignKey(
         Campaign,
         null=True,
@@ -1794,14 +1808,59 @@ class Error(BaseDatesModel, CampaignInterface):
         on_delete=models.SET_NULL,
         help_text='In which campaign exception is occur.'
     )
-    title = models.TextField(
+    group = models.ForeignKey(
+        ErrorGroup,
         null=False,
         blank=False,
-        help_text='Error type or title.'
+        on_delete=models.CASCADE,
+        help_text='Group of the exception'
+    )
+    traceback_info = models.TextField(
+        verbose_name='traceback',
+        help_text='Stack of functions calls.'
+    )
+    filename = models.CharField(
+        null=False,
+        blank=True,
+        max_length=256,
+        help_text='File where error raised.'
+    )
+    line = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Line number where error raised.'
     )
     details = models.TextField(
-        help_text='Error details.'
+        null=True,
+        blank=True,
+        help_text='Details that may help understand error.'
+    )
+    data = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Data that used.'
     )
 
     def get_campaign(self):
         return self.campaign
+
+    @staticmethod
+    def create_from_data(campaign, exc_type: type, details: str, tb, tb_info, data=None):
+        """
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        """
+        group = ErrorGroup.get_group(exc_type)
+
+        filename = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+        line = tb.tb_lineno
+
+        ErrorItem.objects.create(
+            campaign=campaign,
+            group=group,
+            traceback_info=tb_info,
+            filename=filename,
+            line=line,
+            details=details,
+            data=data
+        )
