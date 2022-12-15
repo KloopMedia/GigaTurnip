@@ -1,5 +1,5 @@
 import datetime
-import json, os
+import json, os, sys, traceback
 import re
 from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
@@ -116,7 +116,7 @@ class CampaignInterface:
     def get_campaign(self):
         pass
 
-    def generate_error(self, exc_type: type, details: str, tb, tb_info, data=None):
+    def generate_error(self, exc_type: type, details: str = None, tb=None, tb_info=None, data=None):
         ErrorItem.create_from_data(self.get_campaign(), exc_type, details, tb, tb_info, data)
 
 class Campaign(BaseModel, CampaignInterface):
@@ -638,7 +638,13 @@ class Webhook(BaseDatesModel):
                 return True, task, response, ""
             except JSONDecodeError:
                 return False, task, response, "JSONDecodeError"
-
+        else:
+            task.generate_error(
+                type(KeyError),
+                "Response: {0}. Webhook: {1}".format(response.status_code, self.id),
+                tb_info=traceback.format_exc(),
+                data=f"{data}\nStage: {task.stage}"
+            )
         return False, task, response, "See response status code"
 
     def post(self, data):
@@ -1796,9 +1802,11 @@ class ErrorGroup(BaseDatesModel, CampaignInterface):
 
     @staticmethod
     def get_group(exc: type):
-        group = ErrorGroup.objects.get_or_create(type=exc.__name__)
+        group = ErrorGroup.objects.get_or_create(type_name=exc.__name__)[0]
         return group
 
+    def __str__(self):
+        return self.type_name
 
 class ErrorItem(BaseDatesModel, CampaignInterface):
     campaign = models.ForeignKey(
@@ -1817,10 +1825,12 @@ class ErrorItem(BaseDatesModel, CampaignInterface):
     )
     traceback_info = models.TextField(
         verbose_name='traceback',
+        null=False,
+        blank=False,
         help_text='Stack of functions calls.'
     )
     filename = models.CharField(
-        null=False,
+        null=True,
         blank=True,
         max_length=256,
         help_text='File where error raised.'
@@ -1852,8 +1862,11 @@ class ErrorItem(BaseDatesModel, CampaignInterface):
         """
         group = ErrorGroup.get_group(exc_type)
 
-        filename = os.path.split(tb.tb_frame.f_code.co_filename)[1]
-        line = tb.tb_lineno
+        filename = None
+        line = None
+        if tb:
+            filename = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            line = tb.tb_lineno
 
         ErrorItem.objects.create(
             campaign=campaign,
