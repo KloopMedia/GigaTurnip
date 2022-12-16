@@ -8,7 +8,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants, \
+    ErrorConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
@@ -4171,6 +4172,7 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(prize_rank_2, self.user.ranks.all())
         self.assertIn(prize_rank_3, self.user.ranks.all())
 
+
     def test_error_creating_for_managers(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
@@ -4204,3 +4206,9 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, {"answer": "hello world"})
         self.assertEqual(ErrorGroup.objects.count(), 1)
         self.assertEqual(ErrorItem.objects.count(), 2)
+
+        err_campaigns = Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN)
+        self.assertEqual(err_campaigns.count(), 1)
+        self.assertEqual(err_campaigns[0].chains.count(), 1)
+        err_tasks = Task.objects.filter(stage__chain__campaign=err_campaigns[0])
+        self.assertEqual(err_tasks.count(), 2)

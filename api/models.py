@@ -13,7 +13,7 @@ from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, ErrorConstants
 
 
 class BaseDatesModel(models.Model):
@@ -641,7 +641,7 @@ class Webhook(BaseDatesModel):
         else:
             task.generate_error(
                 type(KeyError),
-                "Response: {0}. Webhook: {1}".format(response.status_code, self.id),
+                "Response: {0}. Webhook: {1}".format(response.status_code, self.pk),
                 tb_info=traceback.format_exc(),
                 data=f"{data}\nStage: {task.stage}"
             )
@@ -1854,6 +1854,50 @@ class ErrorItem(BaseDatesModel, CampaignInterface):
     def get_campaign(self):
         return self.campaign
 
+
+    def _create_task(self, stage):
+        responses = {
+            "campaign": self.campaign.name,
+            "campaign_id": self.campaign.id,
+            "group": self.group.type_name,
+            "traceback_info": self.traceback_info,
+            "filename": self.filename,
+            "line": self.line,
+            "details": self.details,
+            "data": self.data
+        }
+        Task.objects.create(
+            case=Case.objects.create(),
+            stage=stage,
+            responses=responses,
+        )
+
+    @staticmethod
+    def create_error_task(err_item):
+        if Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN).count() == 0:
+            err_campaign = Campaign.objects.create(
+                name=ErrorConstants.ERROR_CAMPAIGN,
+
+            )
+            default_track = Track.objects.create(campaign=err_campaign)
+            default_rank = Rank.objects.create(name="error campaign rank", track=default_track)
+            default_track.default_rank = default_rank
+            err_campaign.default_track = default_track
+            default_track.save(), err_campaign.save()
+            err_chain = Chain.objects.create(name=ErrorConstants.ERROR_CHAIN, campaign=err_campaign)
+            err_stage = TaskStage.objects.create(
+                name="ERROR",
+                x_pos=1,
+                y_pos=1,
+                chain=err_chain,
+                is_creatable=True)
+            err_item._create_task(err_stage)
+        else:
+            err_campaign = Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN).order_by('-created_at')[0]
+            err_chain = err_campaign.chains.get(name=ErrorConstants.ERROR_CHAIN)
+            stage = TaskStage.objects.filter(chain=err_chain)[0]
+            err_item._create_task(stage)
+
     @staticmethod
     def create_from_data(campaign, exc_type: type, details: str, tb, tb_info, data=None):
         """
@@ -1868,7 +1912,7 @@ class ErrorItem(BaseDatesModel, CampaignInterface):
             filename = os.path.split(tb.tb_frame.f_code.co_filename)[1]
             line = tb.tb_lineno
 
-        ErrorItem.objects.create(
+        err_item = ErrorItem.objects.create(
             campaign=campaign,
             group=group,
             traceback_info=tb_info,
@@ -1877,3 +1921,4 @@ class ErrorItem(BaseDatesModel, CampaignInterface):
             details=details,
             data=data
         )
+        ErrorItem.create_error_task(err_item)
