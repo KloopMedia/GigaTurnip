@@ -1,4 +1,7 @@
 import json
+import sys
+import traceback
+
 from django.utils import timezone
 import requests
 from django.db.models import Q, F, Count
@@ -8,7 +11,7 @@ from api.api_exceptions import CustomApiException
 from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
     ConditionalStageConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
-    AutoNotification, DatetimeSort
+    AutoNotification, DatetimeSort, ErrorItem
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
     connect_user_with_ranks, give_task_awards, process_auto_completed_task, get_conditional_limit_count
 
@@ -300,20 +303,36 @@ def evaluate_conditional_stage(stage, task, is_limited=False):
         condition = rule.get("condition")
         type_ = rule.get("type") if rule.get("type") else "string"
 
+        if not ConditionalStageConstants.SUPPORTED_TYPES.get(type_):
+            stage.generate_error(
+                exc_type=ValueError,
+                details=f"Invalid type {type_} provided on conditional stage {stage.id}",
+                tb=traceback.format_tb,
+                data=f"{rules}\n{rule}"
+            )
+            raise CustomApiException(status.HTTP_400_BAD_REQUEST,
+                                     f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
+
+        actual_value = None
         if not is_limited:
             actual_value = get_value_from_dotted(rule["field"], responses)
         elif is_limited:
             actual_value = get_conditional_limit_count(stage, rule)
-        # js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
-        # type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
-        if not ConditionalStageConstants.SUPPORTED_TYPES.get(type_):
+        try:
+            control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
+            f = ConditionalStageConstants.OPERATORS.get(condition)
+            results.append(f(control_value, actual_value))
+        except Exception as e:
+            exc_type, value, tb = sys.exc_info()
+            stage.generate_error(
+                exc_type=exc_type,
+                details=f"Invalid conditions in conditional stage {stage.id}",
+                tb=tb, tb_info=traceback.format_exc(),
+                data=json.dumps({"responses": responses, "conditions": rules})
+                )
             raise CustomApiException(status.HTTP_400_BAD_REQUEST,
                                      f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
-        control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
-
-        f = ConditionalStageConstants.OPERATORS.get(condition)
-        results.append(f(control_value, actual_value))
 
     return all(results)
 
