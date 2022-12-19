@@ -126,11 +126,21 @@ def send_webhook_request(stage, in_task):
         params.update(stage.webhook_params)
     params["in_task_id"] = in_task.id
     response = requests.get(stage.webhook_address, params=params)
-    if stage.webhook_response_field:
-        response = response.json()[stage.webhook_response_field]
+    if response:
+        if stage.webhook_response_field:
+            response = response.json()[stage.webhook_response_field]
+        else:
+            response = response.json()
+        return response
     else:
-        response = response.json()
-    return response
+        stage.generate_error(
+            type(KeyError),
+            "Error on the webhook side: {0}".format(stage.webhook),
+            tb_info=traceback.format_exc(),
+            data=f"{params}\nStage: {stage}"
+        )
+        raise CustomApiException(503,
+                                 "Service can't handle this request due to unforeseen behaviour of another service.")
 
 
 def process_webhook(stage, in_task, data=None):
