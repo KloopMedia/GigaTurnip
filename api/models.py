@@ -13,7 +13,7 @@ from django.db.models import UniqueConstraint
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, WebhookConstants
 
 
 class BaseDatesModel(models.Model):
@@ -620,9 +620,19 @@ class Webhook(BaseDatesModel):
         help_text="Sometimes there are cases when a webhook is used by a non-taskstage "
                   "and then we need to mark it accordingly"
     )
+    WHICH_RESPONSES_CHOICES = [
+        (WebhookConstants.IN_RESPONSES, 'In responses'),
+        (WebhookConstants.CURRENT_TASK_RESPONSES, 'Current task responses')
+    ]
+    which_responses = models.CharField(
+        max_length=2,
+        choices=WHICH_RESPONSES_CHOICES,
+        default=WebhookConstants.IN_RESPONSES,
+        help_text="Where to copy fields from"
+    )
 
     def trigger(self, task):
-        data = list(task.in_tasks.values_list('responses', flat=True))
+        data = self.get_responses(task)
 
         response = requests.post(self.url, json=data, headers=self.headers)
         if response:
@@ -642,6 +652,11 @@ class Webhook(BaseDatesModel):
     def post(self, data):
         response = requests.post(self.url, json=data, headers=self.headers)
         return response
+
+    def get_responses(self, task):
+        if self.which_responses == WebhookConstants.IN_RESPONSES:
+            return list(task.in_tasks.values_list('responses', flat=True))
+        return task.responses
 
 
 class DatetimeSort(BaseDatesModel):

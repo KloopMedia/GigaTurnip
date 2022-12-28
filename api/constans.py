@@ -64,6 +64,11 @@ class CopyFieldConstants:
     CASE = 'CA'
 
 
+class WebhookConstants:
+    IN_RESPONSES = 'in'
+    CURRENT_TASK_RESPONSES = 'cu'
+
+
 class NotificationConstants:
     READ_ONLY_FIELDS = ['target_user', 'sender_task', 'receiver_task', 'trigger_go']
 
