@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class TaskStageConstants:
     RANK = 'RA'
     STAGE = 'ST'
@@ -80,6 +81,9 @@ class FieldsJsonConstants:
 
 
 class ErrorConstants:
+    ERROR_CAMPAIGN = "09A09E345A3634A86002ACB5CAFE1C10"
+    ERROR_CHAIN = "09A09E345A3634A86002ACB5CAFE1C10"
+    ERROR_STAGE = "731774739328AE88A97FA984CA7ED16F"
     CANNOT_SUBMIT = 'You may not submit this task!'
     TASK_COMPLETED = 'Task is being completed!'
     TASK_ALREADY_COMPLETED = 'Task is already complete!'
