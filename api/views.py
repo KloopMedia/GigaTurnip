@@ -29,10 +29,14 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer
+    TaskStageReadSerializer, CampaignManagementSerializer, \
+    TaskSelectSerializer, \
+    NotificationListSerializer, NotificationSerializer, \
+    TaskAutoCreateSerializer, TaskPublicSerializer, \
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
+    ResponseFlattenerReadSerializer, TaskAwardSerializer, \
+    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
+    TaskStageFullRankReadSerializer, NotificationStatusListSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -952,6 +956,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request.user)
         return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @paginate
+    @action(detail=False)
+    def notification_as_status(self, request):
+        q = self.get_queryset().select_related('receiver_task') \
+            .order_by('-created_at', 'receiver_task')
+        serializer = NotificationStatusListSerializer(q, many=True)
+        return Response(serializer.data)
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
