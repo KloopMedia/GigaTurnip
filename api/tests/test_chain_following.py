@@ -8,10 +8,12 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants, \
+    ErrorConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort
+    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
+    ErrorGroup, ErrorItem
 from jsonschema import validate
 
 
@@ -4169,3 +4171,44 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(prize_rank_1, self.user.ranks.all())
         self.assertIn(prize_rank_2, self.user.ranks.all())
         self.assertIn(prize_rank_3, self.user.ranks.all())
+
+
+    def test_error_creating_for_managers(self):
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Stage with webhook",
+                json_schema=self.initial_stage.json_schema,
+            )
+        )
+        Webhook.objects.create(
+            task_stage=second_stage,
+            url="https://us-central1-journal-bb5e3.cloudfunctions.net/exercise_translate_word",
+            is_triggered=True,
+        )
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"answer": "hello world"})
+        self.assertEqual(ErrorGroup.objects.count(), 1)
+        self.assertEqual(ErrorItem.objects.count(), 1)
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"answer": "hello world"})
+        self.assertEqual(ErrorGroup.objects.count(), 1)
+        self.assertEqual(ErrorItem.objects.count(), 2)
+
+        err_campaigns = Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN)
+        self.assertEqual(err_campaigns.count(), 1)
+        self.assertEqual(err_campaigns[0].chains.count(), 1)
+        err_tasks = Task.objects.filter(stage__chain__campaign=err_campaigns[0])
+        self.assertEqual(err_tasks.count(), 2)
