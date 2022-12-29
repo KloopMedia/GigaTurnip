@@ -959,11 +959,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @paginate
     @action(detail=False)
-    def notification_as_status(self, request):
+    def last_task_notifications(self, request):
         q = self.get_queryset().select_related('receiver_task') \
-            .order_by('-created_at', 'receiver_task')
+            .order_by('receiver_task', '-created_at') \
+            .distinct('receiver_task')
         serializer = NotificationStatusListSerializer(q, many=True)
-        return Response(serializer.data)
+        return serializer.data
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
