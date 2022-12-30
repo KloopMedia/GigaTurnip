@@ -898,16 +898,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    # filterset_fields = {
-    #     'importance': ['exact'],
-    #     'campaign': ['exact'],
-    #     'rank': ['exact'],
-    #     'receiver_task': ['exact'],
-    #     'sender_task': ['exact'],
-    #     'trigger_go': ['exact'],
-    #     'created_at': ['lte', 'gte'],
-    #     'updated_at': ['lte', 'gte']
-    # }
+    filterset_fields = {
+        'importance': ['exact'],
+        'campaign': ['exact'],
+        'rank': ['exact'],
+        'receiver_task': ['exact'],
+        'sender_task': ['exact'],
+        'trigger_go': ['exact'],
+        'created_at': ['lte', 'gte'],
+        'updated_at': ['lte', 'gte']
+    }
     permission_classes = (NotificationAccessPolicy,)
 
     # todo: Create liba for filtering
