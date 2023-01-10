@@ -8,7 +8,8 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit, DatetimeSort, ErrorItem
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit, DatetimeSort, \
+    ErrorItem, TestWebhook
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -747,6 +748,16 @@ class ErrorItemAdmin(admin.ModelAdmin):
         return queryset.filter(campaign__in=request.user.managed_campaigns.all())
 
 
+class TestWebhookAdmin(admin.ModelAdmin):
+    model = TestWebhook
+    list_display = (
+        'id',
+        'expected_task',
+        'sent_task',
+    )
+    autocomplete_fields = ('expected_task', 'sent_task')
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
@@ -777,3 +788,4 @@ admin.site.register(NotificationStatus)
 admin.site.register(AdminPreference, AdminPreferenceAdmin)
 admin.site.register(DatetimeSort, DatetimeSortAdmin)
 admin.site.register(ErrorItem, ErrorItemAdmin)
+admin.site.register(TestWebhook, TestWebhookAdmin)
