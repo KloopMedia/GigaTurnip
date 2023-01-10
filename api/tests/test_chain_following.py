@@ -2209,6 +2209,32 @@ class GigaTurnipTest(APITestCase):
         content = json.loads(response.content)
         self.assertEqual(len(content), 1)
 
+    def test_test_webhook(self):
+        task = self.create_initial_task()
+
+        self.initial_stage.json_schema = '{"type": "object","required": ["first_term","second_term"],"properties": {"first_term": {"type": "integer","title": "First term"},"second_term": {"type": "integer","title": "Second term"}}}'
+        self.initial_stage.save()
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Second",
+            x_pos=1,
+            y_pos=1,
+        ))
+        webhook = Webhook.objects.create(
+            task_stage=second_stage,
+            url='https://us-central1-journal-bb5e3.cloudfunctions.net/for_test_webhook',
+        )
+        expected_task = Task.objects.create(
+            stage_id=second_stage.id,
+            responses={'sum': 3}
+        )
+
+        responses = {"first_term": 1, "second_term": 2}
+
+        task = self.complete_task(task, responses)
+        task2 = task.out_tasks.get()
+        self.assertEqual(task2.responses, expected_task.responses)
+
+
     def test_task_awards_for_giving_ranks(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
