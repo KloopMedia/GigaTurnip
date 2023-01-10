@@ -1664,7 +1664,7 @@ class Notification(BaseDates, CampaignInterface):
         )
 
 
-class AutoNotification(BaseDates):
+class AutoNotification(BaseDates, CampaignInterface):
     trigger_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
@@ -1702,6 +1702,9 @@ class AutoNotification(BaseDates):
         new_notification.sender_task, new_notification.receiver_task = task, receiver_task
         new_notification.trigger_go = self.go
         new_notification.save()
+
+    def get_campaign(self):
+        return self.notification.campaign
 
 
 class NotificationStatus(BaseDates, CampaignInterface):

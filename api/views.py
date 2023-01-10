@@ -29,10 +29,14 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
     TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer
+    TaskStageReadSerializer, CampaignManagementSerializer, \
+    TaskSelectSerializer, \
+    NotificationListSerializer, NotificationSerializer, \
+    TaskAutoCreateSerializer, TaskPublicSerializer, \
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
+    ResponseFlattenerReadSerializer, TaskAwardSerializer, \
+    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
+    TaskStageFullRankReadSerializer, NotificationStatusListSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -894,16 +898,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    # filterset_fields = {
-    #     'importance': ['exact'],
-    #     'campaign': ['exact'],
-    #     'rank': ['exact'],
-    #     'receiver_task': ['exact'],
-    #     'sender_task': ['exact'],
-    #     'trigger_go': ['exact'],
-    #     'created_at': ['lte', 'gte'],
-    #     'updated_at': ['lte', 'gte']
-    # }
+    filterset_fields = {
+        'importance': ['exact'],
+        'campaign': ['exact'],
+        'rank': ['exact'],
+        'receiver_task': ['exact'],
+        'sender_task': ['exact'],
+        'trigger_go': ['exact'],
+        'created_at': ['lte', 'gte'],
+        'updated_at': ['lte', 'gte']
+    }
     permission_classes = (NotificationAccessPolicy,)
 
     # todo: Create liba for filtering
@@ -952,6 +956,15 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request.user)
         return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @paginate
+    @action(detail=False)
+    def last_task_notifications(self, request):
+        q = self.get_queryset().select_related('receiver_task') \
+            .order_by('receiver_task', '-created_at') \
+            .distinct('receiver_task')
+        serializer = NotificationStatusListSerializer(q, many=True)
+        return serializer.data
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):

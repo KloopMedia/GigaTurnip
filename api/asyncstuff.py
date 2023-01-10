@@ -609,5 +609,22 @@ def detecting_auto_notifications(stage, task):
 
 def send_auto_notifications(trigger, task, case, filters=None):
     for auto_notification in trigger.auto_notification_trigger_stages.filter(**filters):
-        receiver_task = case.tasks.get(stage=auto_notification.recipient_stage)
-        auto_notification.create_notification(task, receiver_task, receiver_task.assignee)
+        try:
+            receiver_task = case.tasks.get(
+                stage=auto_notification.recipient_stage
+            )
+            auto_notification.create_notification(task, receiver_task,
+                                                  receiver_task.assignee)
+        except Task.DoesNotExist:
+            auto_notification.generate_error(
+                type(Task.DoesNotExist),
+                details="System can't access to the task that doesn't exist. " 
+                "Adjust your Notification status properly.",
+                tb_info=traceback.format_exc(),
+                data=f"AutoNotificationId: {auto_notification.id}. "
+                        f"Task: {task.id}"
+            )
+            raise CustomApiException(
+                406, "Notification cannot be sent. "
+                     "Show this message to your verifiers"
+            )
