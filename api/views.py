@@ -3,6 +3,7 @@ import operator
 from functools import reduce
 
 import django_filters
+import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
@@ -22,7 +23,7 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, CustomUser
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, CustomUser, TestWebhook, Webhook
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -32,7 +33,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
     NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer
+    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer, TestWebhookSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -1046,3 +1047,22 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return DynamicJsonReadSerializer
+
+
+class TestWebhookViewSet(viewsets.ModelViewSet):
+    serializer_class = TestWebhookSerializer
+    queryset = TestWebhook.objects.all()
+
+    @action(detail=True, methods=['get'])
+    def check_result(self, request, pk=None):
+        test_webhook = TestWebhook.objects.get(pk=pk)
+        expected_task = test_webhook.expected_task
+        sent_task = test_webhook.sent_task
+        webhook = Webhook.objects.filter(task_stage=expected_task.stage.pk).get()
+        if webhook:
+            response = requests.get(webhook.url, params=sent_task.responses).json()
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if response == expected_task.responses:
+            return Response({'equals': True})
+        return Response({'equals': False})
