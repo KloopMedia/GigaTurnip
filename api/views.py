@@ -29,11 +29,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
-    TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer, TestWebhookSerializer
+    TaskRequestAssignmentSerializer,  TestWebhookSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, \
     TaskSelectSerializer, \
     NotificationListSerializer, NotificationSerializer, \
