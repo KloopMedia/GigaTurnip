@@ -550,9 +550,10 @@ def update_schema_dynamic_answers_webhook(dynamic_json, schema, responses):
         "schema": schema,
         "responses": responses})
 
-    response_text = json.loads(response.text)
-    if response_text.get('status') == status.HTTP_200_OK:
-        return response_text.get('schema')
+    if response.status_code == status.HTTP_200_OK:
+        response_text = json.loads(response.text)
+        updated_schema = response_text.get('schema') or schema
+        return updated_schema
     else:
         raise CustomApiException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Exception on the webhook side')
 
