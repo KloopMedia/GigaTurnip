@@ -526,8 +526,8 @@ class NotificationListSerializer(serializers.ModelSerializer, CampaignValidation
 class NotificationStatusListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'title', 'text', 'created_at', 'receiver_task',
-                  'sender_task', 'receiver_task', 'importance']
+        fields = ['id', 'title', 'text', 'created_at', 'sender_task',
+                  'receiver_task', 'importance']
 
 
 class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):
