@@ -71,6 +71,9 @@ router.register(api_v1 + r'responseflatteners',
 router.register(api_v1 + r'dynamicjsons',
                 turnip_app.DynamicJsonViewSet,
                 basename='dynamicjson')
+router.register(api_v1 + r'testwebhook',
+                turnip_app.TestWebhookViewSet,
+                basename='testwebhook')
 
 
 urlpatterns = [path('admin/', admin.site.urls),

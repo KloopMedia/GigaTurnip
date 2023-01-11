@@ -12,7 +12,7 @@ from api.constans import NotificationConstants, ConditionalStageConstants, JSONF
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson
+    TaskAward, DynamicJson, TestWebhook
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -462,6 +462,12 @@ class RankLimitSerializer(serializers.ModelSerializer,
                                           "to this campaign")
 
 
+class TestWebhookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestWebhook
+        fields = '__all__'
+
+
 class TaskAwardSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -517,11 +523,11 @@ class NotificationListSerializer(serializers.ModelSerializer, CampaignValidation
         read_only_fields = NotificationConstants.READ_ONLY_FIELDS
 
 
-class NotificationStatusListSerializer(NotificationListSerializer):
+class NotificationStatusListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'title', 'text', 'created_at', 'receiver_task',
-                  'importance']
+                  'sender_task', 'receiver_task', 'importance']
 
 
 class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):
