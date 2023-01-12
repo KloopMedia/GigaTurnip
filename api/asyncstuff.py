@@ -1,4 +1,7 @@
 import json
+import sys
+import traceback
+
 from django.utils import timezone
 import requests
 from django.db.models import Q, F, Count
@@ -8,7 +11,7 @@ from api.api_exceptions import CustomApiException
 from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
     ConditionalStageConstants
 from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
-    AutoNotification, DatetimeSort
+    AutoNotification, DatetimeSort, ErrorItem
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
     connect_user_with_ranks, give_task_awards, process_auto_completed_task, get_conditional_limit_count
 
@@ -123,11 +126,21 @@ def send_webhook_request(stage, in_task):
         params.update(stage.webhook_params)
     params["in_task_id"] = in_task.id
     response = requests.get(stage.webhook_address, params=params)
-    if stage.webhook_response_field:
-        response = response.json()[stage.webhook_response_field]
+    if response:
+        if stage.webhook_response_field:
+            response = response.json()[stage.webhook_response_field]
+        else:
+            response = response.json()
+        return response
     else:
-        response = response.json()
-    return response
+        stage.generate_error(
+            type(KeyError),
+            "Error on the webhook side: {0}".format(stage.webhook),
+            tb_info=traceback.format_exc(),
+            data=f"{params}\nStage: {stage}"
+        )
+        raise CustomApiException(503,
+                                 "Service can't handle this request due to unforeseen behaviour of another service.")
 
 
 def process_webhook(stage, in_task, data=None):
@@ -300,20 +313,36 @@ def evaluate_conditional_stage(stage, task, is_limited=False):
         condition = rule.get("condition")
         type_ = rule.get("type") if rule.get("type") else "string"
 
+        if not ConditionalStageConstants.SUPPORTED_TYPES.get(type_):
+            stage.generate_error(
+                exc_type=ValueError,
+                details=f"Invalid type {type_} provided on conditional stage {stage.id}",
+                tb=traceback.format_tb,
+                data=f"{rules}\n{rule}"
+            )
+            raise CustomApiException(status.HTTP_400_BAD_REQUEST,
+                                     f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
+
+        actual_value = None
         if not is_limited:
             actual_value = get_value_from_dotted(rule["field"], responses)
         elif is_limited:
             actual_value = get_conditional_limit_count(stage, rule)
-        # js_schema = json.loads(task.stage.json_schema) if task.stage.json_schema else {}
-        # type_to_convert = get_value_from_dotted('properties.' + rule["field"], js_schema)
 
-        if not ConditionalStageConstants.SUPPORTED_TYPES.get(type_):
+        try:
+            control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
+            f = ConditionalStageConstants.OPERATORS.get(condition)
+            results.append(f(control_value, actual_value))
+        except Exception as e:
+            exc_type, value, tb = sys.exc_info()
+            stage.generate_error(
+                exc_type=exc_type,
+                details=f"Invalid conditions in conditional stage {stage.id}",
+                tb=tb, tb_info=traceback.format_exc(),
+                data=json.dumps({"responses": responses, "conditions": rules})
+                )
             raise CustomApiException(status.HTTP_400_BAD_REQUEST,
                                      f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
-        control_value = ConditionalStageConstants.SUPPORTED_TYPES.get(type_)(control_value)
-
-        f = ConditionalStageConstants.OPERATORS.get(condition)
-        results.append(f(control_value, actual_value))
 
     return all(results)
 
@@ -521,9 +550,10 @@ def update_schema_dynamic_answers_webhook(dynamic_json, schema, responses):
         "schema": schema,
         "responses": responses})
 
-    response_text = json.loads(response.text)
-    if response_text.get('status') == status.HTTP_200_OK:
-        return response_text.get('schema')
+    if response.status_code == status.HTTP_200_OK:
+        response_text = json.loads(response.text)
+        updated_schema = response_text.get('schema') or schema
+        return updated_schema
     else:
         raise CustomApiException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Exception on the webhook side')
 
@@ -580,5 +610,22 @@ def detecting_auto_notifications(stage, task):
 
 def send_auto_notifications(trigger, task, case, filters=None):
     for auto_notification in trigger.auto_notification_trigger_stages.filter(**filters):
-        receiver_task = case.tasks.get(stage=auto_notification.recipient_stage)
-        auto_notification.create_notification(task, receiver_task, receiver_task.assignee)
+        try:
+            receiver_task = case.tasks.get(
+                stage=auto_notification.recipient_stage
+            )
+            auto_notification.create_notification(task, receiver_task,
+                                                  receiver_task.assignee)
+        except Task.DoesNotExist:
+            auto_notification.generate_error(
+                type(Task.DoesNotExist),
+                details="System can't access to the task that doesn't exist. " 
+                "Adjust your Notification status properly.",
+                tb_info=traceback.format_exc(),
+                data=f"AutoNotificationId: {auto_notification.id}. "
+                        f"Task: {task.id}"
+            )
+            raise CustomApiException(
+                406, "Notification cannot be sent. "
+                     "Show this message to your verifiers"
+            )

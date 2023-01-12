@@ -3,6 +3,7 @@ import operator
 from functools import reduce
 
 import django_filters
+import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
@@ -22,17 +23,21 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, CustomUser
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, CustomUser, TestWebhook, Webhook
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
-    TaskRequestAssignmentSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, TaskSelectSerializer, \
-    NotificationListSerializer, NotificationSerializer, TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, TaskStageFullRankReadSerializer
+    TaskRequestAssignmentSerializer,  TestWebhookSerializer, \
+    TaskStageReadSerializer, CampaignManagementSerializer, \
+    TaskSelectSerializer, \
+    NotificationListSerializer, NotificationSerializer, \
+    TaskAutoCreateSerializer, TaskPublicSerializer, \
+    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
+    ResponseFlattenerReadSerializer, TaskAwardSerializer, \
+    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
+    TaskStageFullRankReadSerializer, NotificationStatusListSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -894,16 +899,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    # filterset_fields = {
-    #     'importance': ['exact'],
-    #     'campaign': ['exact'],
-    #     'rank': ['exact'],
-    #     'receiver_task': ['exact'],
-    #     'sender_task': ['exact'],
-    #     'trigger_go': ['exact'],
-    #     'created_at': ['lte', 'gte'],
-    #     'updated_at': ['lte', 'gte']
-    # }
+    filterset_fields = {
+        'importance': ['exact'],
+        'campaign': ['exact'],
+        'rank': ['exact'],
+        'receiver_task': ['exact'],
+        'sender_task': ['exact'],
+        'trigger_go': ['exact'],
+        'created_at': ['lte', 'gte'],
+        'updated_at': ['lte', 'gte']
+    }
     permission_classes = (NotificationAccessPolicy,)
 
     # todo: Create liba for filtering
@@ -925,6 +930,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
             return NotificationSerializer
         if self.action in ['list']:
             return NotificationListSerializer
+        if self.action in ['last_task_notifications']:
+            return NotificationStatusListSerializer
         return NotificationListSerializer
 
     def get_queryset(self):
@@ -952,6 +959,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request.user)
         return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @paginate
+    @action(detail=False)
+    def last_task_notifications(self, request, pk=None):
+        q = self.get_queryset().select_related('receiver_task') \
+            .order_by('receiver_task', '-created_at') \
+            .distinct('receiver_task')
+        return q
 
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
@@ -1046,3 +1061,22 @@ class DynamicJsonViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return DynamicJsonReadSerializer
+
+
+class TestWebhookViewSet(viewsets.ModelViewSet):
+    serializer_class = TestWebhookSerializer
+    queryset = TestWebhook.objects.all()
+
+    @action(detail=True, methods=['get'])
+    def check_result(self, request, pk=None):
+        test_webhook = TestWebhook.objects.get(pk=pk)
+        expected_task = test_webhook.expected_task
+        sent_task = test_webhook.sent_task
+        webhook = Webhook.objects.filter(task_stage=expected_task.stage.pk).get()
+        if webhook:
+            response = requests.get(webhook.url, params=sent_task.responses).json()
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if response == expected_task.responses:
+            return Response({'equals': True})
+        return Response({'equals': False})

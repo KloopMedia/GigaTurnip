@@ -393,15 +393,19 @@ class TrackAccessPolicy(ManagersOnlyAccessPolicy):
 class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list"],
+            "action": ["list",
+                       "last_task_notifications"],
             "principal": "authenticated",
             "effect": "allow",
         },
         {
-            "action": ["retrieve", "open_notification"],
+            "action": ["retrieve",
+                       "open_notification"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_manager or is_user_target or is_user_have_rank"
+            "condition_expression": "is_manager or "
+                                    "is_user_target or "
+                                    "is_user_have_rank"
         },
         {
             "action": ["create"],

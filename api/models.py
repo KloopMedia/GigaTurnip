@@ -1,5 +1,5 @@
 import datetime
-import json
+import json, os, sys, traceback
 import re
 from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
@@ -14,6 +14,8 @@ from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
 from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, WebhookConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, \
+    AutoNotificationConstants, ErrorConstants
 
 
 class BaseDatesModel(models.Model):
@@ -646,7 +648,13 @@ class Webhook(BaseDatesModel):
                 return True, task, response, ""
             except JSONDecodeError:
                 return False, task, response, "JSONDecodeError"
-
+        else:
+            task.generate_error(
+                type(KeyError),
+                "Response: {0}. Webhook: {1}".format(response.status_code, self.pk),
+                tb_info=traceback.format_exc(),
+                data=f"{data}\nStage: {task.stage}"
+            )
         return False, task, response, "See response status code"
 
     def post(self, data):
@@ -657,6 +665,23 @@ class Webhook(BaseDatesModel):
         if self.which_responses == WebhookConstants.IN_RESPONSES:
             return list(task.in_tasks.values_list('responses', flat=True))
         return task.responses
+
+
+class TestWebhook(BaseDatesModel):
+    expected_task = models.OneToOneField(
+        'Task',
+        related_name='expected_task',
+        blank=False,
+        help_text='task, with the answers you expect to answer',
+        on_delete=models.CASCADE
+    )
+    sent_task = models.OneToOneField(
+        'Task',
+        related_name='sent_task',
+        blank=False,
+        help_text='task to be sent',
+        on_delete=models.CASCADE
+    )
 
 
 class DatetimeSort(BaseDatesModel):
@@ -1671,7 +1696,7 @@ class Notification(BaseDates, CampaignInterface):
         )
 
 
-class AutoNotification(BaseDates):
+class AutoNotification(BaseDates, CampaignInterface):
     trigger_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
@@ -1709,6 +1734,9 @@ class AutoNotification(BaseDates):
         new_notification.sender_task, new_notification.receiver_task = task, receiver_task
         new_notification.trigger_go = self.go
         new_notification.save()
+
+    def get_campaign(self):
+        return self.notification.campaign
 
 
 class NotificationStatus(BaseDates, CampaignInterface):
@@ -1799,3 +1827,134 @@ class DynamicJson(BaseDatesModel, CampaignInterface):
 
     def __str__(self):
         return self.target.name
+
+
+class ErrorGroup(BaseDatesModel, CampaignInterface):
+    type_name = models.CharField(
+        verbose_name='type',
+        max_length=512
+    )
+
+    @staticmethod
+    def get_group(exc: type):
+        group = ErrorGroup.objects.get_or_create(type_name=exc.__name__)[0]
+        return group
+
+    def __str__(self):
+        return self.type_name
+
+class ErrorItem(BaseDatesModel, CampaignInterface):
+    campaign = models.ForeignKey(
+        Campaign,
+        null=True,
+        blank=False,
+        on_delete=models.SET_NULL,
+        help_text='In which campaign exception is occur.'
+    )
+    group = models.ForeignKey(
+        ErrorGroup,
+        null=False,
+        blank=False,
+        on_delete=models.CASCADE,
+        help_text='Group of the exception'
+    )
+    traceback_info = models.TextField(
+        verbose_name='traceback',
+        null=False,
+        blank=False,
+        help_text='Stack of functions calls.'
+    )
+    filename = models.CharField(
+        null=True,
+        blank=True,
+        max_length=256,
+        help_text='File where error raised.'
+    )
+    line = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Line number where error raised.'
+    )
+    details = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Details that may help understand error.'
+    )
+    data = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Data that used.'
+    )
+
+    def get_campaign(self):
+        return self.campaign
+
+
+    def _create_task(self, stage):
+        responses = {
+            "campaign": self.campaign.name,
+            "campaign_id": self.campaign.id,
+            "group": self.group.type_name,
+            "traceback_info": self.traceback_info,
+            "filename": self.filename,
+            "line": self.line,
+            "details": self.details,
+            "data": self.data
+        }
+        Task.objects.create(
+            case=Case.objects.create(),
+            stage=stage,
+            responses=responses,
+        )
+
+    @staticmethod
+    def create_error_task(err_item):
+        if Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN).count() == 0:
+            err_campaign = Campaign.objects.create(
+                name=ErrorConstants.ERROR_CAMPAIGN,
+
+            )
+            default_track = Track.objects.create(campaign=err_campaign)
+            default_rank = Rank.objects.create(name="error campaign rank", track=default_track)
+            default_track.default_rank = default_rank
+            err_campaign.default_track = default_track
+            default_track.save(), err_campaign.save()
+            err_chain = Chain.objects.create(name=ErrorConstants.ERROR_CHAIN, campaign=err_campaign)
+            err_stage = TaskStage.objects.create(
+                name="ERROR",
+                x_pos=1,
+                y_pos=1,
+                chain=err_chain,
+                is_creatable=True)
+            err_item._create_task(err_stage)
+        else:
+            err_campaign = Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN).order_by('-created_at')[0]
+            err_chain = err_campaign.chains.get(name=ErrorConstants.ERROR_CHAIN)
+            stage = TaskStage.objects.filter(chain=err_chain)[0]
+            err_item._create_task(stage)
+
+    @staticmethod
+    def create_from_data(campaign, exc_type: type, details: str, tb, tb_info, data=None):
+        """
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        """
+        group = ErrorGroup.get_group(exc_type)
+
+        filename = None
+        line = None
+        if tb:
+            filename = os.path.split(tb.tb_frame.f_code.co_filename)[1]
+            line = tb.tb_lineno
+
+        err_item = ErrorItem.objects.create(
+            campaign=campaign,
+            group=group,
+            traceback_info=tb_info,
+            filename=filename,
+            line=line,
+            details=details,
+            data=data
+        )
+        ErrorItem.create_error_task(err_item)
+

@@ -8,7 +8,8 @@ from django.db.models import Count
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, RankRecord, CampaignManagement, Track, Log, \
     Notification, NotificationStatus, AdminPreference, Stage, Integration, Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit, DatetimeSort
+    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, AutoNotification, ConditionalLimit, DatetimeSort, \
+    ErrorItem, TestWebhook
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -718,6 +719,45 @@ class DatetimeSortAdmin(admin.ModelAdmin):
         return filter_by_admin_preference(queryset, request, 'stage__chain__')
 
 
+class ErrorItemAdmin(admin.ModelAdmin):
+    model = ErrorItem
+    list_display = (
+        'campaign',
+        'group',
+        'traceback_info',
+        'filename',
+        'line',
+        'details',
+        'data',
+        'created_at', )
+    list_filter = ('campaign', 'group', )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        queryset = super(ErrorItemAdmin, self).get_queryset(request).select_related('campaign')
+        if request.user.is_superuser:
+            return queryset
+        return queryset.filter(campaign__in=request.user.managed_campaigns.all())
+
+
+class TestWebhookAdmin(admin.ModelAdmin):
+    model = TestWebhook
+    list_display = (
+        'id',
+        'expected_task',
+        'sent_task',
+    )
+    autocomplete_fields = ('expected_task', 'sent_task')
+
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(Chain, ChainAdmin)
@@ -747,3 +787,5 @@ admin.site.register(AutoNotification, AutoNotificationAdmin)
 admin.site.register(NotificationStatus)
 admin.site.register(AdminPreference, AdminPreferenceAdmin)
 admin.site.register(DatetimeSort, DatetimeSortAdmin)
+admin.site.register(ErrorItem, ErrorItemAdmin)
+admin.site.register(TestWebhook, TestWebhookAdmin)
