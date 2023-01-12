@@ -646,7 +646,10 @@ class Webhook(BaseDatesModel):
                     data = response.json()[self.response_field]
                 else:
                     data = response.json()
-                task.responses = data
+                if task.responses:
+                    task.responses.update(data)
+                else:
+                    task.responses = data
                 task.save()
                 return True, task, response, ""
             except JSONDecodeError:
