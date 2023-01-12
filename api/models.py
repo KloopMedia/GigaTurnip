@@ -118,6 +118,9 @@ class CampaignInterface:
     def get_campaign(self):
         pass
 
+    def generate_error(self, exc_type: type, details: str = None, tb=None, tb_info=None, data=None):
+        ErrorItem.create_from_data(self.get_campaign(), exc_type, details, tb, tb_info, data)
+
 
 class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey(
