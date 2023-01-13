@@ -8,8 +8,9 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
 
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, FieldsJsonConstants, \
-    ErrorConstants
+from api.constans import TaskStageConstants, CopyFieldConstants, \
+    AutoNotificationConstants, FieldsJsonConstants, \
+    ErrorConstants, WebhookConstants
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
@@ -4239,7 +4240,7 @@ class GigaTurnipTest(APITestCase):
         err_tasks = Task.objects.filter(stage__chain__campaign=err_campaigns[0])
         self.assertEqual(err_tasks.count(), 2)
 
-    def test_webhook_trigger_endpoint_errors_creation(self):
+    def test_last_task_notification_errors_creation(self):
         js_schema = {
             "type": "object",
             "properties": {
@@ -4327,7 +4328,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(ErrorItem.objects.count(), 1)
         self.assertEqual(ErrorItem.objects.get().campaign, self.campaign)
 
-    def test_webhook_trigger_endpoint(self):
+    def test_last_task_notification(self):
         js_schema = {
             "type": "object",
             "properties": {
@@ -4449,3 +4450,50 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(notification_received['title'], notification.title)
             if step < 4:
                 out_task = out_task.out_tasks.get()
+
+    def test_trigger_webhook_endpoint(self):
+        js_schema = {
+            "type": "object",
+            "properties": {
+                'answer': {
+                    "type": "string",
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+            json_schema=json.dumps(js_schema)
+        ))
+        Webhook.objects.create(
+            task_stage=self.initial_stage,
+            url='https://us-central1-journal-bb5e3.cloudfunctions.net/echo_function',
+            is_triggered=False,
+            which_responses=WebhookConstants.CURRENT_TASK_RESPONSES,
+        )
+        Webhook.objects.create(
+            task_stage=second_stage,
+            url='https://us-central1-journal-bb5e3.cloudfunctions.net/echo_function',
+            is_triggered=False,
+            which_responses=WebhookConstants.IN_RESPONSES,
+        )
+
+        task = self.create_initial_task()
+        task = self.update_task_responses(task, {"answer": "Hello world!"})
+
+        response = self.get_objects('task-trigger-webhook',  pk=task.pk)
+        echo_response = {'echo': {'answer': 'Hello world!'},
+                         'answer': 'Hello world!', 'status': 200}
+        task = Task.objects.get(id=task.id)
+        task = self.complete_task(task, task.responses)
+        self.assertEqual(task.responses, echo_response)
+
+        next_task = task.out_tasks.get()
+        response = self.get_objects('task-trigger-webhook',  pk=next_task.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual({'echo': [echo_response], 'status': 200},
+                         Task.objects.get(id=next_task.id).responses)
