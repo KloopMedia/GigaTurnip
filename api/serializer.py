@@ -516,18 +516,13 @@ class NotificationSerializer(serializers.ModelSerializer,
         fields = '__all__'
 
 
-class NotificationListSerializer(serializers.ModelSerializer, CampaignValidationCheck):
-    class Meta:
-        model = Notification
-        fields = ['id', 'title', 'text', 'created_at', 'importance']
-        read_only_fields = NotificationConstants.READ_ONLY_FIELDS
-
-
-class NotificationStatusListSerializer(serializers.ModelSerializer):
+class NotificationListSerializer(serializers.ModelSerializer,
+                                 CampaignValidationCheck):
     class Meta:
         model = Notification
         fields = ['id', 'title', 'text', 'created_at', 'sender_task',
                   'receiver_task', 'importance']
+        read_only_fields = NotificationConstants.READ_ONLY_FIELDS
 
 
 class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):

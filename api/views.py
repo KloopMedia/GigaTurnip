@@ -37,7 +37,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, NotificationStatusListSerializer
+    TaskStageFullRankReadSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -930,8 +930,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
             return NotificationSerializer
         if self.action in ['list']:
             return NotificationListSerializer
-        if self.action in ['last_task_notifications']:
-            return NotificationStatusListSerializer
         return NotificationListSerializer
 
     def get_queryset(self):
