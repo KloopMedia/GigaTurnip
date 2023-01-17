@@ -935,8 +935,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def list_user_notifications(self, request, pk=None):
-        notifications = utils.filter_for_user_notifications(self.get_queryset(),
-                                                            request)
+        notifications = utils.filter_for_user_notifications(
+            self.filter_queryset(self.get_queryset()), request)
         return notifications
 
     @action(detail=True)
@@ -947,7 +947,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def last_task_notifications(self, request, pk=None):
-        q = self.get_queryset().select_related('receiver_task') \
+        q = self.filter_queryset(self.get_queryset()) \
+            .select_related('receiver_task') \
             .order_by('receiver_task', '-created_at') \
             .distinct('receiver_task')
         return q
