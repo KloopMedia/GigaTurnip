@@ -23,6 +23,9 @@ import api.views as turnip_app
 api_v1 = r'api/v1/'
 
 router = DefaultRouter()
+router.register(api_v1 + r'users',
+                turnip_app.UserViewSet,
+                basename='user'),
 router.register(api_v1 + r'campaigns',
                 turnip_app.CampaignViewSet,
                 basename='campaign'),
