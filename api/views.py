@@ -1064,5 +1064,8 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if response == expected_task.responses:
-            return Response({'equals': True})
-        return Response({'equals': False})
+            return Response({'equals': True,
+                             'response': response})
+        return Response({'equals': False,
+                         'expected_response': expected_task.responses,
+                         'actual_response': response})
