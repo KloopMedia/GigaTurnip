@@ -911,20 +911,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
     }
     permission_classes = (NotificationAccessPolicy,)
 
-    # todo: Create liba for filtering
-    def filter_queryset(self, queryset):
-        lookups = self.request.query_params.items()
-
-        attributes = dict()
-        for lookup_expr in lookups:
-            attributes[lookup_expr[0]] = lookup_expr[1]
-        attributes.pop('offset') if 'offset' in attributes.keys() else None
-        attributes.pop('limit') if 'limit' in attributes.keys() else None
-
-        if attributes:
-            return queryset.filter(**attributes)
-        return queryset
-
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update', 'update', 'retrieve']:
             return NotificationSerializer
