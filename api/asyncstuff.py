@@ -550,9 +550,10 @@ def update_schema_dynamic_answers_webhook(dynamic_json, schema, responses):
         "schema": schema,
         "responses": responses})
 
-    response_text = json.loads(response.text)
-    if response_text.get('status') == status.HTTP_200_OK:
-        return response_text.get('schema')
+    if response.status_code == status.HTTP_200_OK:
+        response_text = json.loads(response.text)
+        updated_schema = response_text.get('schema') or schema
+        return updated_schema
     else:
         raise CustomApiException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Exception on the webhook side')
 
@@ -609,5 +610,22 @@ def detecting_auto_notifications(stage, task):
 
 def send_auto_notifications(trigger, task, case, filters=None):
     for auto_notification in trigger.auto_notification_trigger_stages.filter(**filters):
-        receiver_task = case.tasks.get(stage=auto_notification.recipient_stage)
-        auto_notification.create_notification(task, receiver_task, receiver_task.assignee)
+        try:
+            receiver_task = case.tasks.get(
+                stage=auto_notification.recipient_stage
+            )
+            auto_notification.create_notification(task, receiver_task,
+                                                  receiver_task.assignee)
+        except Task.DoesNotExist:
+            auto_notification.generate_error(
+                type(Task.DoesNotExist),
+                details="System can't access to the task that doesn't exist. " 
+                "Adjust your Notification status properly.",
+                tb_info=traceback.format_exc(),
+                data=f"AutoNotificationId: {auto_notification.id}. "
+                        f"Task: {task.id}"
+            )
+            raise CustomApiException(
+                406, "Notification cannot be sent. "
+                     "Show this message to your verifiers"
+            )
