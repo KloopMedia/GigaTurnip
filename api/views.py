@@ -29,7 +29,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
-    TaskRequestAssignmentSerializer,  TestWebhookSerializer, \
+    TaskRequestAssignmentSerializer, TestWebhookSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, \
     TaskSelectSerializer, \
     NotificationListSerializer, NotificationSerializer, \
@@ -42,9 +42,11 @@ from api.asyncstuff import process_completed_task, update_schema_dynamic_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
-    DynamicJsonAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, \
+    NotificationAccessPolicy, \
+    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, \
+    TaskAwardAccessPolicy, \
+    DynamicJsonAccessPolicy, UserAccessPolicy
 from . import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
@@ -53,6 +55,23 @@ from .utils import paginate
 import json
 
 from datetime import datetime
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    permission_classes = (UserAccessPolicy,)
+
+    def get_queryset(self):
+        return UserAccessPolicy.scope_queryset(
+            self.request, CustomUser.objects.all()
+        )
+
+    @action(detail=True, methods=['get'])
+    def delete(self, request, pk=None, *args, **kwargs):
+        if self.get_object().rename_user():
+            return Response({"status": status.HTTP_200_OK,
+                             "message": "Profile deleted successfully!"})
+        return Response({"status": status.HTTP_409_CONFLICT,
+                         "message": "Something went wrong"})
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
