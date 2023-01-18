@@ -59,7 +59,8 @@ class CustomUser(AbstractUser, BaseDatesModel):
             return self.phone_number
         return self.email + " " + self.last_name
 
-    def rename_user(self):
+    # actually it took all privileges from user like deletion
+    def rename(self):
         with transaction.atomic():
             first_part = ''.join(
                 random.choice(string.ascii_letters + string.digits)
