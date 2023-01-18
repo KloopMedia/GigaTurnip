@@ -52,12 +52,8 @@ class UserAccessPolicy(AccessPolicy):
             "action": ['delete'],
             "principal": "authenticated",
             "effect": "allow",
-            "condition": "is_owner"
         }
     ]
-
-    def is_owner(self, request, view, action) -> bool:
-        return request.user == view.get_object()
 
     @classmethod
     def scope_queryset(cls, request, qs):
