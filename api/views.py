@@ -65,7 +65,7 @@ class UserViewSet(viewsets.ModelViewSet):
             self.request, CustomUser.objects.all()
         )
 
-    @action(detail=True, methods=['get'])
+    @action(detail=False, methods=['get'])
     def delete(self, request, pk=None, *args, **kwargs):
         if self.get_object().rename_user():
             return Response({"status": status.HTTP_200_OK,
