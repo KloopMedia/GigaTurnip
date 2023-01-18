@@ -29,7 +29,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
     TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
     TaskEditSerializer, TaskDefaultSerializer, \
-    TaskRequestAssignmentSerializer,  TestWebhookSerializer, \
+    TaskRequestAssignmentSerializer, TestWebhookSerializer, \
     TaskStageReadSerializer, CampaignManagementSerializer, \
     TaskSelectSerializer, \
     NotificationListSerializer, NotificationSerializer, \
@@ -42,9 +42,11 @@ from api.asyncstuff import process_completed_task, update_schema_dynamic_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
     RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy, \
-    DynamicJsonAccessPolicy
+    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, \
+    NotificationAccessPolicy, \
+    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, \
+    TaskAwardAccessPolicy, \
+    DynamicJsonAccessPolicy, UserAccessPolicy
 from . import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
@@ -53,6 +55,23 @@ from .utils import paginate
 import json
 
 from datetime import datetime
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    permission_classes = (UserAccessPolicy,)
+
+    def get_queryset(self):
+        return UserAccessPolicy.scope_queryset(
+            self.request, CustomUser.objects.all()
+        )
+
+    @action(detail=True, methods=['get'])
+    def delete(self, request, pk=None, *args, **kwargs):
+        if self.get_object().rename_user():
+            return Response({"status": status.HTTP_200_OK,
+                             "message": "Profile deleted successfully!"})
+        return Response({"status": status.HTTP_409_CONFLICT,
+                         "message": "Something went wrong"})
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -935,8 +954,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def list_user_notifications(self, request, pk=None):
-        notifications = utils.filter_for_user_notifications(self.get_queryset(),
-                                                            request)
+        notifications = utils.filter_for_user_notifications(
+            self.filter_queryset(self.get_queryset()), request)
         return notifications
 
     @action(detail=True)
@@ -947,7 +966,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def last_task_notifications(self, request, pk=None):
-        q = self.get_queryset().select_related('receiver_task') \
+        q = self.filter_queryset(self.get_queryset()) \
+            .select_related('receiver_task') \
             .order_by('receiver_task', '-created_at') \
             .distinct('receiver_task')
         return q
@@ -1062,5 +1082,8 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if response == expected_task.responses:
-            return Response({'equals': True})
-        return Response({'equals': False})
+            return Response({'equals': True,
+                             'response': response})
+        return Response({'equals': False,
+                         'expected_response': expected_task.responses,
+                         'actual_response': response})

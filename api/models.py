@@ -1,6 +1,6 @@
 import datetime
 import json, os, sys, traceback
-import re
+import string, random, re
 from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
 
@@ -40,22 +40,39 @@ class CustomUser(AbstractUser, BaseDatesModel):
         "Rank",
         through="RankRecord",
         related_name="users")
-
     login_via_sms = models.BooleanField(
         default=False,
         help_text="User is login via sms"
     )
-
     phone_number = models.CharField(
         max_length=250,
         blank=True,
         help_text='Users phone number'
+    )
+    deleted = models.BooleanField(
+        default=False,
+        help_text="Is user deleted."
     )
 
     def __str__(self):
         if self.login_via_sms:
             return self.phone_number
         return self.email + " " + self.last_name
+
+    def rename_user(self):
+        with transaction.atomic():
+            first_part = ''.join(
+                random.choice(string.ascii_letters + string.digits)
+                for _ in range(140))
+
+            self.username = first_part
+            self.email = first_part + 'email.com'
+            self.deleted = False
+            self.save()
+            return True
+        return False
+
+
 
 
 class BaseModel(BaseDatesModel):
