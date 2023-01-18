@@ -1080,7 +1080,7 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         sent_task = test_webhook.sent_task
         webhook = Webhook.objects.filter(task_stage=expected_task.stage.pk).get()
         if webhook:
-            response = requests.get(webhook.url, params=sent_task.responses).json()
+            response = requests.post(webhook.url, json=sent_task.responses, headers={}).json()
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if response == expected_task.responses:
