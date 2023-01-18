@@ -66,8 +66,8 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=False, methods=['get'])
-    def delete(self, request, pk=None, *args, **kwargs):
-        if self.get_object().rename_user():
+    def delete(self, request, *args, **kwargs):
+        if request.user.rename():
             return Response({"status": status.HTTP_200_OK,
                              "message": "Profile deleted successfully!"})
         return Response({"status": status.HTTP_409_CONFLICT,
@@ -967,6 +967,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def last_task_notifications(self, request, pk=None):
         q = self.filter_queryset(self.get_queryset()) \
+            .exclude(Q(receiver_task__isnull=True) &
+                     Q(sender_task__isnull=True)) \
             .select_related('receiver_task') \
             .order_by('receiver_task', '-created_at') \
             .distinct('receiver_task')
