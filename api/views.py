@@ -66,8 +66,8 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=False, methods=['get'])
-    def delete(self, request, pk=None, *args, **kwargs):
-        if self.get_object().rename_user():
+    def delete(self, request, *args, **kwargs):
+        if request.user.rename():
             return Response({"status": status.HTTP_200_OK,
                              "message": "Profile deleted successfully!"})
         return Response({"status": status.HTTP_409_CONFLICT,
