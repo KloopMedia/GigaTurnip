@@ -930,20 +930,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
     }
     permission_classes = (NotificationAccessPolicy,)
 
-    # todo: Create liba for filtering
-    def filter_queryset(self, queryset):
-        lookups = self.request.query_params.items()
-
-        attributes = dict()
-        for lookup_expr in lookups:
-            attributes[lookup_expr[0]] = lookup_expr[1]
-        attributes.pop('offset') if 'offset' in attributes.keys() else None
-        attributes.pop('limit') if 'limit' in attributes.keys() else None
-
-        if attributes:
-            return queryset.filter(**attributes)
-        return queryset
-
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update', 'update', 'retrieve']:
             return NotificationSerializer
@@ -968,8 +954,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def list_user_notifications(self, request, pk=None):
-        notifications = utils.filter_for_user_notifications(self.get_queryset(),
-                                                            request)
+        notifications = utils.filter_for_user_notifications(
+            self.filter_queryset(self.get_queryset()), request)
         return notifications
 
     @action(detail=True)
@@ -980,7 +966,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def last_task_notifications(self, request, pk=None):
-        q = self.get_queryset().select_related('receiver_task') \
+        q = self.filter_queryset(self.get_queryset()) \
+            .select_related('receiver_task') \
             .order_by('receiver_task', '-created_at') \
             .distinct('receiver_task')
         return q
@@ -1095,5 +1082,8 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if response == expected_task.responses:
-            return Response({'equals': True})
-        return Response({'equals': False})
+            return Response({'equals': True,
+                             'response': response})
+        return Response({'equals': False,
+                         'expected_response': expected_task.responses,
+                         'actual_response': response})

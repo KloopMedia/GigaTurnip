@@ -634,9 +634,12 @@ class PreviousManualAdmin(admin.ModelAdmin):
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
     search_fields = ('title', )
-    list_display = ('title', 'campaign', 'rank', 'target_user', 'campaign', 'importance', )
+    list_display = ('title', 'campaign', 'rank', 'target_user', 'importance', )
     autocomplete_fields = ('campaign', 'rank', 'target_user')
     readonly_fields = ('sender_task', 'receiver_task', 'trigger_go',)
+    list_filter = (
+        "campaign", "rank", "importance"
+    )
 
     def get_queryset(self, request):
         queryset = super(NotificationAdmin, self).get_queryset(request)
