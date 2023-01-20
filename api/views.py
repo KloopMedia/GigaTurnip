@@ -7,7 +7,7 @@ import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef
 from django.db.models.functions import Cast
 from django.http import HttpResponse, Http404
 from django.template import loader
@@ -37,7 +37,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, NumberRanksSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -879,6 +879,55 @@ class RankLimitViewSet(viewsets.ModelViewSet):
         return RankLimitAccessPolicy.scope_queryset(
             self.request, RankLimit.objects.all()
         )
+
+
+class NumberRankViewSet(viewsets.ModelViewSet):
+    # serializer_class = NumberRanksSerializer
+    # queryset = Campaign.objects.all()
+
+    # @action(detail=False, methods=['get'])
+    # def number_of_ranks(self, request, pk=None):
+    #     self.request = request
+    #     ranks = Rank.objects.filter(track=1)
+
+    def get_queryset(self):
+        # data = ranks.values('track__campaign').annotate(campaign=F('track__campaign'),
+        #                                       campaign_name=F('track__campaign__name'),
+        #                                       rank=F('id'),
+        #                                       rank_name=F('name'),
+        #                                       number_of_rank=Count('name', RankRecord.objects.('ranklimits__user')))
+        return Rank.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        q = self.get_queryset()
+
+        # Blog.objects.update(
+        #     rating=Subquery(
+        #         Blog.objects.filter(
+        #             id=OuterRef('id')
+        #         ).annotate(
+        #             avg_rating=Avg('entry__rating')
+        #         ).values('avg_rating')[:1]
+        #     )
+        # )
+        # q = Campaign.objects.values('default_track').annotate(
+        #     ranks=ArrayAgg(Subquery(
+        #         Rank.objects.filter(
+        #             id=OuterRef('id')
+        #         ).annotate(
+        #             n=F('name')
+        #         ).values('n')
+        #     )),
+        # )
+        # q = q.values('limits__stage__chain__campaign')
+
+        q = q.values('track__campaign__id', 'track__campaign__name').annotate(
+            ranks=Subquery(
+                Rank.objects.filter(id=OuterRef('id')).values('name')
+            )
+        )
+
+        return Response(q)
 
 
 class TrackViewSet(viewsets.ModelViewSet):
