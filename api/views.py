@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
 from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, JSONObject
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -891,48 +891,34 @@ class NumberRankViewSet(viewsets.ModelViewSet):
     #     ranks = Rank.objects.filter(track=1)
 
     def get_queryset(self):
-        # data = ranks.values('track__campaign').annotate(campaign=F('track__campaign'),
-        #                                       campaign_name=F('track__campaign__name'),
-        #                                       rank=F('id'),
-        #                                       rank_name=F('name'),
-        #                                       number_of_rank=Count('name', RankRecord.objects.('ranklimits__user')))
-        return Rank.objects.all()
+        return RankAccessPolicy.scope_queryset(
+            self.request, Rank.objects.all()
+        )
 
     def list(self, request, *args, **kwargs):
-        q = self.get_queryset()
+        q = self.filter_queryset(self.get_queryset()) \
+            .prefetch_related('track') \
+            .select_related('users')
 
-        # Blog.objects.update(
-        #     rating=Subquery(
-        #         Blog.objects.filter(
-        #             id=OuterRef('id')
-        #         ).annotate(
-        #             avg_rating=Avg('entry__rating')
-        #         ).values('avg_rating')[:1]
-        #     )
-        # )
-        # q = Campaign.objects.values('default_track').annotate(
-        #     ranks=ArrayAgg(Subquery(
-        #         Rank.objects.filter(
-        #             id=OuterRef('id')
-        #         ).annotate(
-        #             n=F('name')
-        #         ).values('n')
-        #     )),
-        # )
-        # q = q.values('limits__stage__chain__campaign')
-        print()
-        ranks_users = Subquery(
-                        q.filter(
-                            id=OuterRef('id')
-                        ).annotate(
-                            count=Count('users'),
-                            iii=F('track__name')
-                        ).values('count', 'iii')
-                    )
-
-        q = q.values('track__campaign__id', 'track__campaign__name') \
+        main_keys = {
+            'campaign_id': F('track__campaign__id'),
+            'campaign_name': F('track__campaign__name')
+        }
+        q = q.values(**main_keys) \
             .annotate(
-                ranks=ArrayAgg(ranks_users)
+            ranks=ArrayAgg(Subquery(
+                q.filter(
+                    id=OuterRef('id')
+                ).annotate(
+                    count=Count('users'),
+                    rank_id=F('id'),
+                    rank_name=F('name')
+                ).values(
+                    json=JSONObject(id='rank_id',
+                                    count='count',
+                                    name='rank_name')
+                )
+            ))
         )
 
         return Response(q)
