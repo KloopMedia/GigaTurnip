@@ -37,7 +37,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, NumberRanksSerializer
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -922,9 +922,9 @@ class NumberRankViewSet(viewsets.ModelViewSet):
         # q = q.values('limits__stage__chain__campaign')
 
         q = q.values('track__campaign__id', 'track__campaign__name').annotate(
-            ranks=Subquery(
-                Rank.objects.filter(id=OuterRef('id')).values('name')
-            )
+            ranks=ArrayAgg(Subquery(
+                q.filter(id=OuterRef('id')).values('name')
+            ))
         )
 
         return Response(q)
