@@ -920,11 +920,19 @@ class NumberRankViewSet(viewsets.ModelViewSet):
         #     )),
         # )
         # q = q.values('limits__stage__chain__campaign')
+        print()
+        ranks_users = Subquery(
+                        q.filter(
+                            id=OuterRef('id')
+                        ).annotate(
+                            count=Count('users'),
+                            iii=F('track__name')
+                        ).values('count', 'iii')
+                    )
 
-        q = q.values('track__campaign__id', 'track__campaign__name').annotate(
-            ranks=ArrayAgg(Subquery(
-                q.filter(id=OuterRef('id')).values('name')
-            ))
+        q = q.values('track__campaign__id', 'track__campaign__name') \
+            .annotate(
+                ranks=ArrayAgg(ranks_users)
         )
 
         return Response(q)
