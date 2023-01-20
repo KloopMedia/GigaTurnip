@@ -248,6 +248,19 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'complete']
 
 
+class TaskUserActivitySerializer(serializers.Serializer):
+    stage = serializers.IntegerField()
+    stage_name = serializers.CharField()
+    ranks = serializers.ListField(child=serializers.IntegerField())
+    in_stages = serializers.ListField(child=serializers.IntegerField())
+    out_stages = serializers.ListField(child=serializers.IntegerField())
+    complete_true = serializers.IntegerField()
+    complete_false = serializers.IntegerField()
+    force_complete_true = serializers.IntegerField()
+    force_complete_false = serializers.IntegerField()
+    count_tasks = serializers.IntegerField()
+
+
 class PostJSONFilterSerializer(serializers.Serializer):
     items_conditions = serializers.ListField(child=serializers.JSONField()) # filters
 
