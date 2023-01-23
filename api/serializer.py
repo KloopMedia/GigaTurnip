@@ -558,3 +558,9 @@ class DynamicJsonReadSerializer(serializers.ModelSerializer):
         model = DynamicJson
         fields = '__all__'
         editable = False
+
+
+class NumberRankSerializer(serializers.Serializer):
+    campaign_id = serializers.IntegerField()
+    campaign_name = serializers.CharField()
+    ranks = serializers.JSONField()

@@ -37,7 +37,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, NumberRankSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -883,12 +883,9 @@ class RankLimitViewSet(viewsets.ModelViewSet):
 
 class NumberRankViewSet(viewsets.ModelViewSet):
     # serializer_class = NumberRanksSerializer
-    # queryset = Campaign.objects.all()
 
-    # @action(detail=False, methods=['get'])
-    # def number_of_ranks(self, request, pk=None):
-    #     self.request = request
-    #     ranks = Rank.objects.filter(track=1)
+    def get_serializer_class(self):
+        return NumberRankSerializer
 
     def get_queryset(self):
         return RankAccessPolicy.scope_queryset(
