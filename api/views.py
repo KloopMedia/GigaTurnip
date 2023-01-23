@@ -7,8 +7,8 @@ import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
-from django.db.models.functions import Cast
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef
+from django.db.models.functions import Cast, JSONObject
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -37,7 +37,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, NumberRankSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -879,6 +879,46 @@ class RankLimitViewSet(viewsets.ModelViewSet):
         return RankLimitAccessPolicy.scope_queryset(
             self.request, RankLimit.objects.all()
         )
+
+
+class NumberRankViewSet(viewsets.ModelViewSet):
+    # serializer_class = NumberRanksSerializer
+
+    def get_serializer_class(self):
+        return NumberRankSerializer
+
+    def get_queryset(self):
+        return RankAccessPolicy.scope_queryset(
+            self.request, Rank.objects.all()
+        )
+
+    def list(self, request, *args, **kwargs):
+        q = self.filter_queryset(self.get_queryset()) \
+            .prefetch_related('track') \
+            .select_related('users')
+
+        main_keys = {
+            'campaign_id': F('track__campaign__id'),
+            'campaign_name': F('track__campaign__name')
+        }
+        q = q.values(**main_keys) \
+            .annotate(
+            ranks=ArrayAgg(Subquery(
+                q.filter(
+                    id=OuterRef('id')
+                ).annotate(
+                    count=Count('users'),
+                    rank_id=F('id'),
+                    rank_name=F('name')
+                ).values(
+                    json=JSONObject(id='rank_id',
+                                    count='count',
+                                    name='rank_name')
+                )
+            ))
+        )
+
+        return Response(q)
 
 
 class TrackViewSet(viewsets.ModelViewSet):
