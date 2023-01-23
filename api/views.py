@@ -7,8 +7,8 @@ import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
-from django.db.models.functions import Cast
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef
+from django.db.models.functions import Cast, JSONObject
 from django.http import HttpResponse, Http404
 from django.template import loader
 from django_filters.rest_framework import DjangoFilterBackend
@@ -37,7 +37,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, NumberRankSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -450,7 +450,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
-        if self.action in ['list', 'csv', 'user_activity_csv', 'search_by_responses']:
+        if self.action in ['list', 'csv', 'user_activity',
+                           'user_activity_csv', 'search_by_responses']:
             return TaskAccessPolicy.scope_queryset(
                 self.request, Task.objects.all()
             )
@@ -468,6 +469,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskSelectSerializer
         elif self.action == 'public':
             return TaskPublicSerializer
+        elif self.action == 'user_activity':
+            return TaskUserActivitySerializer
         else:
             return TaskDefaultSerializer
 
@@ -612,17 +615,21 @@ class TaskViewSet(viewsets.ModelViewSet):
             (Q(stage__publisher__is_public=True) & Q(complete=True)))
         return tasks
 
+    @paginate
     @action(detail=False)
     def user_activity(self, request):
-        tasks = self.filter_queryset(self.get_queryset())
-        groups = tasks.values('stage', 'stage__name').annotate(
+        tasks = self.filter_queryset(self.get_queryset()) \
+            .select_related('stage') \
+            .prefetch_related('stage__in_stages', 'stage__out_stages')
+        groups = tasks.values('stage').annotate(
             ranks=ArrayAgg('stage__ranks', distinct=True),
             in_stages=ArrayAgg('stage__in_stages', distinct=True),
             out_stages=ArrayAgg('stage__out_stages', distinct=True),
+            stage_name=F('stage__name'),
             **utils.task_stage_queries()
         )
 
-        return Response(groups)
+        return groups
 
     @action(detail=False)
     def user_activity_csv(self, request):
@@ -634,7 +641,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         Params for example:
         ?csv=true&task_responses={"a":"b"}
         """
-        tasks = self.filter_queryset(self.get_queryset())
+        tasks = self.filter_queryset(self.get_queryset()) \
+            .select_related('stage', 'assignee')
         groups = tasks.values('stage', 'stage__name', 'assignee').annotate(
             chain_id=F('stage__chain'),
             chain=F('stage__chain__name'),
@@ -773,6 +781,29 @@ class TaskViewSet(viewsets.ModelViewSet):
         # )
         return
 
+    @action(detail=False, methods=['get'])
+    def statistics(self):
+        q = self.filter_queryset(self.get_queryset()).select_related(
+            'stage'
+        )
+        q = q.values('stage', 'stage__name', 'complete',
+                     'force_complete').annotate().order_by('stage')
+        return q
+
+
+#         tasks = self.get_object().tasks.all()
+#         filters_tasks_info = {
+#             "complete": ArrayAgg('complete'),
+#             "force_complete": ArrayAgg('force_complete'),
+#             "id": ArrayAgg('pk'),
+#         }
+#         task_info_by_stage = tasks.values('stage', 'stage__name').annotate(
+#             **filters_tasks_info
+#         )
+#         return Response({
+#             "status": status.HTTP_200_OK,
+#             "info": list(task_info_by_stage)
+#         })
 
 class RankViewSet(viewsets.ModelViewSet):
     """
@@ -848,6 +879,46 @@ class RankLimitViewSet(viewsets.ModelViewSet):
         return RankLimitAccessPolicy.scope_queryset(
             self.request, RankLimit.objects.all()
         )
+
+
+class NumberRankViewSet(viewsets.ModelViewSet):
+    # serializer_class = NumberRanksSerializer
+
+    def get_serializer_class(self):
+        return NumberRankSerializer
+
+    def get_queryset(self):
+        return RankAccessPolicy.scope_queryset(
+            self.request, Rank.objects.all()
+        )
+
+    def list(self, request, *args, **kwargs):
+        q = self.filter_queryset(self.get_queryset()) \
+            .prefetch_related('track') \
+            .select_related('users')
+
+        main_keys = {
+            'campaign_id': F('track__campaign__id'),
+            'campaign_name': F('track__campaign__name')
+        }
+        q = q.values(**main_keys) \
+            .annotate(
+            ranks=ArrayAgg(Subquery(
+                q.filter(
+                    id=OuterRef('id')
+                ).annotate(
+                    count=Count('users'),
+                    rank_id=F('id'),
+                    rank_name=F('name')
+                ).values(
+                    json=JSONObject(id='rank_id',
+                                    count='count',
+                                    name='rank_name')
+                )
+            ))
+        )
+
+        return Response(q)
 
 
 class TrackViewSet(viewsets.ModelViewSet):
