@@ -77,9 +77,9 @@ router.register(api_v1 + r'dynamicjsons',
 router.register(api_v1 + r'testwebhook',
                 turnip_app.TestWebhookViewSet,
                 basename='testwebhook')
-router.register(api_v1 + r'numberraanks',
+router.register(api_v1 + r'numberranks',
                 turnip_app.NumberRankViewSet,
-                basename='numberraank')
+                basename='numberrank')
 
 
 urlpatterns = [path('admin/', admin.site.urls),

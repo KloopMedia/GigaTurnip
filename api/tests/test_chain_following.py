@@ -14,7 +14,7 @@ from api.constans import TaskStageConstants, CopyFieldConstants, \
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
-    ErrorGroup, ErrorItem
+    ErrorGroup, ErrorItem, CampaignManagement
 from jsonschema import validate
 
 
@@ -4071,6 +4071,48 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Notification.objects.count(), 2)
         self.assertEqual(self.user.notifications.filter(sender_task=task,
                                                         receiver_task=task).count(), 1)
+        response = self.get_objects('task-user-selectable', client=self.employee_client)
+
+    def test_number_rank_endpoint(self):
+        CampaignManagement.objects.create(user=self.employee,
+                                          campaign=self.campaign)
+        manager = CustomUser.objects.create_user(username="manager",
+                                                       email='manager@email.com',
+                                                       password='manager')
+        track = Track.objects.create(campaign=self.campaign)
+        rank1 = Rank.objects.create(name='rank1', track=track)
+        rank2 = Rank.objects.create(name='rank2', track=track)
+        rank3 = Rank.objects.create(name='rank3', track=track)
+        track.default_rank = rank1
+        self.campaign.default_track = track
+        self.campaign.save(), track.save()
+
+        RankRecord.objects.create(user=self.employee,
+                                  rank=rank1)
+        RankRecord.objects.create(user=manager,
+                                  rank=rank1)
+        RankRecord.objects.create(user=self.employee,
+                                  rank=rank2)
+        RankRecord.objects.create(user=self.employee,
+                                  rank=rank3)
+
+        response = self.get_objects('numberrank-list', client=self.employee_client)
+        data = response.json()[0]
+
+        expected_count_rank = 4
+
+        default_rank = data['ranks'][0]
+        rank1 = data['ranks'][1]
+        rank2 = data['ranks'][2]
+        rank3 = data['ranks'][3]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(data['ranks']), expected_count_rank)
+        self.assertEqual(default_rank['count'], 0)
+        self.assertEqual(rank1['count'], 2)
+        self.assertEqual(rank2['count'], 1)
+        self.assertEqual(rank3['count'], 1)
+
+
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
