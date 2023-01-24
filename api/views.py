@@ -23,7 +23,8 @@ from django.shortcuts import get_object_or_404
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
     RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, DynamicJson, CustomUser, TestWebhook, Webhook
+    Notification, NotificationStatus, ResponseFlattener, TaskAward, \
+    DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete
 from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStageSerializer, ConditionalStageSerializer, \
     CaseSerializer, RankSerializer, RankLimitSerializer, \
@@ -37,7 +38,8 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, NumberRankSerializer
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, \
+    NumberRankSerializer, UserDeleteSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -66,12 +68,45 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=False, methods=['get'])
-    def delete(self, request, *args, **kwargs):
-        if request.user.rename():
-            return Response({"status": status.HTTP_200_OK,
-                             "message": "Profile deleted successfully!"})
-        return Response({"status": status.HTTP_409_CONFLICT,
-                         "message": "Something went wrong"})
+    def delete_init(self, request, *args, **kwargs):
+        del_obj = UserDelete.objects.create(user=request.user)
+        return Response(
+            {"delete_pk": del_obj.pk},
+            status=status.HTTP_201_CREATED
+        )
+
+
+    @action(detail=True, methods=['post'])
+    def delete_user(self, request, pk=None):
+        from datetime import datetime, timedelta
+        now_minus_5 = datetime.now() - timedelta(minutes=5)
+        obj = UserDelete.objects.filter(
+            pk=pk, user =request.user,
+            created_at__gt=now_minus_5
+        )
+        serializer = UserDeleteSerializer(data=request.data)
+        if serializer.is_valid() and obj.count() > 0:
+            if serializer.data['artifact'] in [request.user.email,
+                                               request.user.username]:
+                if request.user.rename():
+                    return Response(
+                        {"message": "Profile deleted successfully!"},
+                        status=status.HTTP_200_OK
+                    )
+                else:
+                    return Response(
+                        {
+                         "message": "Something went wrong"},
+                        status=status.HTTP_409_CONFLICT
+                    )
+            return Response(
+                {"message": "Email or phone number is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(
+            {"message": "You haven't approve previous step yet."},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 class CampaignViewSet(viewsets.ModelViewSet):

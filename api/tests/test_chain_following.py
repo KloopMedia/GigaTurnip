@@ -1,6 +1,7 @@
 import json
 import random
 from uuid import uuid4
+from datetime import datetime, timedelta
 
 from django.db import IntegrityError
 from django.db.models import Count
@@ -11,10 +12,13 @@ from rest_framework.reverse import reverse
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, FieldsJsonConstants, \
     ErrorConstants, WebhookConstants
-from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
-    ErrorGroup, ErrorItem
+from api.models import CustomUser, TaskStage, Campaign, Chain, \
+    ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
+    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
+    AdminPreference, Track, TaskAward, Notification, \
+    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, \
+    ConditionalLimit, DatetimeSort, \
+    ErrorGroup, ErrorItem, UserDelete
 from jsonschema import validate
 
 
@@ -4497,3 +4501,58 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual({'echo': [echo_response], 'status': 200},
                          Task.objects.get(id=next_task.id).responses)
+
+    def test_user_deletion_success(self):
+        data_delete = {
+            "artifact": self.user.email
+        }
+        response = self.get_objects('user-delete-init')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(UserDelete.objects.count(), 1)
+        self.assertEqual(UserDelete.objects.filter(user=self.user).count(), 1)
+        obj = UserDelete.objects.filter(user=self.user)[0]
+
+        response = self.client.post(reverse(
+            'user-delete-user',
+            kwargs={"pk": obj.id}), data=data_delete)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'],
+                         'Profile deleted successfully!')
+
+    def test_user_deletion_incorrect_email(self):
+        data_delete = {
+            "artifact": "incorrect" + self.user.email
+        }
+        response = self.get_objects('user-delete-init')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(UserDelete.objects.count(), 1)
+        self.assertEqual(UserDelete.objects.filter(user=self.user).count(), 1)
+        obj = UserDelete.objects.filter(user=self.user)[0]
+
+        response = self.client.post(reverse(
+            'user-delete-user',
+            kwargs={"pk": obj.id}), data=data_delete)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'],
+                         'Email or phone number is incorrect.')
+
+    def test_user_deletion_unavailable_del_object(self):
+        data_delete = {
+            "artifact": self.user.email
+        }
+        response = self.get_objects('user-delete-init')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(UserDelete.objects.count(), 1)
+        self.assertEqual(UserDelete.objects.filter(user=self.user).count(), 1)
+        now_minus_15 = datetime.now() - timedelta(minutes=15)
+        del_obj = UserDelete.objects.filter(user=self.user)[0]
+        del_obj.created_at = now_minus_15
+        del_obj.updated_at = now_minus_15
+        del_obj.save()
+
+        response = self.client.post(reverse(
+            'user-delete-user',
+            kwargs={"pk": del_obj.id}), data=data_delete)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data['message'],
+                         'You haven\'t approve previous step yet.')
