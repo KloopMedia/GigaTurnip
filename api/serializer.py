@@ -26,6 +26,10 @@ class CampaignSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class UserDeleteSerializer(serializers.Serializer):
+    artifact = serializers.CharField()
+
+
 class CampaignValidationCheck:
     __metaclass__ = ABCMeta
 
