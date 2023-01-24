@@ -1,6 +1,7 @@
 import csv
 import operator
 from functools import reduce
+from datetime import datetime, timedelta
 
 import django_filters
 import requests
@@ -69,6 +70,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def delete_init(self, request, *args, **kwargs):
+        """
+        First step to delete user. Create User Delete
+        object that will used in the delete_user endpoint.
+        """
         del_obj = UserDelete.objects.create(user=request.user)
         [i.delete() for i in UserDelete.objects.filter(user=request.user)[1:]]
         return Response(
@@ -78,7 +83,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def delete_user(self, request, pk=None):
-        from datetime import datetime, timedelta
+        """
+        Param PK is UserDelete pk that returned by delete_init endpoint.
+        User will be deleted if UserDelete obj created less than 5 minutes
+        later.
+        """
         now_minus_5 = datetime.now() - timedelta(minutes=5)
         obj = UserDelete.objects.filter(
             pk=pk, user =request.user,
