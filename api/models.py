@@ -74,6 +74,15 @@ class CustomUser(AbstractUser, BaseDatesModel):
         return False
 
 
+class UserDelete(BaseDatesModel):
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        help_text='Reference to the user.'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class BaseModel(BaseDatesModel):
