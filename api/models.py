@@ -74,8 +74,6 @@ class CustomUser(AbstractUser, BaseDatesModel):
         return False
 
 
-
-
 class BaseModel(BaseDatesModel):
     name = models.CharField(
         max_length=100,
