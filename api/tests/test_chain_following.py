@@ -2330,13 +2330,19 @@ class GigaTurnipTest(APITestCase):
 
     def test_user_activity_on_stages(self):
         tasks = self.create_initial_tasks(5)
+        self.user.managed_campaigns.add(self.campaign)
 
+        ranks = [i['id'] for i in self.initial_stage.ranks.all().values('id')]
+        in_stages = [i['id'] for i in
+                     self.initial_stage.in_stages.all().values('id')]
+        out_stages = [i['id'] for i in
+                      self.initial_stage.out_stages.all().values('id')]
         expected_activity = {
             'stage': self.initial_stage.id,
-            'stage__name': self.initial_stage.name,
-            'ranks': [i['id'] for i in self.initial_stage.ranks.all().values('id')],
-            'in_stages': [i['id'] for i in self.initial_stage.in_stages.all().values('id')],
-            'out_stages': [i['id'] for i in self.initial_stage.out_stages.all().values('id')],
+            'stage_name': self.initial_stage.name,
+            'ranks': ranks or [None],
+            'in_stages': in_stages or [None],
+            'out_stages': out_stages or [None],
             'complete_true': 3,
             'complete_false': 2,
             'force_complete_false': 5,
@@ -2354,7 +2360,9 @@ class GigaTurnipTest(APITestCase):
             t.save()
         response = self.get_objects('task-user-activity')
         # Will Fail if your database isn't postgres. because of dj.func ArrayAgg. Make sure that your DB is PostgreSql
-        self.assertEqual(list(response.data['results']), [expected_activity])
+        self.assertEqual(
+            json.loads(response.content)['results'], [expected_activity]
+        )
 
     def test_post_json_filter_json_fields(self):
         self.initial_stage.json_schema = json.dumps({

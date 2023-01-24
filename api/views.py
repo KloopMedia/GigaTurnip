@@ -76,7 +76,6 @@ class UserViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
 
-
     @action(detail=True, methods=['post'])
     def delete_user(self, request, pk=None):
         from datetime import datetime, timedelta
