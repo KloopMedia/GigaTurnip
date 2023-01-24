@@ -70,6 +70,7 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def delete_init(self, request, *args, **kwargs):
         del_obj = UserDelete.objects.create(user=request.user)
+        [i.delete() for i in UserDelete.objects.filter(user=request.user)[1:]]
         return Response(
             {"delete_pk": del_obj.pk},
             status=status.HTTP_201_CREATED

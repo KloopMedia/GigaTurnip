@@ -97,7 +97,7 @@ DATABASES = {
 
     'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'gigaturnip',
+            'NAME': 'one_time_use',
             'USER': 'postgres',
             'PASSWORD': 'postgres',
             'HOST': 'localhost',

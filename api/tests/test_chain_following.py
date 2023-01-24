@@ -2354,7 +2354,7 @@ class GigaTurnipTest(APITestCase):
             t.save()
         response = self.get_objects('task-user-activity')
         # Will Fail if your database isn't postgres. because of dj.func ArrayAgg. Make sure that your DB is PostgreSql
-        self.assertEqual(list(response.data), [expected_activity])
+        self.assertEqual(list(response.data['results']), [expected_activity])
 
     def test_post_json_filter_json_fields(self):
         self.initial_stage.json_schema = json.dumps({
