@@ -4211,6 +4211,26 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(prize_rank_2, self.user.ranks.all())
         self.assertIn(prize_rank_3, self.user.ranks.all())
 
+    def test_task_awards_without_notifications(self):
+        schema = {"type": "object", "properties": {
+            "foo": {"type": "string", "title": "what is ur name"}}}
+        prize_rank_1 = Rank.objects.create(name='Good', track=self.user.ranks.all()[0].track)
+
+        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.save()
+        task_award_1 = TaskAward.objects.create(
+            task_stage_completion=self.initial_stage,
+            task_stage_verified=self.initial_stage,
+            rank=prize_rank_1,
+            count=1,
+        )
+
+        self.assertEqual(self.user.ranks.count(), 1)
+        self.assertNotIn(prize_rank_1, self.user.ranks.all())
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"foo": "Ivan Ivanov!"})
+        self.assertEqual(task.responses, {"foo": "Ivan Ivanov!"})
+        self.assertIn(prize_rank_1, self.user.ranks.all())
 
     def test_error_creating_for_managers(self):
         self.initial_stage.json_schema = json.dumps({
