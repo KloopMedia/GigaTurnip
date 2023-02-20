@@ -8,7 +8,7 @@ import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef, Case as ExCase
 from django.db.models.functions import Cast, JSONObject
 from django.http import HttpResponse, Http404
 from django.template import loader
@@ -956,11 +956,20 @@ class NumberRankViewSet(viewsets.ModelViewSet):
                 ).annotate(
                     count=Count('users'),
                     rank_id=F('id'),
-                    rank_name=F('name')
+                    rank_name=F('name'),
+                    condition=ExCase(
+                        When(Q(prerequisite_ranks__isnull=False),
+                             then=Value('prerequisite_ranks')),
+                        When(Q(taskaward__isnull=False),
+                             then=Value('task_awards')),
+                        default=Value('default'),
+                        output_field=TextField()
+                    )
                 ).values(
                     json=JSONObject(id='rank_id',
                                     count='count',
-                                    name='rank_name')
+                                    name='rank_name',
+                                    condition='condition')
                 )
             ))
         )
