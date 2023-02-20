@@ -2182,7 +2182,6 @@ class GigaTurnipTest(APITestCase):
         content = json.loads(response.content)
         self.assertEqual(len(content['results']), 0)
 
-
     def test_task_with_timer_is_exist(self):
         second_stage = self.initial_stage.add_stage(TaskStage(
             assign_user_by="RA"
@@ -2212,7 +2211,7 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects('task-user-relevant')
         content = json.loads(response.content)
-        self.assertEqual(len(content), 1)
+        self.assertEqual(len(content['results']), 1)
 
     def test_test_webhook(self):
         task = self.create_initial_task()
