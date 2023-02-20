@@ -583,7 +583,7 @@ class TaskTest(APITestCase):
                              complete=False) for x in range(5)]
         self.assertEqual(Task.objects.count(), 10)
         response = self.client.get(self.url_tasks + "user_relevant/")
-        self.assertEqual(json.loads(response.content), [])
+        self.assertEqual(json.loads(response.content)['results'], [])
 
     # watch assigned tasks
     def test_user_relevant_success(self):
@@ -594,7 +594,7 @@ class TaskTest(APITestCase):
         self.assertEqual(Task.objects.count(), 10)
         response = self.client.get(self.url_tasks + "user_relevant/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(json.loads(response.content)), 5)
+        self.assertEqual(len(json.loads(response.content)['results']), 5)
 
     # Test task completion success for assigned user
     def test_task_completion_success(self):

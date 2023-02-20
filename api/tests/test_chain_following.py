@@ -187,6 +187,22 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
 
+    def test_TaskStageViewSet_public_paginate(self):
+        response = self.get_objects('taskstage-public')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            set(json.loads(response.content).keys()),
+            {"count", "next", "previous", "results"}
+            )
+
+    def test_TaskStageViewSet_user_relevant_paginate(self):
+        response = self.get_objects('taskstage-user-relevant')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            set(json.loads(response.content).keys()),
+            {"count", "next", "previous", "results"}
+        )
+
     def test_task_stage_serializers_by_flag(self):
         self.user.managed_campaigns.add(self.campaign)
         response = self.get_objects('taskstage-list')
@@ -708,6 +724,15 @@ class GigaTurnipTest(APITestCase):
 
         self.assertIsNone(task.responses)
 
+    def test_TaskViewSet_get_integrated_tasks_paginate(self):
+        task = self.create_initial_task()
+        response = self.get_objects("task-get-integrated-tasks", pk=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            set(json.loads(response.content).keys()),
+            {"count", "next", "previous", "results"}
+        )
+
     def test_get_tasks_selectable(self):
         second_stage = self.initial_stage.add_stage(TaskStage())
         self.client = self.prepare_client(second_stage, self.user)
@@ -715,7 +740,7 @@ class GigaTurnipTest(APITestCase):
         task_1 = self.complete_task(task_1)
         task_2 = task_1.out_tasks.all()[0]
         response = self.get_objects("task-user-selectable")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
 
@@ -2182,7 +2207,6 @@ class GigaTurnipTest(APITestCase):
         content = json.loads(response.content)
         self.assertEqual(len(content['results']), 0)
 
-
     def test_task_with_timer_is_exist(self):
         second_stage = self.initial_stage.add_stage(TaskStage(
             assign_user_by="RA"
@@ -2212,7 +2236,7 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects('task-user-relevant')
         content = json.loads(response.content)
-        self.assertEqual(len(content), 1)
+        self.assertEqual(len(content['results']), 1)
 
     def test_test_webhook(self):
         task = self.create_initial_task()

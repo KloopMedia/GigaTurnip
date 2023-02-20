@@ -261,20 +261,20 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStage.objects.all()
 
+    @paginate
     @action(detail=False)
     def user_relevant(self, request):
         stages = self.filter_queryset(self.get_queryset())
         stages = utils.filter_for_user_creatable_stages(stages, request)
-        serializer = self.get_serializer(stages, many=True)
-        return Response(serializer.data)
+        return stages
 
+    @paginate
     @action(detail=False)
     def public(self, request):
         stages = self.filter_queryset(self.get_queryset())
         stages = stages.filter(
             Q(is_public=True) | Q(publisher__is_public=True))
-        serializer = self.get_serializer(stages, many=True)
-        return Response(serializer.data)
+        return stages
 
     @action(detail=True, methods=['post', 'get'])
     def create_task(self, request, pk=None):
@@ -617,6 +617,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
+    @paginate
     @action(detail=False)
     def user_relevant(self, request):
         """
@@ -626,8 +627,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         tasks = queryset.filter(assignee=request.user) \
             .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        return tasks
 
     @paginate
     @action(detail=False, methods=["GET", "POST"])
@@ -721,6 +721,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         return Response(groups)
 
+    @paginate
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
         """
@@ -729,8 +730,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         tasks = self.filter_queryset(self.get_queryset())
         tasks = tasks.filter(out_tasks=self.get_object())
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        return tasks
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
@@ -800,11 +800,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     #             status=status.HTTP_403_FORBIDDEN
     #         )
 
+    @paginate
     @action(detail=True, methods=['get'])
     def list_displayed_previous(self, request, pk=None):
         tasks = self.get_object().get_displayed_prev_tasks()
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        return tasks
 
     @action(detail=True, methods=['get'])
     def trigger_webhook(self, request, pk=None):
