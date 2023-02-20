@@ -4090,10 +4090,18 @@ class GigaTurnipTest(APITestCase):
         track = Track.objects.create(campaign=self.campaign)
         rank1 = Rank.objects.create(name='rank1', track=track)
         rank2 = Rank.objects.create(name='rank2', track=track)
+        rank2.prerequisite_ranks.add(rank1)
         rank3 = Rank.objects.create(name='rank3', track=track)
         track.default_rank = rank1
         self.campaign.default_track = track
         self.campaign.save(), track.save()
+
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=self.initial_stage,
+            task_stage_verified=self.initial_stage,
+            rank=rank3,
+            count=1,
+        )
 
         RankRecord.objects.create(user=self.employee,
                                   rank=rank1)
@@ -4119,6 +4127,9 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(rank1['count'], 2)
         self.assertEqual(rank2['count'], 1)
         self.assertEqual(rank3['count'], 1)
+        self.assertEqual(rank1['condition'], 'default')
+        self.assertEqual(rank2['condition'], 'prerequisite_ranks')
+        self.assertEqual(rank3['condition'], 'task_awards')
 
 
 
