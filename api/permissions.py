@@ -49,7 +49,7 @@ class CampaignAccessPolicy(AccessPolicy):
 class UserAccessPolicy(AccessPolicy):
     statements = [
         {
-            "action": ['delete'],
+            "action": ['delete_init', 'delete_user'],
             "principal": "authenticated",
             "effect": "allow",
         }

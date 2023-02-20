@@ -74,6 +74,15 @@ class CustomUser(AbstractUser, BaseDatesModel):
         return False
 
 
+class UserDelete(BaseDatesModel):
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        help_text='Reference to the user.'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class BaseModel(BaseDatesModel):
@@ -1506,9 +1515,10 @@ class TaskAward(BaseDatesModel, CampaignInterface):
             if rank_record:
                 return rank_record[0]
             rank_record = RankRecord.objects.create(user=user, rank=self.rank)
-            new_notification = self.notification
-            new_notification.pk, new_notification.target_user = None, user
-            new_notification.save()
+            if self.notification:
+                new_notification = self.notification
+                new_notification.pk, new_notification.target_user = None, user
+                new_notification.save()
 
             return rank_record
         else:
