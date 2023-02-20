@@ -2340,6 +2340,8 @@ class GigaTurnipTest(APITestCase):
         expected_activity = {
             'stage': self.initial_stage.id,
             'stage_name': self.initial_stage.name,
+            'chain': self.initial_stage.chain.id,
+            'chain_name': self.initial_stage.chain.name,
             'ranks': ranks or [None],
             'in_stages': in_stages or [None],
             'out_stages': out_stages or [None],
