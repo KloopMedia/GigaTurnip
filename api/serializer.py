@@ -255,6 +255,8 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
 class TaskUserActivitySerializer(serializers.Serializer):
     stage = serializers.IntegerField()
     stage_name = serializers.CharField()
+    chain = serializers.IntegerField()
+    chain_name = serializers.CharField()
     ranks = serializers.ListField(child=serializers.IntegerField())
     in_stages = serializers.ListField(child=serializers.IntegerField())
     out_stages = serializers.ListField(child=serializers.IntegerField())

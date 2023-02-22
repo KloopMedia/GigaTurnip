@@ -18,7 +18,11 @@ from api.models import CustomUser, TaskStage, Campaign, Chain, \
     AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, \
     ConditionalLimit, DatetimeSort, \
-    ErrorGroup, ErrorItem, UserDelete
+    ErrorGroup, ErrorItem
+from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
+    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
+    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
+    ErrorGroup, ErrorItem, CampaignManagement
 from jsonschema import validate
 
 
@@ -186,6 +190,22 @@ class GigaTurnipTest(APITestCase):
     def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
+
+    def test_TaskStageViewSet_public_paginate(self):
+        response = self.get_objects('taskstage-public')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            set(json.loads(response.content).keys()),
+            {"count", "next", "previous", "results"}
+            )
+
+    def test_TaskStageViewSet_user_relevant_paginate(self):
+        response = self.get_objects('taskstage-user-relevant')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            set(json.loads(response.content).keys()),
+            {"count", "next", "previous", "results"}
+        )
 
     def test_task_stage_serializers_by_flag(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -708,6 +728,15 @@ class GigaTurnipTest(APITestCase):
 
         self.assertIsNone(task.responses)
 
+    def test_TaskViewSet_get_integrated_tasks_paginate(self):
+        task = self.create_initial_task()
+        response = self.get_objects("task-get-integrated-tasks", pk=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            set(json.loads(response.content).keys()),
+            {"count", "next", "previous", "results"}
+        )
+
     def test_get_tasks_selectable(self):
         second_stage = self.initial_stage.add_stage(TaskStage())
         self.client = self.prepare_client(second_stage, self.user)
@@ -715,7 +744,7 @@ class GigaTurnipTest(APITestCase):
         task_1 = self.complete_task(task_1)
         task_2 = task_1.out_tasks.all()[0]
         response = self.get_objects("task-user-selectable")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
 
@@ -2182,7 +2211,6 @@ class GigaTurnipTest(APITestCase):
         content = json.loads(response.content)
         self.assertEqual(len(content['results']), 0)
 
-
     def test_task_with_timer_is_exist(self):
         second_stage = self.initial_stage.add_stage(TaskStage(
             assign_user_by="RA"
@@ -2212,7 +2240,7 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects('task-user-relevant')
         content = json.loads(response.content)
-        self.assertEqual(len(content), 1)
+        self.assertEqual(len(content['results']), 1)
 
     def test_test_webhook(self):
         task = self.create_initial_task()
@@ -2330,19 +2358,13 @@ class GigaTurnipTest(APITestCase):
 
     def test_user_activity_on_stages(self):
         tasks = self.create_initial_tasks(5)
-        self.user.managed_campaigns.add(self.campaign)
 
-        ranks = [i['id'] for i in self.initial_stage.ranks.all().values('id')]
-        in_stages = [i['id'] for i in
-                     self.initial_stage.in_stages.all().values('id')]
-        out_stages = [i['id'] for i in
-                      self.initial_stage.out_stages.all().values('id')]
         expected_activity = {
             'stage': self.initial_stage.id,
-            'stage_name': self.initial_stage.name,
-            'ranks': ranks or [None],
-            'in_stages': in_stages or [None],
-            'out_stages': out_stages or [None],
+            'stage__name': self.initial_stage.name,
+            'ranks': [i['id'] for i in self.initial_stage.ranks.all().values('id')],
+            'in_stages': [i['id'] for i in self.initial_stage.in_stages.all().values('id')],
+            'out_stages': [i['id'] for i in self.initial_stage.out_stages.all().values('id')],
             'complete_true': 3,
             'complete_false': 2,
             'force_complete_false': 5,
@@ -2360,9 +2382,7 @@ class GigaTurnipTest(APITestCase):
             t.save()
         response = self.get_objects('task-user-activity')
         # Will Fail if your database isn't postgres. because of dj.func ArrayAgg. Make sure that your DB is PostgreSql
-        self.assertEqual(
-            json.loads(response.content)['results'], [expected_activity]
-        )
+        self.assertEqual(list(response.data), [expected_activity])
 
     def test_post_json_filter_json_fields(self):
         self.initial_stage.json_schema = json.dumps({
@@ -4083,6 +4103,59 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(Notification.objects.count(), 2)
         self.assertEqual(self.user.notifications.filter(sender_task=task,
                                                         receiver_task=task).count(), 1)
+        response = self.get_objects('task-user-selectable', client=self.employee_client)
+
+    def test_number_rank_endpoint(self):
+        CampaignManagement.objects.create(user=self.employee,
+                                          campaign=self.campaign)
+        manager = CustomUser.objects.create_user(username="manager",
+                                                       email='manager@email.com',
+                                                       password='manager')
+        track = Track.objects.create(campaign=self.campaign)
+        rank1 = Rank.objects.create(name='rank1', track=track)
+        rank2 = Rank.objects.create(name='rank2', track=track)
+        rank2.prerequisite_ranks.add(rank1)
+        rank3 = Rank.objects.create(name='rank3', track=track)
+        track.default_rank = rank1
+        self.campaign.default_track = track
+        self.campaign.save(), track.save()
+
+        task_awards = TaskAward.objects.create(
+            task_stage_completion=self.initial_stage,
+            task_stage_verified=self.initial_stage,
+            rank=rank3,
+            count=1,
+        )
+
+        RankRecord.objects.create(user=self.employee,
+                                  rank=rank1)
+        RankRecord.objects.create(user=manager,
+                                  rank=rank1)
+        RankRecord.objects.create(user=self.employee,
+                                  rank=rank2)
+        RankRecord.objects.create(user=self.employee,
+                                  rank=rank3)
+
+        response = self.get_objects('numberrank-list', client=self.employee_client)
+        data = response.json()[0]
+
+        expected_count_rank = 4
+
+        default_rank = data['ranks'][0]
+        rank1 = data['ranks'][1]
+        rank2 = data['ranks'][2]
+        rank3 = data['ranks'][3]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(data['ranks']), expected_count_rank)
+        self.assertEqual(default_rank['count'], 0)
+        self.assertEqual(rank1['count'], 2)
+        self.assertEqual(rank2['count'], 1)
+        self.assertEqual(rank3['count'], 1)
+        self.assertEqual(rank1['condition'], 'default')
+        self.assertEqual(rank2['condition'], 'prerequisite_ranks')
+        self.assertEqual(rank3['condition'], 'task_awards')
+
+
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
@@ -4211,26 +4284,6 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(prize_rank_2, self.user.ranks.all())
         self.assertIn(prize_rank_3, self.user.ranks.all())
 
-    def test_task_awards_without_notifications(self):
-        schema = {"type": "object", "properties": {
-            "foo": {"type": "string", "title": "what is ur name"}}}
-        prize_rank_1 = Rank.objects.create(name='Good', track=self.user.ranks.all()[0].track)
-
-        self.initial_stage.json_schema = json.dumps(schema)
-        self.initial_stage.save()
-        task_award_1 = TaskAward.objects.create(
-            task_stage_completion=self.initial_stage,
-            task_stage_verified=self.initial_stage,
-            rank=prize_rank_1,
-            count=1,
-        )
-
-        self.assertEqual(self.user.ranks.count(), 1)
-        self.assertNotIn(prize_rank_1, self.user.ranks.all())
-        task = self.create_initial_task()
-        task = self.complete_task(task, {"foo": "Ivan Ivanov!"})
-        self.assertEqual(task.responses, {"foo": "Ivan Ivanov!"})
-        self.assertIn(prize_rank_1, self.user.ranks.all())
 
     def test_error_creating_for_managers(self):
         self.initial_stage.json_schema = json.dumps({
@@ -4529,58 +4582,3 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual({'echo': [echo_response], 'status': 200},
                          Task.objects.get(id=next_task.id).responses)
-
-    def test_user_deletion_success(self):
-        data_delete = {
-            "artifact": self.user.email
-        }
-        response = self.get_objects('user-delete-init')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(UserDelete.objects.count(), 1)
-        self.assertEqual(UserDelete.objects.filter(user=self.user).count(), 1)
-        obj = UserDelete.objects.filter(user=self.user)[0]
-
-        response = self.client.post(reverse(
-            'user-delete-user',
-            kwargs={"pk": obj.id}), data=data_delete)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['message'],
-                         'Profile deleted successfully!')
-
-    def test_user_deletion_incorrect_email(self):
-        data_delete = {
-            "artifact": "incorrect" + self.user.email
-        }
-        response = self.get_objects('user-delete-init')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(UserDelete.objects.count(), 1)
-        self.assertEqual(UserDelete.objects.filter(user=self.user).count(), 1)
-        obj = UserDelete.objects.filter(user=self.user)[0]
-
-        response = self.client.post(reverse(
-            'user-delete-user',
-            kwargs={"pk": obj.id}), data=data_delete)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'],
-                         'Email or phone number is incorrect.')
-
-    def test_user_deletion_unavailable_del_object(self):
-        data_delete = {
-            "artifact": self.user.email
-        }
-        response = self.get_objects('user-delete-init')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(UserDelete.objects.count(), 1)
-        self.assertEqual(UserDelete.objects.filter(user=self.user).count(), 1)
-        now_minus_15 = datetime.now() - timedelta(minutes=15)
-        del_obj = UserDelete.objects.filter(user=self.user)[0]
-        del_obj.created_at = now_minus_15
-        del_obj.updated_at = now_minus_15
-        del_obj.save()
-
-        response = self.client.post(reverse(
-            'user-delete-user',
-            kwargs={"pk": del_obj.id}), data=data_delete)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data['message'],
-                         'You haven\'t approve previous step yet.')

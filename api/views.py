@@ -8,7 +8,7 @@ import requests
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef
+from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef, Case as ExCase
 from django.db.models.functions import Cast, JSONObject
 from django.http import HttpResponse, Http404
 from django.template import loader
@@ -261,20 +261,20 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStage.objects.all()
 
+    @paginate
     @action(detail=False)
     def user_relevant(self, request):
         stages = self.filter_queryset(self.get_queryset())
         stages = utils.filter_for_user_creatable_stages(stages, request)
-        serializer = self.get_serializer(stages, many=True)
-        return Response(serializer.data)
+        return stages
 
+    @paginate
     @action(detail=False)
     def public(self, request):
         stages = self.filter_queryset(self.get_queryset())
         stages = stages.filter(
             Q(is_public=True) | Q(publisher__is_public=True))
-        serializer = self.get_serializer(stages, many=True)
-        return Response(serializer.data)
+        return stages
 
     @action(detail=True, methods=['post', 'get'])
     def create_task(self, request, pk=None):
@@ -480,6 +480,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         'stage': ['exact'],
         'stage__chain__campaign': ['exact'],
         'stage__chain': ['exact'],
+        'stage__chain__name': ['exact'],
         'assignee': ['exact'],
         'assignee__ranks': ['exact'],
         'complete': ['exact'],
@@ -616,6 +617,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
+    @paginate
     @action(detail=False)
     def user_relevant(self, request):
         """
@@ -625,8 +627,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         tasks = queryset.filter(assignee=request.user) \
             .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        return tasks
 
     @paginate
     @action(detail=False, methods=["GET", "POST"])
@@ -663,9 +664,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
-            .select_related('stage') \
+            .select_related('stage', 'stage__chain', 'stage__chain__name') \
             .prefetch_related('stage__in_stages', 'stage__out_stages')
         groups = tasks.values('stage').annotate(
+            chain=F('stage__chain'),
+            chain_name=F('stage__chain__name'),
             ranks=ArrayAgg('stage__ranks', distinct=True),
             in_stages=ArrayAgg('stage__in_stages', distinct=True),
             out_stages=ArrayAgg('stage__out_stages', distinct=True),
@@ -718,6 +721,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         return Response(groups)
 
+    @paginate
     @action(detail=True)
     def get_integrated_tasks(self, request, pk=None):
         """
@@ -726,8 +730,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         tasks = self.filter_queryset(self.get_queryset())
         tasks = tasks.filter(out_tasks=self.get_object())
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        return tasks
 
     @action(detail=True, methods=['post', 'get'])
     def request_assignment(self, request, pk=None):
@@ -797,11 +800,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     #             status=status.HTTP_403_FORBIDDEN
     #         )
 
+    @paginate
     @action(detail=True, methods=['get'])
     def list_displayed_previous(self, request, pk=None):
         tasks = self.get_object().get_displayed_prev_tasks()
-        serializer = self.get_serializer(tasks, many=True)
-        return Response(serializer.data)
+        return tasks
 
     @action(detail=True, methods=['get'])
     def trigger_webhook(self, request, pk=None):
@@ -953,11 +956,20 @@ class NumberRankViewSet(viewsets.ModelViewSet):
                 ).annotate(
                     count=Count('users'),
                     rank_id=F('id'),
-                    rank_name=F('name')
+                    rank_name=F('name'),
+                    condition=ExCase(
+                        When(Q(prerequisite_ranks__isnull=False),
+                             then=Value('prerequisite_ranks')),
+                        When(Q(taskaward__isnull=False),
+                             then=Value('task_awards')),
+                        default=Value('default'),
+                        output_field=TextField()
+                    )
                 ).values(
                     json=JSONObject(id='rank_id',
                                     count='count',
-                                    name='rank_name')
+                                    name='rank_name',
+                                    condition='condition')
                 )
             ))
         )
