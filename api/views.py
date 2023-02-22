@@ -156,19 +156,19 @@ class CampaignViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+    @paginate
     @action(detail=False)
     def list_user_campaigns(self, request):
         campaigns = utils.filter_for_user_campaigns(self.get_queryset(),
                                                     request)
-        serializer = self.get_serializer(campaigns, many=True)
-        return Response(serializer.data)
+        return campaigns
 
+    @paginate
     @action(detail=False)
     def list_user_selectable(self, request):
         campaigns = utils \
             .filter_for_user_selectable_campaigns(self.get_queryset(), request)
-        serializer = self.get_serializer(campaigns, many=True)
-        return Response(serializer.data)
+        return campaigns
 
 
 class ChainViewSet(viewsets.ModelViewSet):
