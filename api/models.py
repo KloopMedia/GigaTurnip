@@ -228,9 +228,9 @@ class CampaignLinker(BaseModel, CampaignInterface):
 
     stage_with_user = models.ForeignKey(
         "TaskStage",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
     )
 
     target = models.ForeignKey(
@@ -242,6 +242,10 @@ class CampaignLinker(BaseModel, CampaignInterface):
 
     def get_campaign(self) -> Campaign:
         return self.out_stage.get_campaign()
+
+    def get_user(self, case) -> CustomUser:
+        return case.tasks.filter(
+            stage=self.stage_with_user).first().assignee
 
 
 class ApproveLink(BaseDatesModel, CampaignInterface):
