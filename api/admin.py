@@ -12,7 +12,7 @@ from .models import Campaign, Chain, \
     Webhook, CopyField, StagePublisher, Quiz, \
     ResponseFlattener, TaskAward, DynamicJson, PreviousManual, \
     AutoNotification, ConditionalLimit, DatetimeSort, \
-    ErrorItem, TestWebhook, CampaignLinker
+    ErrorItem, TestWebhook, CampaignLinker, ApproveLink
 from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -603,13 +603,53 @@ class CampaignLinkerAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
+        qs = super(CampaignLinkerAdmin, self).get_queryset(request)
         user_admin_pref = request.user.get_admin_preference()
+        # filter for autocomplete calls by select2 widget
+        if request.path == '/admin/autocomplete/':
+            return qs.filter(
+                target=user_admin_pref.campaign
+            )
+
+        # qs for default changelist calls
         if not user_admin_pref:
             return CampaignLinker.objects.none()
-        qs = super(CampaignLinkerAdmin, self).get_queryset(request)
         return qs.filter(
             out_stage__chain__campaign=user_admin_pref.campaign
         )
+
+
+class ApproveLinkAdmin(admin.ModelAdmin):
+    list_display = (
+        "request_link",
+        "rank",
+        "notification",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = (
+        "request_link",
+        "rank",
+        "notification",
+    )
+    autocomplete_fields = (
+        "request_link",
+        "rank",
+        "notification",
+    )
+    exclude = ("campaign",)
+
+    def get_queryset(self, request):
+        qs = super(ApproveLinkAdmin, self).get_queryset(request)
+        return qs.filter(
+            campaign=request.user.get_admin_preference().campaign
+        )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            # Only set active campaign in admin preference.
+            obj.campaign = request.user.get_admin_preference().campaign
+        super().save_model(request, obj, form, change)
 
 
 class DynamicJsonAdmin(admin.ModelAdmin):
@@ -788,6 +828,7 @@ class TestWebhookAdmin(admin.ModelAdmin):
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(CampaignLinker, CampaignLinkerAdmin)
+admin.site.register(ApproveLink, ApproveLinkAdmin)
 admin.site.register(Chain, ChainAdmin)
 admin.site.register(TaskStage, TaskStageAdmin)
 admin.site.register(ConditionalStage, StageAdmin)

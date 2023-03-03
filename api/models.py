@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
 
 import requests
+from django.apps import apps
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
@@ -266,6 +267,14 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
 
     def get_campaign(self):
         return self.campaign
+
+    def connect_rank_with_user(self, user):
+        if self.rank:
+            self.rank.connect_with_user(user)
+        if self.notification:
+            self.notification.create_notification(
+                None, None, user
+            )
 
 
 class Chain(BaseModel, CampaignInterface):
@@ -1409,6 +1418,13 @@ class Rank(BaseModel, CampaignInterface):
 
     def __str__(self):
         return self.name
+
+    def connect_with_user(self, user):
+        apps.get_model(app_label='api',
+                       model_name='RankRecord').objects.get_or_create(
+            user=user,
+            rank=self,
+        )
 
 
 class Track(BaseModel, CampaignInterface):
