@@ -73,8 +73,10 @@ class CustomUser(AbstractUser, BaseDatesModel):
             return True
         return False
 
-    def get_admin_preference_campaign(self):
-        return self.admin_preference.objects.values("campaign")
+    def get_admin_preference(self):
+        if hasattr(self, 'admin_preference'):
+            return self.admin_preference
+        return None
 
 
 class UserDelete(BaseDatesModel):
