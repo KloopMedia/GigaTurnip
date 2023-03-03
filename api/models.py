@@ -238,6 +238,13 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         null=False,
     )
 
+    request_link = models.ForeignKey(
+        CampaignLinker,
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
     rank = models.ForeignKey(
         "Rank",
         on_delete=models.SET_NULL,
