@@ -211,6 +211,50 @@ class CampaignManagement(BaseDatesModel, CampaignInterface):
         return f"{self.campaign.name} - {self.user}"
 
 
+class CampaignLinker(BaseModel, CampaignInterface):
+    out_stage = models.ForeignKey(
+        "TaskStage",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+    target = models.ForeignKey(
+        "Campaign",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
+    def get_campaign(self) -> Campaign:
+        return self.out_stage.get_campaign()
+
+
+class ApproveLink(BaseDatesModel, CampaignInterface):
+    campaign = models.ForeignKey(
+        "Campaign",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
+    rank = models.ForeignKey(
+        "Rank",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+    notification = models.ForeignKey(
+        "AutoNotification",
+        blank=True,
+        null=True,
+    )
+
+    def get_campaign(self):
+        return self.campaign
+
+
 class Chain(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(
         Campaign,
