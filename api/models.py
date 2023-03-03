@@ -1156,12 +1156,12 @@ class Task(BaseDatesModel, CampaignInterface):
     start_period = models.DateTimeField(
         blank=True,
         null=True,
-        help_text='the time from which this task is available'
+        help_text='The task should become available to users in (measurement in hours)'
     )
     end_period = models.DateTimeField(
         blank=True,
         null=True,
-        help_text='the time until which this task is available'
+        help_text='The task will no longer be available to users in (measurement in hours)'
     )
 
     class Meta:
