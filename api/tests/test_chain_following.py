@@ -60,14 +60,36 @@ class GigaTurnipTest(APITestCase):
         rank_l.save()
         return self.create_client(u)
 
+    def generate_new_basic_campaign(self, name):
+        campaign = Campaign.objects.create(name=name)
+        default_track = Track.objects.create(
+            campaign=campaign,
+        )
+        campaign.default_track = default_track
+        rank = Rank.objects.create(name=f"Default {name} rank",
+                                   track=default_track)
+        default_track.default_rank = rank
+        campaign.save()
+        default_track.save()
+
+        chain = Chain.objects.create(
+            name=f"Default {name} chain",
+            campaign=campaign
+        )
+        return {
+            "campaign": campaign,
+            "default_track": default_track,
+            "rank": rank,
+            "chain": chain
+        }
+
     def setUp(self):
-        self.campaign = Campaign.objects.create(name="Campaign")
-        self.default_track = Track.objects.create(campaign=self.campaign)
-        self.default_rank = Rank.objects.create(name="Default campaign rank", track=self.default_track)
-        self.default_track.default_rank = self.default_rank
-        self.campaign.default_track = self.default_track
-        self.default_track.save(), self.campaign.save()
-        self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        basic_data = self.generate_new_basic_campaign("Coca-Cola")
+
+        self.campaign = basic_data['campaign']
+        self.default_track = basic_data['default_track']
+        self.default_rank = basic_data['rank']
+        self.chain = basic_data['chain']
         self.initial_stage = TaskStage.objects.create(
             name="Initial",
             x_pos=1,

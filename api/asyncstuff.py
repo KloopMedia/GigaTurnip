@@ -10,8 +10,10 @@ import math
 from api.api_exceptions import CustomApiException
 from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
     ConditionalStageConstants
-from api.models import Stage, TaskStage, ConditionalStage, Task, Case, TaskAward, PreviousManual, RankLimit, \
-    AutoNotification, DatetimeSort, ErrorItem
+from api.models import (
+    TaskStage, ConditionalStage, Task, Case,
+    RankLimit, DatetimeSort, ApproveLink
+)
 from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
     connect_user_with_ranks, give_task_awards, process_auto_completed_task, get_conditional_limit_count
 
@@ -58,6 +60,15 @@ def process_on_chain(current_stage, task):
         process_out_stages(current_stage, task)
 
 
+def give_rank_by_campaignlinks(task):
+    available_linkers = ApproveLink.objects.filter(
+        request_link__in=task.stage.stage_campaign_linkers_set.all()
+    )
+    if available_linkers.iterator():
+        print()
+    pass
+
+
 def process_completed_task(task):
     current_stage = task.stage
 
@@ -81,6 +92,7 @@ def process_completed_task(task):
     detecting_auto_notifications(current_stage, task)
 
     give_task_awards(current_stage, task)
+    give_rank_by_campaignlinks(task)
 
     next_direct_task = task.get_next_demo()
     if next_direct_task is not None:

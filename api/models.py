@@ -221,6 +221,14 @@ class CampaignLinker(BaseModel, CampaignInterface):
     out_stage = models.ForeignKey(
         "TaskStage",
         on_delete=models.SET_NULL,
+        related_name='stage_campaign_linkers_set',
+        blank=True,
+        null=True,
+    )
+
+    stage_with_user = models.ForeignKey(
+        "TaskStage",
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
     )
