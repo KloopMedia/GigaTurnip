@@ -18,7 +18,7 @@ from api.models import CustomUser, TaskStage, Campaign, Chain, \
     AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, \
     ConditionalLimit, DatetimeSort, \
-    ErrorGroup, ErrorItem
+    ErrorGroup, ErrorItem, CampaignLinker, ApproveLink
 from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
@@ -60,14 +60,36 @@ class GigaTurnipTest(APITestCase):
         rank_l.save()
         return self.create_client(u)
 
+    def generate_new_basic_campaign(self, name):
+        campaign = Campaign.objects.create(name=name)
+        default_track = Track.objects.create(
+            campaign=campaign,
+        )
+        campaign.default_track = default_track
+        rank = Rank.objects.create(name=f"Default {name} rank",
+                                   track=default_track)
+        default_track.default_rank = rank
+        campaign.save()
+        default_track.save()
+
+        chain = Chain.objects.create(
+            name=f"Default {name} chain",
+            campaign=campaign
+        )
+        return {
+            "campaign": campaign,
+            "default_track": default_track,
+            "rank": rank,
+            "chain": chain
+        }
+
     def setUp(self):
-        self.campaign = Campaign.objects.create(name="Campaign")
-        self.default_track = Track.objects.create(campaign=self.campaign)
-        self.default_rank = Rank.objects.create(name="Default campaign rank", track=self.default_track)
-        self.default_track.default_rank = self.default_rank
-        self.campaign.default_track = self.default_track
-        self.default_track.save(), self.campaign.save()
-        self.chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        basic_data = self.generate_new_basic_campaign("Coca-Cola")
+
+        self.campaign = basic_data['campaign']
+        self.default_track = basic_data['default_track']
+        self.default_rank = basic_data['rank']
+        self.chain = basic_data['chain']
         self.initial_stage = TaskStage.objects.create(
             name="Initial",
             x_pos=1,
@@ -4592,3 +4614,82 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual({'echo': [echo_response], 'status': 200},
                          Task.objects.get(id=next_task.id).responses)
+
+    def test_campaign_linker(self):
+        pepsi_data = self.generate_new_basic_campaign("Pepsi")
+        fanta_data = self.generate_new_basic_campaign("Fanta")
+        sprite_data = self.generate_new_basic_campaign("Sprite")
+
+        self.assertEqual(Rank.objects.count(), 5)
+        self.assertEqual(Track.objects.count(), 4)
+        self.assertEqual(Campaign.objects.count(), 4)
+
+        # creation queries to give another campaign ranks
+        cola_to_pepsi = CampaignLinker.objects.create(
+            name="From cola to PEPSI",
+            out_stage=self.initial_stage,
+            stage_with_user=self.initial_stage,
+            target=pepsi_data["campaign"]
+        )
+        cola_to_fanta = CampaignLinker.objects.create(
+            name="From cola to FANTA",
+            out_stage=self.initial_stage,
+            stage_with_user=self.initial_stage,
+            target=fanta_data["campaign"]
+        )
+        cola_to_sprite = CampaignLinker.objects.create(
+            name="From cola to SPRITE",
+            out_stage=self.initial_stage,
+            stage_with_user=self.initial_stage,
+            target=sprite_data["campaign"]
+        )
+
+        # Prize Notification
+        pepsi_not = Notification.objects.create(
+            title="You access new rank from Pepsi campaign!",
+            campaign=pepsi_data["campaign"]
+        )
+        sprite_not = Notification.objects.create(
+            title="You access new rank from Pepsi campaign!",
+            campaign=pepsi_data["campaign"]
+        )
+        pepsi_auto_not = AutoNotification.objects.create(
+            notification=pepsi_not,
+            go=AutoNotificationConstants.FORWARD
+        )
+        sprite_auto_not = AutoNotification.objects.create(
+            notification=pepsi_not,
+            go=AutoNotificationConstants.FORWARD
+        )
+        # approving links
+        ApproveLink.objects.create(
+            campaign=pepsi_data['campaign'],
+            linker=cola_to_pepsi,
+            rank=pepsi_data['rank'],
+            notification=pepsi_auto_not
+        )
+        ApproveLink.objects.create(
+            campaign=sprite_data['campaign'],
+            linker=cola_to_sprite,
+            rank=sprite_data['rank'],
+            notification=sprite_auto_not
+        )
+
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"answer": "Hello!"})
+        self.assertTrue(task.complete)
+
+        self.assertEqual(self.user.ranks.count(), 3)
+        self.assertIn(pepsi_data['rank'], self.user.ranks.all())
+        self.assertIn(sprite_data['rank'], self.user.ranks.all())
+        self.assertEqual(Notification.objects.count(), 4)
+        self.assertEqual(self.user.notifications.count(), 2)
+
+

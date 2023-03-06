@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
 
 import requests
+from django.apps import apps
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
@@ -72,6 +73,11 @@ class CustomUser(AbstractUser, BaseDatesModel):
             self.save()
             return True
         return False
+
+    def get_admin_preference(self):
+        if hasattr(self, 'admin_preference'):
+            return self.admin_preference
+        return None
 
 
 class UserDelete(BaseDatesModel):
@@ -209,6 +215,78 @@ class CampaignManagement(BaseDatesModel, CampaignInterface):
 
     def __str__(self):
         return f"{self.campaign.name} - {self.user}"
+
+
+class CampaignLinker(BaseModel, CampaignInterface):
+    out_stage = models.ForeignKey(
+        "TaskStage",
+        on_delete=models.SET_NULL,
+        related_name='stage_campaign_linkers_set',
+        blank=True,
+        null=True,
+    )
+
+    stage_with_user = models.ForeignKey(
+        "TaskStage",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
+    target = models.ForeignKey(
+        "Campaign",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
+    def get_campaign(self) -> Campaign:
+        return self.out_stage.get_campaign()
+
+    def get_user(self, case) -> CustomUser:
+        return case.tasks.filter(
+            stage=self.stage_with_user).first().assignee
+
+
+class ApproveLink(BaseDatesModel, CampaignInterface):
+    campaign = models.ForeignKey(
+        "Campaign",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
+    linker = models.ForeignKey(
+        CampaignLinker,
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+    )
+
+    rank = models.ForeignKey(
+        "Rank",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+    notification = models.ForeignKey(
+        "AutoNotification",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+    def get_campaign(self):
+        return self.campaign
+
+    def connect_rank_with_user(self, user):
+        if self.rank:
+            self.rank.connect_with_user(user)
+        if self.notification:
+            self.notification.create_notification(
+                None, None, user
+            )
 
 
 class Chain(BaseModel, CampaignInterface):
@@ -1353,6 +1431,13 @@ class Rank(BaseModel, CampaignInterface):
     def __str__(self):
         return self.name
 
+    def connect_with_user(self, user):
+        apps.get_model(app_label='api',
+                       model_name='RankRecord').objects.get_or_create(
+            user=user,
+            rank=self,
+        )
+
 
 class Track(BaseModel, CampaignInterface):
     campaign = models.ForeignKey(
@@ -1734,12 +1819,16 @@ class AutoNotification(BaseDates, CampaignInterface):
     trigger_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
         related_name='auto_notification_trigger_stages',
         help_text='Stage that will be trigger notification'
     )
     recipient_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
         related_name='auto_notification_recipient_stages',
         help_text='Stage to get recipient user.'
     )
