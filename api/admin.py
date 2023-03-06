@@ -621,19 +621,19 @@ class CampaignLinkerAdmin(admin.ModelAdmin):
 
 class ApproveLinkAdmin(admin.ModelAdmin):
     list_display = (
-        "request_link",
+        "linker",
         "rank",
         "notification",
         "created_at",
         "updated_at",
     )
     search_fields = (
-        "request_link",
+        "linker",
         "rank",
         "notification",
     )
     autocomplete_fields = (
-        "request_link",
+        "linker",
         "rank",
         "notification",
     )

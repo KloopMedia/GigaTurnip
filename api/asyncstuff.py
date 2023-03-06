@@ -62,11 +62,11 @@ def process_on_chain(current_stage, task):
 
 def give_rank_by_campaignlinks(task):
     available_linkers = ApproveLink.objects.filter(
-        request_link__in=task.stage.stage_campaign_linkers_set.all()
+        linker__in=task.stage.stage_campaign_linkers_set.all()
     )
     for approve in available_linkers.iterator():
         approve.connect_rank_with_user(
-            approve.request_link.get_user(task.case)
+            approve.linker.get_user(task.case)
         )
     pass
 

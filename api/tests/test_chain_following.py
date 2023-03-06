@@ -4643,16 +4643,36 @@ class GigaTurnipTest(APITestCase):
             stage_with_user=self.initial_stage,
             target=sprite_data["campaign"]
         )
+
+        # Prize Notification
+        pepsi_not = Notification.objects.create(
+            title="You access new rank from Pepsi campaign!",
+            campaign=pepsi_data["campaign"]
+        )
+        sprite_not = Notification.objects.create(
+            title="You access new rank from Pepsi campaign!",
+            campaign=pepsi_data["campaign"]
+        )
+        pepsi_auto_not = AutoNotification.objects.create(
+            notification=pepsi_not,
+            go=AutoNotificationConstants.FORWARD
+        )
+        sprite_auto_not = AutoNotification.objects.create(
+            notification=pepsi_not,
+            go=AutoNotificationConstants.FORWARD
+        )
         # approving links
         ApproveLink.objects.create(
             campaign=pepsi_data['campaign'],
-            request_link=cola_to_pepsi,
+            linker=cola_to_pepsi,
             rank=pepsi_data['rank'],
+            notification=pepsi_auto_not
         )
         ApproveLink.objects.create(
             campaign=sprite_data['campaign'],
-            request_link=cola_to_sprite,
+            linker=cola_to_sprite,
             rank=sprite_data['rank'],
+            notification=sprite_auto_not
         )
 
         self.initial_stage.json_schema = json.dumps({
@@ -4669,4 +4689,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.ranks.count(), 3)
         self.assertIn(pepsi_data['rank'], self.user.ranks.all())
         self.assertIn(sprite_data['rank'], self.user.ranks.all())
+        self.assertEqual(Notification.objects.count(), 4)
+        self.assertEqual(self.user.notifications.count(), 2)
+
 

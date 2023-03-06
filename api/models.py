@@ -256,7 +256,7 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         null=False,
     )
 
-    request_link = models.ForeignKey(
+    linker = models.ForeignKey(
         CampaignLinker,
         on_delete=models.CASCADE,
         blank=False,
@@ -1819,12 +1819,16 @@ class AutoNotification(BaseDates, CampaignInterface):
     trigger_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
         related_name='auto_notification_trigger_stages',
         help_text='Stage that will be trigger notification'
     )
     recipient_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
         related_name='auto_notification_recipient_stages',
         help_text='Stage to get recipient user.'
     )
