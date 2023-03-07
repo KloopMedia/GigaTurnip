@@ -270,6 +270,13 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         null=True,
     )
 
+    task_stage = models.ForeignKey(
+        "TaskStage",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
     notification = models.ForeignKey(
         "AutoNotification",
         on_delete=models.SET_NULL,
