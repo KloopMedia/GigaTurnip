@@ -594,7 +594,7 @@ class CampaignManagementAdmin(admin.ModelAdmin):
 class CampaignLinkerAdmin(admin.ModelAdmin):
     list_display = ("name", "out_stage", "target", "created_at", "updated_at",)
     search_fields = ("name", "description", "out_stage",)
-    autocomplete_fields = ("out_stage", "target",)
+    autocomplete_fields = ("out_stage", "stage_with_user", "target",)
     list_filter = (
         "target",
         "out_stage",
