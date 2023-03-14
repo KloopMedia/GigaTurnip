@@ -221,6 +221,24 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class TaskListSerializer(serializers.ModelSerializer):
+    stage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'complete',
+            'force_complete',
+            'reopened',
+            'stage',
+            'created_at'
+        ]
+
+    def get_stage(self, obj):
+        return {'name': obj.stage.name, 'description': obj.stage.description}
+
+
 class TaskEditSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):

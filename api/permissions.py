@@ -312,7 +312,7 @@ class TaskAccessPolicy(AccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.prefetch_related('stage', 'stage__chain'). \
+        return queryset. \
             filter(stage__chain__campaign__campaign_managements__user=
                    request.user).distinct()
 

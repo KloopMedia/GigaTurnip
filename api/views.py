@@ -40,7 +40,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer, \
-    NumberRankSerializer, UserDeleteSerializer
+    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -505,16 +505,19 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
+        qs = Task.objects.all().select_related('stage')
         if self.action in ['list', 'csv', 'user_activity',
                            'user_activity_csv', 'search_by_responses']:
             return TaskAccessPolicy.scope_queryset(
-                self.request, Task.objects.all()
+                self.request, qs
             )
         else:
-            return Task.objects.all()
+            return qs
 
     def get_serializer_class(self):
-        if self.action == 'create':
+        if self.action == 'list':
+            return TaskListSerializer
+        elif self.action == 'create':
             return TaskAutoCreateSerializer
         elif self.action in ['update', 'partial_update']:
             return TaskEditSerializer
