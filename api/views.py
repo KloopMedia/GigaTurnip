@@ -242,9 +242,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         Выбирает нужные сериалайзер (для чтения или обычный).
         """
 
-        if self.action == 'create' or \
-                self.action == 'update' or \
-                self.action == 'partial_update':
+        if self.action in ['create', 'update', 'partial_update']:
             return TaskStageSerializer
         elif self.action == 'public':
             return TaskStagePublicSerializer
@@ -257,6 +255,18 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return TaskStageAccessPolicy.scope_queryset(
                 self.request, TaskStage.objects.all()
+                .select_related(
+                    "chain",
+                    "assign_user_from_stage",
+                ).prefetch_related(
+                    "displayed_prev_stages",
+                    "displayed_following_stages",
+                    "dynamic_jsons_source",
+                    "dynamic_jsons_target",
+                    "in_stages",
+                    "out_stages",
+                    "ranks"
+                )
             )
         else:
             return TaskStage.objects.all()
@@ -506,7 +516,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'create':
             return TaskAutoCreateSerializer
-        elif self.action == 'update' or self.action == 'partial_update':
+        elif self.action in ['update', 'partial_update']:
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
