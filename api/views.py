@@ -2,6 +2,7 @@ import csv
 import operator
 from functools import reduce
 from datetime import datetime, timedelta
+from itertools import chain
 
 import django_filters
 import requests
@@ -526,11 +527,31 @@ class TaskViewSet(viewsets.ModelViewSet):
         elif self.action == 'user_selectable':
             return TaskSelectSerializer
         elif self.action == 'public':
-            return TaskPublicSerializer
+            return TaskListSerializer
         elif self.action == 'user_activity':
             return TaskUserActivitySerializer
         else:
             return TaskDefaultSerializer
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.values('id',
+                       'complete',
+                       'force_complete',
+                       'created_at',
+                       'reopened',
+                       'stage__name',
+                       'stage__description')
+
+        # page = self.paginate_queryset(qs)
+        # if page is not None:
+        #     serializer = self.get_serializer(page, many=True)
+        #     return self.get_paginated_response(serializer.data)
+        #
+        # serializer = self.get_serializer(qs, many=True)
+        # return Response(serializer.data)
+        return qs
 
     def create(self, request, *args, **kwargs):
         """
@@ -668,9 +689,18 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def public(self, request):
         tasks = self.filter_queryset(self.get_queryset())
-        tasks = tasks.filter(
-            Q(stage__is_public=True) |
-            (Q(stage__publisher__is_public=True) & Q(complete=True)))
+        tasks = tasks.values('id',
+                             'complete',
+                             'force_complete',
+                             'reopened',
+                             'stage__publisher__is_public',
+                             'stage__name',
+                             'stage__description')
+        is_public = tasks.filter(stage__is_public=True)
+        is_public_publisher = tasks.filter(complete=True).filter(
+            stage__publisher__is_public=True
+        )
+        tasks = list(chain(is_public, is_public_publisher))
         return tasks
 
     @paginate
