@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track, Task, AdminPreference, RankLimit
+from api.models import TaskStage, Task, RankLimit, CampaignManagement
 from . import utils
 
 
@@ -312,9 +312,9 @@ class TaskAccessPolicy(AccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset. \
-            filter(stage__chain__campaign__campaign_managements__user=
-                   request.user).distinct()
+        user_campaigns = CampaignManagement.objects.filter(
+            user=request.user).values('campaign')
+        return queryset.filter(stage__chain__campaign__in=user_campaigns)
 
     def is_assignee(self, request, view, action):
         task = view.get_object()
