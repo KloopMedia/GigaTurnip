@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from itertools import chain
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
@@ -449,12 +450,15 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        notifications = queryset.filter(
-            Q(campaign__campaign_managements__user=request.user) |
-            Q(rank__rankrecord__user=request.user) |
+        user_campaigns = CampaignManagement.objects.filter(
+            user=request.user).values('campaign')
+        qs = queryset.filter(
+            Q(campaign__in=user_campaigns) |
+            Q(rank__id__in=request.user.ranks.values('id')) |
             Q(target_user=request.user)
         ).distinct()
-        return notifications
+
+        return qs
 
 
     @classmethod
