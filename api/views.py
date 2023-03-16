@@ -929,6 +929,15 @@ class RankViewSet(viewsets.ModelViewSet):
             self.request, Rank.objects.all()
         )
 
+    @paginate
+    def list(self,request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.select_related('track').prefetch_related(
+            'prerequisite_ranks', 'stages'
+        )
+
+        return qs
+
 
 class RankRecordViewSet(viewsets.ModelViewSet):
     """
