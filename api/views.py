@@ -700,8 +700,10 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
-            .select_related('stage', 'stage__chain', 'stage__chain__name') \
-            .prefetch_related('stage__in_stages', 'stage__out_stages')
+            .select_related('stage',) \
+            .prefetch_related('stage__ranks', 'stage__in_stages',
+                              'stage__out_stages')
+
         groups = tasks.values('stage').annotate(
             chain=F('stage__chain'),
             chain_name=F('stage__chain__name'),
