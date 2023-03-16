@@ -1,6 +1,7 @@
 import json
 from abc import ABCMeta, ABC
 
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from jsonschema import validate
 from rest_framework import serializers
@@ -439,30 +440,47 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
 
 class TaskSelectSerializer(serializers.ModelSerializer):
     displayed_prev_tasks = serializers.SerializerMethodField()
-    stage = TaskStageReadSerializer(read_only=True)
+    stage = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
         fields = ['id',
-                  'case',
-                  'in_tasks',
-                  'assignee',
                   'stage',
                   'responses',
                   'complete',
                   'displayed_prev_tasks']
         read_only_fields = ['id',
-                            'case',
-                            'in_tasks',
-                            'assignee',
                             'stage',
                             'responses',
                             'complete']
 
     def get_displayed_prev_tasks(self, obj):
-        tasks = obj.get_displayed_prev_tasks()
-        serializer = TaskDefaultSerializer(tasks, many=True)
+        tasks = Task.objects.filter(case=obj['case'], stage__in=obj[
+            'displayed_prev_stages']).exclude(
+            id=obj['id'])
+        tasks = tasks.prefetch_related(
+            'stage__displayed_prev_stages').values('id',
+                                                   'case',
+                                                   'stage__name',
+                                                   'stage__description',
+                                                   'stage__json_schema',
+                                                   'stage__ui_schema',
+                                                   'responses',
+                                                   'complete', ).annotate(
+            displayed_prev_stages=ArrayAgg('stage__displayed_prev_stages',
+                                           distinct=True)
+        )
+
+        serializer = TaskSelectSerializer(tasks, many=True)
         return serializer.data
+
+    def get_stage(self, obj):
+        return {
+            "name": obj['stage__name'],
+            "description": obj['stage__description'],
+            "json_schema": obj['stage__json_schema'],
+            "ui_schema":obj['stage__ui_schema']
+        }
 
 
 class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
