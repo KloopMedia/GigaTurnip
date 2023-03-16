@@ -1107,16 +1107,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    filterset_fields = {
-        'importance': ['exact'],
-        'campaign': ['exact'],
-        'rank': ['exact'],
-        'receiver_task': ['exact'],
-        'sender_task': ['exact'],
-        'trigger_go': ['exact'],
-        'created_at': ['lte', 'gte'],
-        'updated_at': ['lte', 'gte']
-    }
+    # filterset_fields = {
+    #     'importance': ['exact'],
+    #     'campaign': ['exact'],
+    #     'rank': ['exact'],
+    #     'receiver_task': ['exact'],
+    #     'sender_task': ['exact'],
+    #     'trigger_go': ['exact'],
+    #     'created_at': ['lte', 'gte'],
+    #     'updated_at': ['lte', 'gte']
+    # }
     permission_classes = (NotificationAccessPolicy,)
 
     def get_serializer_class(self):
@@ -1130,6 +1130,19 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return NotificationAccessPolicy.scope_queryset(
             self.request, Notification.objects.all().order_by('-created_at')
         )
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.select_related(
+            'campaign',
+            'rank',
+            'target_user',
+            'sender_task',
+            'receiver_task'
+        )
+
+        return qs
 
     def retrieve(self, request, pk=None):
         queryset = Notification.objects.all()
