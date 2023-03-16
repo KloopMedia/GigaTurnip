@@ -991,7 +991,7 @@ class RankLimitViewSet(viewsets.ModelViewSet):
 
 
 class NumberRankViewSet(viewsets.ModelViewSet):
-    # serializer_class = NumberRanksSerializer
+    # serializer_class = NumberRanksSerializer # todo: Add serializer to paginate list
 
     def get_serializer_class(self):
         return NumberRankSerializer
