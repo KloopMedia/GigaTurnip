@@ -606,7 +606,6 @@ class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):
 
 
 class ResponseFlattenerReadSerializer(serializers.ModelSerializer):
-    task_stage = TaskStageReadSerializer(read_only=True)
 
     class Meta:
         model = ResponseFlattener
