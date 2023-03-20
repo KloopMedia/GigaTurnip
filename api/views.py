@@ -2,6 +2,7 @@ import csv
 import operator
 from functools import reduce
 from datetime import datetime, timedelta
+from itertools import chain
 
 import django_filters
 import requests
@@ -40,7 +41,7 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer, \
-    NumberRankSerializer, UserDeleteSerializer
+    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -242,9 +243,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         Выбирает нужные сериалайзер (для чтения или обычный).
         """
 
-        if self.action == 'create' or \
-                self.action == 'update' or \
-                self.action == 'partial_update':
+        if self.action in ['create', 'update', 'partial_update']:
             return TaskStageSerializer
         elif self.action == 'public':
             return TaskStagePublicSerializer
@@ -257,6 +256,18 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return TaskStageAccessPolicy.scope_queryset(
                 self.request, TaskStage.objects.all()
+                .select_related(
+                    "chain",
+                    "assign_user_from_stage",
+                ).prefetch_related(
+                    "displayed_prev_stages",
+                    "displayed_following_stages",
+                    "dynamic_jsons_source",
+                    "dynamic_jsons_target",
+                    "in_stages",
+                    "out_stages",
+                    "ranks"
+                )
             )
         else:
             return TaskStage.objects.all()
@@ -495,29 +506,45 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
+        qs = Task.objects.all().select_related('stage')
         if self.action in ['list', 'csv', 'user_activity',
                            'user_activity_csv', 'search_by_responses']:
             return TaskAccessPolicy.scope_queryset(
-                self.request, Task.objects.all()
+                self.request, qs
             )
         else:
-            return Task.objects.all()
+            return qs
 
     def get_serializer_class(self):
-        if self.action == 'create':
+        if self.action == 'list':
+            return TaskListSerializer
+        elif self.action == 'create':
             return TaskAutoCreateSerializer
-        elif self.action == 'update' or self.action == 'partial_update':
+        elif self.action in ['update', 'partial_update']:
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
         elif self.action == 'user_selectable':
             return TaskSelectSerializer
         elif self.action == 'public':
-            return TaskPublicSerializer
+            return TaskListSerializer
         elif self.action == 'user_activity':
             return TaskUserActivitySerializer
         else:
             return TaskDefaultSerializer
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.values('id',
+                       'complete',
+                       'force_complete',
+                       'created_at',
+                       'reopened',
+                       'stage__name',
+                       'stage__description')
+
+        return qs
 
     def create(self, request, *args, **kwargs):
         """
@@ -639,33 +666,59 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         queryset = self.filter_queryset(
             self.get_queryset()
-            .select_related('stage', 'stage__chain__campaign')
+            .select_related('stage')
             .prefetch_related('stage__ranks__users',
                               'out_tasks',
-                              'stage__ranklimits'))
+                              'stage__displayed_prev_stages',
+                              'stage__ranklimits')
+        )
 
         tasks = queryset
         if request.query_params.get('responses_contains') or request.method == "POST":
             tasks = Task.objects.filter(id__in=Subquery(queryset.filter(out_tasks__isnull=False).values('out_tasks')))
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
-        return by_datetime
+        result_tasks = by_datetime.values(
+            'id',
+            'case',
+            'stage__name',
+            'stage__description',
+            'stage__json_schema',
+            'stage__ui_schema',
+            'responses',
+            'complete',
+        ).annotate(
+            displayed_prev_stages=ArrayAgg('stage__displayed_prev_stages',
+                                           distinct=True)
+        )
+        return result_tasks
 
     @paginate
     @action(detail=False)
     def public(self, request):
         tasks = self.filter_queryset(self.get_queryset())
-        tasks = tasks.filter(
-            Q(stage__is_public=True) |
-            (Q(stage__publisher__is_public=True) & Q(complete=True)))
+        tasks = tasks.values('id',
+                             'complete',
+                             'force_complete',
+                             'reopened',
+                             'stage__publisher__is_public',
+                             'stage__name',
+                             'stage__description')
+        is_public = tasks.filter(stage__is_public=True)
+        is_public_publisher = tasks.filter(complete=True).filter(
+            stage__publisher__is_public=True
+        )
+        tasks = list(chain(is_public, is_public_publisher))
         return tasks
 
     @paginate
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
-            .select_related('stage', 'stage__chain', 'stage__chain__name') \
-            .prefetch_related('stage__in_stages', 'stage__out_stages')
+            .select_related('stage',) \
+            .prefetch_related('stage__ranks', 'stage__in_stages',
+                              'stage__out_stages')
+
         groups = tasks.values('stage').annotate(
             chain=F('stage__chain'),
             chain_name=F('stage__chain__name'),
@@ -876,6 +929,15 @@ class RankViewSet(viewsets.ModelViewSet):
             self.request, Rank.objects.all()
         )
 
+    @paginate
+    def list(self,request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.select_related('track').prefetch_related(
+            'prerequisite_ranks', 'stages'
+        )
+
+        return qs
+
 
 class RankRecordViewSet(viewsets.ModelViewSet):
     """
@@ -929,7 +991,7 @@ class RankLimitViewSet(viewsets.ModelViewSet):
 
 
 class NumberRankViewSet(viewsets.ModelViewSet):
-    # serializer_class = NumberRanksSerializer
+    # serializer_class = NumberRanksSerializer # todo: Add serializer to paginate list
 
     def get_serializer_class(self):
         return NumberRankSerializer
@@ -1045,16 +1107,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     Partial update notification data.
     """
 
-    filterset_fields = {
-        'importance': ['exact'],
-        'campaign': ['exact'],
-        'rank': ['exact'],
-        'receiver_task': ['exact'],
-        'sender_task': ['exact'],
-        'trigger_go': ['exact'],
-        'created_at': ['lte', 'gte'],
-        'updated_at': ['lte', 'gte']
-    }
+    # filterset_fields = {
+    #     'importance': ['exact'],
+    #     'campaign': ['exact'],
+    #     'rank': ['exact'],
+    #     'receiver_task': ['exact'],
+    #     'sender_task': ['exact'],
+    #     'trigger_go': ['exact'],
+    #     'created_at': ['lte', 'gte'],
+    #     'updated_at': ['lte', 'gte']
+    # }
     permission_classes = (NotificationAccessPolicy,)
 
     def get_serializer_class(self):
@@ -1068,6 +1130,19 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return NotificationAccessPolicy.scope_queryset(
             self.request, Notification.objects.all().order_by('-created_at')
         )
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.select_related(
+            'campaign',
+            'rank',
+            'target_user',
+            'sender_task',
+            'receiver_task'
+        )
+
+        return qs
 
     def retrieve(self, request, pk=None):
         queryset = Notification.objects.all()

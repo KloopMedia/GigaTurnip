@@ -1,6 +1,7 @@
 import json
 from abc import ABCMeta, ABC
 
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from jsonschema import validate
 from rest_framework import serializers
@@ -21,9 +22,14 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 
 
 class CampaignSerializer(serializers.ModelSerializer):
+    managers = serializers.SerializerMethodField()
+
     class Meta:
         model = Campaign
         fields = '__all__'
+
+    def get_managers(self, obj):
+        return obj.managers.values_list(flat=True)
 
 
 class UserDeleteSerializer(serializers.Serializer):
@@ -65,6 +71,12 @@ class ChainSerializer(serializers.ModelSerializer,
 
 class ConditionalStageSerializer(serializers.ModelSerializer,
                                  CampaignValidationCheck):
+    queryset = ConditionalStage.objects.all() \
+        .select_related("chain").prefetch_related("in_stages")
+    in_stages = serializers.SerializerMethodField()
+    out_stages = serializers.SerializerMethodField()
+
+
     class Meta:
         model = ConditionalStage
         fields = base_model_fields + stage_fields + ['conditions', 'pingpong']
@@ -143,6 +155,12 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
                     msg = f"Invalid data in {cond_id + 1} index. " + exc.message
                 raise CustomApiException(400, msg)
 
+    def get_in_stages(self, obj):
+        return obj.in_stages.values_list(flat=True)
+
+    def get_out_stages(self, obj):
+        return obj.out_stages.values_list(flat=True)
+
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
     chain = ChainSerializer(read_only=True)
@@ -202,6 +220,25 @@ class CaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Case
         fields = '__all__'
+
+
+class TaskListSerializer(serializers.ModelSerializer):
+    stage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'complete',
+            'force_complete',
+            'reopened',
+            'stage',
+            'created_at'
+        ]
+
+    def get_stage(self, obj):
+        return {'name': obj['stage__name'],
+                'description': obj['stage__description']}
 
 
 class TaskEditSerializer(serializers.ModelSerializer):
@@ -403,30 +440,47 @@ class TaskRequestAssignmentSerializer(serializers.ModelSerializer):
 
 class TaskSelectSerializer(serializers.ModelSerializer):
     displayed_prev_tasks = serializers.SerializerMethodField()
-    stage = TaskStageReadSerializer(read_only=True)
+    stage = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
         fields = ['id',
-                  'case',
-                  'in_tasks',
-                  'assignee',
                   'stage',
                   'responses',
                   'complete',
                   'displayed_prev_tasks']
         read_only_fields = ['id',
-                            'case',
-                            'in_tasks',
-                            'assignee',
                             'stage',
                             'responses',
                             'complete']
 
     def get_displayed_prev_tasks(self, obj):
-        tasks = obj.get_displayed_prev_tasks()
-        serializer = TaskDefaultSerializer(tasks, many=True)
+        tasks = Task.objects.filter(case=obj['case'], stage__in=obj[
+            'displayed_prev_stages']).exclude(
+            id=obj['id'])
+        tasks = tasks.prefetch_related(
+            'stage__displayed_prev_stages').values('id',
+                                                   'case',
+                                                   'stage__name',
+                                                   'stage__description',
+                                                   'stage__json_schema',
+                                                   'stage__ui_schema',
+                                                   'responses',
+                                                   'complete', ).annotate(
+            displayed_prev_stages=ArrayAgg('stage__displayed_prev_stages',
+                                           distinct=True)
+        )
+
+        serializer = TaskSelectSerializer(tasks, many=True)
         return serializer.data
+
+    def get_stage(self, obj):
+        return {
+            "name": obj['stage__name'],
+            "description": obj['stage__description'],
+            "json_schema": obj['stage__json_schema'],
+            "ui_schema":obj['stage__ui_schema']
+        }
 
 
 class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
@@ -552,7 +606,6 @@ class ResponseFlattenerCreateSerializer(serializers.ModelSerializer):
 
 
 class ResponseFlattenerReadSerializer(serializers.ModelSerializer):
-    task_stage = TaskStageReadSerializer(read_only=True)
 
     class Meta:
         model = ResponseFlattener

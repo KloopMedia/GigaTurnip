@@ -81,7 +81,9 @@ router.register(api_v1 + r'numberranks',
                 turnip_app.NumberRankViewSet,
                 basename='numberrank')
 
-
-urlpatterns = [path('admin/', admin.site.urls),
-               path('docs/', include_docs_urls(title='Giga Turnip API Documentation'))
-               ] + router.urls
+urlpatterns = [
+                  path('admin/', admin.site.urls),
+                  # path('__debug__/', include('debug_toolbar.urls')),
+                  path('docs/', include_docs_urls(
+                      title='Giga Turnip API Documentation'))
+              ] + router.urls
