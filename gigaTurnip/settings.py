@@ -164,7 +164,9 @@ REST_FRAMEWORK = {
         'api.authentication.FirebaseAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend'
+    ],
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
@@ -172,7 +174,9 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'api.api_exceptions.custom_exception_handler',
 
     'DEFAULT_RENDERER_CLASSES': [
-        'renderers.JSONRenderer.EmberJSONRenderer',
+        'rest_framework.renderers.JSONRenderer',
+        # 'renderers.browsable_api_form.BrowsableAPIRendererWithoutForms',
+
     ]
 }
 
