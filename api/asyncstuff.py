@@ -62,14 +62,17 @@ def process_on_chain(current_stage, task):
 
 def give_rank_by_campaignlinks(task):
     available_linkers = ApproveLink.objects.filter(
-        linker__in=task.stage.stage_campaign_linkers_set.all()
+        linker__in=task.stage.stage_campaign_linkers_set.all(),
+        rank__isnull=False,
+        approved=True
     )
+
     for approve in available_linkers.iterator():
         user = approve.linker.get_user(task.case)
         approve.connect_rank_with_user(user)
         task_stage = approve.task_stage
         if task_stage:
-            create_new_task(approve.task_stage, task, user)
+            create_new_task(task_stage, task, user)
 
 
 def process_completed_task(task):
@@ -196,7 +199,7 @@ def process_stage_assign(stage, data, in_task, user):
                 .filter(case=in_task.case)
             data["assignee"] = assignee_task[0].assignee
     new_task = Task.objects.create(**data)
-    new_task.in_tasks.set([in_task])
+    new_task.in_tasks.add(in_task)
     return new_task
 
 

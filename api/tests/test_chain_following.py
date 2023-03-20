@@ -4666,7 +4666,8 @@ class GigaTurnipTest(APITestCase):
             campaign=pepsi_data['campaign'],
             linker=cola_to_pepsi,
             rank=pepsi_data['rank'],
-            notification=pepsi_auto_not
+            notification=pepsi_auto_not,
+            approved=True
         )
         ApproveLink.objects.create(
             campaign=sprite_data['campaign'],
@@ -4686,11 +4687,10 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, {"answer": "Hello!"})
         self.assertTrue(task.complete)
 
-        self.assertEqual(self.user.ranks.count(), 3)
+        self.assertEqual(self.user.ranks.count(), 2)
         self.assertIn(pepsi_data['rank'], self.user.ranks.all())
-        self.assertIn(sprite_data['rank'], self.user.ranks.all())
-        self.assertEqual(Notification.objects.count(), 4)
-        self.assertEqual(self.user.notifications.count(), 2)
+        self.assertEqual(Notification.objects.count(), 3)
+        self.assertEqual(self.user.notifications.count(), 1)
 
     def test_campaign_linker_assignee_rank(self):
         pepsi_data = self.generate_new_basic_campaign("Pepsi")
@@ -4750,21 +4750,8 @@ class GigaTurnipTest(APITestCase):
             linker=cola_to_pepsi,
             rank=pepsi_data['rank'],
             task_stage=pepsi_init_stage,
-            notification=pepsi_auto_not
-        )
-
-        sprite_init_stage = TaskStage.objects.create(
-            name="Initial sprite stage",
-            x_pos=1,
-            y_pos=1,
-            chain=sprite_data['chain'],
-            is_creatable=True)
-        ApproveLink.objects.create(
-            campaign=sprite_data['campaign'],
-            linker=cola_to_sprite,
-            rank=sprite_data['rank'],
-            task_stage=sprite_init_stage,
-            notification=sprite_auto_not
+            notification=pepsi_auto_not,
+            approved=True
         )
 
         self.initial_stage.json_schema = json.dumps({
@@ -4775,13 +4762,16 @@ class GigaTurnipTest(APITestCase):
             "required": ["answer"]
         })
         task = self.create_initial_task()
-        task = self.complete_task(task, {"answer": "Hello!"})
+        response = self.complete_task(task, {"answer": "Hello!"}, whole_response=True)
+        response_content = json.loads(response.content)
+        task = Task.objects.get(id=response_content['id'])
+
+        self.assertFalse(response_content['is_new_campaign'])
         self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 2)
 
-        self.assertEqual(self.user.ranks.count(), 3)
         self.assertIn(pepsi_data['rank'], self.user.ranks.all())
-        self.assertIn(sprite_data['rank'], self.user.ranks.all())
-        self.assertEqual(Notification.objects.count(), 4)
-        self.assertEqual(self.user.notifications.count(), 2)
-        self.assertEqual(self.user.tasks.count(), 3)
+        self.assertNotIn(sprite_data['rank'], self.user.ranks.all())
 
+        self.assertEqual(Notification.objects.count(), 3)
+        self.assertEqual(self.user.notifications.count(), 1)
