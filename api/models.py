@@ -284,6 +284,10 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         null=True,
     )
 
+    approved = models.BooleanField(
+        default=False
+    )
+
     def get_campaign(self):
         return self.campaign
 
