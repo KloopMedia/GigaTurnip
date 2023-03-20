@@ -618,6 +618,19 @@ class CampaignLinkerAdmin(admin.ModelAdmin):
             out_stage__chain__campaign=user_admin_pref.campaign
         )
 
+    def save_model(self, request, obj, form, change):
+        is_old = bool(obj.id)
+        super().save_model(request, obj, form, change)
+
+        if is_old:
+            return
+
+        ApproveLink.objects.create(
+            campaign=obj.target,
+            linker=obj,
+            rank=None,
+        )
+
 
 class ApproveLinkAdmin(admin.ModelAdmin):
     list_display = (
