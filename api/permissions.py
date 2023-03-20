@@ -1,8 +1,9 @@
 from abc import ABCMeta, abstractmethod
+from itertools import chain
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
-from api.models import Campaign, TaskStage, Track, Task, AdminPreference, RankLimit
+from api.models import TaskStage, Task, RankLimit, CampaignManagement
 from . import utils
 
 
@@ -312,9 +313,9 @@ class TaskAccessPolicy(AccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.prefetch_related('stage', 'stage__chain'). \
-            filter(stage__chain__campaign__campaign_managements__user=
-                   request.user).distinct()
+        user_campaigns = CampaignManagement.objects.filter(
+            user=request.user).values('campaign')
+        return queryset.filter(stage__chain__campaign__in=user_campaigns)
 
     def is_assignee(self, request, view, action):
         task = view.get_object()
@@ -449,12 +450,15 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
-        notifications = queryset.filter(
-            Q(campaign__campaign_managements__user=request.user) |
-            Q(rank__rankrecord__user=request.user) |
+        user_campaigns = CampaignManagement.objects.filter(
+            user=request.user).values('campaign')
+        qs = queryset.filter(
+            Q(campaign__in=user_campaigns) |
+            Q(rank__id__in=request.user.ranks.values('id')) |
             Q(target_user=request.user)
         ).distinct()
-        return notifications
+
+        return qs
 
 
     @classmethod
