@@ -251,6 +251,9 @@ class CampaignLinker(BaseModel, CampaignInterface):
         return case.tasks.filter(
             stage=self.stage_with_user).first().assignee
 
+    def __str__(self):
+        return self.get_campaign().name + " " + self.name
+
 
 class ApproveLink(BaseDatesModel, CampaignInterface):
     campaign = models.ForeignKey(
@@ -310,6 +313,11 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
             self.notification.create_notification(
                 None, None, user
             )
+
+    def __str__(self):
+        return "Camp: {}, Camp link: {}, Rank: {}".format(
+            self.get_campaign().name, self.linker.id, self.rank
+        )
 
 
 class Chain(BaseModel, CampaignInterface):
