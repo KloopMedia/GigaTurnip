@@ -62,13 +62,17 @@ def process_on_chain(current_stage, task):
 
 def give_rank_by_campaignlinks(task):
     available_linkers = ApproveLink.objects.filter(
-        linker__in=task.stage.stage_campaign_linkers_set.all()
+        linker__in=task.stage.stage_campaign_linkers_set.all(),
+        rank__isnull=False,
+        approved=True
     )
+
     for approve in available_linkers.iterator():
-        approve.connect_rank_with_user(
-            approve.linker.get_user(task.case)
-        )
-    pass
+        user = approve.linker.get_user(task.case)
+        approve.connect_rank_with_user(user)
+        task_stage = approve.task_stage
+        if task_stage:
+            create_new_task(task_stage, task, user)
 
 
 def process_completed_task(task):
@@ -185,15 +189,17 @@ def process_integration(stage, in_task):
         return in_task
 
 
-def process_stage_assign_by_ST(stage, data, in_task):
-    if stage.assign_user_by == TaskStageConstants.STAGE:
+def process_stage_assign(stage, data, in_task, user):
+    if user:
+        data["assignee"] = user
+    elif stage.assign_user_by == TaskStageConstants.STAGE:
         if stage.assign_user_from_stage is not None:
             assignee_task = Task.objects \
                 .filter(stage=stage.assign_user_from_stage) \
                 .filter(case=in_task.case)
             data["assignee"] = assignee_task[0].assignee
     new_task = Task.objects.create(**data)
-    new_task.in_tasks.set([in_task])
+    new_task.in_tasks.add(in_task)
     return new_task
 
 
@@ -247,7 +253,7 @@ def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
                 process_completed_task(new_task)
 
 
-def create_new_task(stage, in_task):
+def create_new_task(stage, in_task, user=None):
     data = {"stage": stage, "case": in_task.case}
     new_task = None
     if stage.webhook_address:
@@ -257,7 +263,7 @@ def create_new_task(stage, in_task):
     elif stage.get_integration():
         in_task = process_integration(stage, in_task)
     else:
-        new_task = process_stage_assign_by_ST(stage, data, in_task)
+        new_task = process_stage_assign(stage, data, in_task, user)
         new_task = trigger_on_copy_input(stage, new_task, in_task)
         trigger_on_webhook(stage, new_task)
         set_period(stage, new_task)

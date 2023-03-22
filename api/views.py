@@ -623,9 +623,13 @@ class TaskViewSet(viewsets.ModelViewSet):
                 # cache on the instance.
                 instance._prefetched_objects_cache = {}
             if next_direct_task:
+                is_new_campaign = \
+                    instance.get_campaign().id \
+                    == next_direct_task.get_campaign().id
                 return Response(
                     {"message": "Next direct task is available.",
                      "id": instance.id,
+                     "is_new_campaign": is_new_campaign,
                      "next_direct_id": next_direct_task.id},
                     status=status.HTTP_200_OK)
             return Response(
