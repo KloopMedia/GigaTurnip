@@ -258,6 +258,7 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         blank=False,
         null=False,
+        help_text="Campaign that own the campaign linker."
     )
 
     linker = models.ForeignKey(
@@ -265,6 +266,7 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         on_delete=models.CASCADE,
         blank=False,
         null=False,
+        help_text="Fk linker."
     )
 
     rank = models.ForeignKey(
@@ -272,6 +274,7 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
+        help_text="Rank that will be assigned to user."
     )
 
     task_stage = models.ForeignKey(
@@ -279,6 +282,8 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
+        help_text="Task will created on this stage and assign to the "
+                  "income user."
     )
 
     notification = models.ForeignKey(
@@ -286,10 +291,13 @@ class ApproveLink(BaseDatesModel, CampaignInterface):
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
+        help_text="Auto Notification will create notification to the user."
     )
 
     approved = models.BooleanField(
-        default=False
+        default=False,
+        help_text="Status about approved link. "
+                  "False - rank would not be assigned."
     )
 
     def get_campaign(self):
