@@ -648,6 +648,7 @@ class ApproveLinkAdmin(admin.ModelAdmin):
     autocomplete_fields = (
         "linker",
         "rank",
+        "task_stage",
         "notification",
     )
     exclude = ("campaign",)
