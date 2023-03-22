@@ -224,6 +224,7 @@ class CampaignLinker(BaseModel, CampaignInterface):
         related_name='stage_campaign_linkers_set',
         blank=True,
         null=True,
+        help_text="Stage that triggers assign new rank to user."
     )
 
     stage_with_user = models.ForeignKey(
@@ -231,6 +232,8 @@ class CampaignLinker(BaseModel, CampaignInterface):
         on_delete=models.CASCADE,
         blank=False,
         null=False,
+        help_text="Stage with user to assignee new rank."
+
     )
 
     target = models.ForeignKey(
@@ -238,6 +241,7 @@ class CampaignLinker(BaseModel, CampaignInterface):
         on_delete=models.CASCADE,
         blank=False,
         null=False,
+        help_text="Target campaign that will see campaign link."
     )
 
     def get_campaign(self) -> Campaign:
