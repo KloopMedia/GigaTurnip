@@ -594,7 +594,7 @@ class CampaignManagementAdmin(admin.ModelAdmin):
 class CampaignLinkerAdmin(admin.ModelAdmin):
     list_display = ("name", "out_stage", "target", "created_at", "updated_at",)
     search_fields = ("name", "description", "out_stage",)
-    autocomplete_fields = ("out_stage", "target",)
+    autocomplete_fields = ("out_stage", "stage_with_user", "target",)
     list_filter = (
         "target",
         "out_stage",
@@ -618,6 +618,19 @@ class CampaignLinkerAdmin(admin.ModelAdmin):
             out_stage__chain__campaign=user_admin_pref.campaign
         )
 
+    def save_model(self, request, obj, form, change):
+        is_old = bool(obj.id)
+        super().save_model(request, obj, form, change)
+
+        if is_old:
+            return
+
+        ApproveLink.objects.create(
+            campaign=obj.target,
+            linker=obj,
+            rank=None,
+        )
+
 
 class ApproveLinkAdmin(admin.ModelAdmin):
     list_display = (
@@ -635,6 +648,7 @@ class ApproveLinkAdmin(admin.ModelAdmin):
     autocomplete_fields = (
         "linker",
         "rank",
+        "task_stage",
         "notification",
     )
     exclude = ("campaign",)
