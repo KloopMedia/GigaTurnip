@@ -1327,7 +1327,7 @@ class Task(BaseDatesModel, CampaignInterface):
     def get_direct_previous(self):
         in_tasks = self.in_tasks.all()
         if len(in_tasks) == 1:
-            if self._are_directly_connected(in_tasks[0], self):
+            if Task.are_directly_connected(in_tasks[0], self):
                 return in_tasks[0]
         return None
 
@@ -1340,7 +1340,7 @@ class Task(BaseDatesModel, CampaignInterface):
     def get_direct_next(self):
         out_tasks = self.out_tasks.all()
         if len(out_tasks) == 1:
-            if self._are_directly_connected(self, out_tasks[0]):
+            if Task.are_directly_connected(self, out_tasks[0]):
                 return out_tasks[0]
         return None
 
@@ -1368,7 +1368,8 @@ class Task(BaseDatesModel, CampaignInterface):
             tasks = tasks.filter(stage__is_public=True)
         return tasks
 
-    def _are_directly_connected(self, task1, task2):
+    @staticmethod
+    def are_directly_connected(task1, task2):
         in_tasks = task2.in_tasks.all()
         if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
             if len(task2.stage.in_stages.all()) == 1 and \
