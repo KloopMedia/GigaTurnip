@@ -10,7 +10,7 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint
+from django.db.models import UniqueConstraint, Q
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
@@ -1331,10 +1331,20 @@ class Task(BaseDatesModel, CampaignInterface):
                 return in_tasks[0]
         return None
 
-    def get_next_demo(self): # todo: have to refactor
-        tasks = self.out_tasks.filter(assignee=self.assignee)
-        if tasks.count() == 1:
-            return tasks[0]
+    def get_next_demo(self):
+        filter_next_tasks = {
+            Q(stage__assign_user_by=TaskStageConstants.AUTO_COMPLETE)
+            | Q(assignee=self.assignee)
+        }
+        tasks = list(self.out_tasks.filter(*filter_next_tasks))
+        while tasks:
+            current = tasks.pop()
+            if current.assignee == self.assignee:
+                return current
+            else:
+                tasks = tasks + list(
+                    current.out_tasks.filter(*filter_next_tasks)
+                )
         return None
 
     def get_direct_next(self):
