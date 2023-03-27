@@ -4766,7 +4766,7 @@ class GigaTurnipTest(APITestCase):
         response_content = json.loads(response.content)
         task = Task.objects.get(id=response_content['id'])
 
-        self.assertFalse(response_content['is_new_campaign'])
+        self.assertTrue(response_content['is_new_campaign'])
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 2)
 
