@@ -11,10 +11,12 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint, Q
-from django.http import HttpResponse
+from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
-from jsonschema import validate
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, WebhookConstants
+
+from api.constans import (
+    WebhookConstants
+)
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, ErrorConstants
 
@@ -1142,6 +1144,18 @@ class Quiz(BaseDatesModel):
         null=True,
         help_text="If set, task will not be closed with "
                   "quiz scores lower than this threshold"
+    )
+
+    class ShowAnswers(models.TextChoices):
+        NEVER = 'NE', _('Never')
+        ALWAYS = 'AL', _('Always')
+        ON_FAIL = 'FA', _('On Fail')
+        ON_PASS = 'PS', _('On Pass')
+
+    show_answer = models.CharField(
+        max_length=2,
+        choices=ShowAnswers.choices,
+        default=ShowAnswers.ON_FAIL,
     )
 
     def is_ready(self):
