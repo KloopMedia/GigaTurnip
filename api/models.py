@@ -1337,13 +1337,18 @@ class Task(BaseDatesModel, CampaignInterface):
             | Q(assignee=self.assignee)
         }
         tasks = list(self.out_tasks.filter(*filter_next_tasks))
+        used_tasks = list()
         while tasks:
             current = tasks.pop()
+            used_tasks.append(current.id)
+
             if current.assignee == self.assignee:
                 return current
             else:
                 tasks = tasks + list(
-                    current.out_tasks.filter(*filter_next_tasks)
+                    current.out_tasks.filter(*filter_next_tasks).exclude(
+                        id__in=used_tasks
+                    )
                 )
         return None
 
