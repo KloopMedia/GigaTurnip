@@ -1162,9 +1162,22 @@ class Quiz(BaseDatesModel):
         return bool(self.correct_responses_task)
 
     def check_score(self, task):
-        return self._determine_correctness_ratio(task.responses)
+        score, incorrect_questions = self.compare_with_correct_answers(
+            task.responses)
+        if self.show_answer == Quiz.ShowAnswers.ALWAYS:
+            return score, incorrect_questions
+        if self.show_answer == Quiz.ShowAnswers.NEVER:
+            return score, []
+        if self.threshold:
+            if ((self.show_answer == Quiz.ShowAnswers.ON_FAIL
+                 and score <= self.threshold)
+                    or (self.show_answer == Quiz.ShowAnswers.ON_PASS
+                        and score >= self.threshold)):
+                return score, incorrect_questions
 
-    def _determine_correctness_ratio(self, responses):
+        return score, []
+
+    def compare_with_correct_answers(self, responses):
         correct_answers = self.correct_responses_task.responses
         correct = 0
         questions = eval(self.task_stage.json_schema).get('properties')

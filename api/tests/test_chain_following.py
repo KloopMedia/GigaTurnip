@@ -1399,7 +1399,8 @@ class GigaTurnipTest(APITestCase):
             responses=correct_responses)
         Quiz.objects.create(
             task_stage=self.initial_stage,
-            correct_responses_task=task_correct_responses
+            correct_responses_task=task_correct_responses,
+            show_answer=Quiz.ShowAnswers.ALWAYS
         )
         task = self.create_initial_task()
         responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
