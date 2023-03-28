@@ -1,34 +1,25 @@
 import json
+import math
 import sys
 import traceback
 
-from django.utils import timezone
 import requests
-from django.db.models import Q, F, Count
+from django.db.models import F, Count
+from django.utils import timezone
 from rest_framework import status
-import math
+
 from api.api_exceptions import CustomApiException
-from api.constans import TaskStageConstants, AutoNotificationConstants, FieldsJsonConstants, ErrorConstants, \
-    ConditionalStageConstants
+from api.constans import (
+    TaskStageConstants, AutoNotificationConstants, ErrorConstants,
+    ConditionalStageConstants)
 from api.models import (
     TaskStage, ConditionalStage, Task, Case,
     RankLimit, DatetimeSort, ApproveLink
 )
-from api.utils import find_user, value_from_json, reopen_task, get_ranks_where_user_have_parent_ranks, \
-    connect_user_with_ranks, give_task_awards, process_auto_completed_task, get_conditional_limit_count
-
-
-def evaluate_quiz(quiz, task):
-    if quiz and quiz.is_ready():
-        quiz_score, incorrect_questions = quiz.check_score(task)
-        task.responses[FieldsJsonConstants.META_QUIZ_SCORE] = quiz_score
-        task.responses[FieldsJsonConstants.META_QUIZ_INCORRECT_QUESTIONS] = incorrect_questions
-        task.save()
-        if quiz.threshold is not None and quiz_score < quiz.threshold:
-            task.complete = False
-            task.reopened = True
-            task.save()
-            return task
+from api.utils import find_user, value_from_json, reopen_task, \
+    get_ranks_where_user_have_parent_ranks, \
+    connect_user_with_ranks, give_task_awards, process_auto_completed_task, \
+    get_conditional_limit_count
 
 
 def get_next_direct_task(next_direct_task, task):
@@ -82,13 +73,17 @@ def process_completed_task(task):
     # responses as meta_quiz_score. If quiz threshold is set, quiz with
     # score lower than threshold will be opened and returned without
     # chain propagation.
-    quiz_evaluated_task = current_stage.get_quiz()
-    if quiz_evaluated_task:
-        quiz_evaluated_task = evaluate_quiz(quiz_evaluated_task, task)
-        if quiz_evaluated_task:
-            return quiz_evaluated_task
-        else:
-            del quiz_evaluated_task
+    task, is_reopened = task.evaluate_quiz()
+    if is_reopened:
+        return task
+    del is_reopened
+
+    # if quiz_evaluated_task:
+    #     quiz_evaluated_task = evaluate_quiz(quiz_evaluated_task, task)
+    #     if quiz_evaluated_task:
+    #         return quiz_evaluated_task
+    #     else:
+    #         del quiz_evaluated_task
 
     next_direct_task = task.get_direct_next()
     if next_direct_task is not None:

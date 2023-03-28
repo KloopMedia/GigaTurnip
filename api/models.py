@@ -11,10 +11,12 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint, Q
-from django.http import HttpResponse
+from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
-from jsonschema import validate
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, WebhookConstants
+
+from api.constans import (
+    WebhookConstants
+)
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, ErrorConstants
 
@@ -1144,13 +1146,39 @@ class Quiz(BaseDatesModel):
                   "quiz scores lower than this threshold"
     )
 
+    class ShowAnswers(models.TextChoices):
+        NEVER = 'NE', _('Never')
+        ALWAYS = 'AL', _('Always')
+        ON_FAIL = 'FA', _('On Fail')
+        ON_PASS = 'PS', _('On Pass')
+
+    show_answer = models.CharField(
+        max_length=2,
+        choices=ShowAnswers.choices,
+        default=ShowAnswers.ON_FAIL,
+    )
+    SCORE = 'meta_quiz_score'
+    INCORRECT_QUESTIONS = 'meta_quiz_incorrect_questions'
+
     def is_ready(self):
         return bool(self.correct_responses_task)
 
-    def check_score(self, task):
-        return self._determine_correctness_ratio(task.responses)
+    def check_score(self, responses):
+        score, incorrect_questions = self.compare_with_correct_answers(responses)
+        if self.show_answer == Quiz.ShowAnswers.ALWAYS:
+            return score, incorrect_questions
+        if self.show_answer == Quiz.ShowAnswers.NEVER:
+            return score, []
+        if self.threshold:
+            if ((self.show_answer == Quiz.ShowAnswers.ON_FAIL
+                 and score <= self.threshold)
+                    or (self.show_answer == Quiz.ShowAnswers.ON_PASS
+                        and score >= self.threshold)):
+                return score, incorrect_questions
 
-    def _determine_correctness_ratio(self, responses):
+        return score, []
+
+    def compare_with_correct_answers(self, responses):
         correct_answers = self.correct_responses_task.responses
         correct = 0
         questions = eval(self.task_stage.json_schema).get('properties')
@@ -1162,7 +1190,7 @@ class Quiz(BaseDatesModel):
                 incorrect_questions.append(questions.get(key).get('title'))
 
         len_correct_answers = len(correct_answers)
-        unnecessary_keys = ["meta_quiz_score", "meta_quiz_incorrect_questions"]
+        unnecessary_keys = [Quiz.SCORE, Quiz.INCORRECT_QUESTIONS]
         for k in unnecessary_keys:
             if correct_answers.get(k):
                 len_correct_answers -= 1
@@ -1393,6 +1421,20 @@ class Task(BaseDatesModel, CampaignInterface):
                     if task1.out_tasks.all().count() == 1:
                         return True
         return False
+
+    def evaluate_quiz(self):
+        quiz = self.stage.get_quiz()
+        is_reopened = False
+        if quiz and quiz.is_ready():
+            score, incorrect_questions = quiz.check_score(self.responses)
+            self.responses[Quiz.SCORE] = score
+            self.responses[Quiz.INCORRECT_QUESTIONS] = incorrect_questions
+            if quiz.threshold is not None and score < quiz.threshold:
+                self.complete = False
+                self.reopened = True
+                is_reopened = True
+            self.save()
+        return self, is_reopened
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())

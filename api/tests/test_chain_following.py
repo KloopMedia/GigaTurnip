@@ -1,29 +1,21 @@
 import json
-import random
 from uuid import uuid4
-from datetime import datetime, timedelta
 
-from django.db import IntegrityError
-from django.db.models import Count
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
+from rest_framework.test import APITestCase, APIClient
 
-from api.constans import TaskStageConstants, CopyFieldConstants, \
-    AutoNotificationConstants, FieldsJsonConstants, \
-    ErrorConstants, WebhookConstants
+from api.constans import (
+    TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
+    ErrorConstants, WebhookConstants)
+from api.models import CampaignLinker, ApproveLink
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
     AdminPreference, Track, TaskAward, Notification, \
     DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, \
     ConditionalLimit, DatetimeSort, \
-    ErrorGroup, ErrorItem, CampaignLinker, ApproveLink
-from api.models import CustomUser, TaskStage, Campaign, Chain, ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, ConditionalLimit, DatetimeSort, \
     ErrorGroup, ErrorItem, CampaignManagement
-from jsonschema import validate
 
 
 class GigaTurnipTest(APITestCase):
@@ -1357,7 +1349,7 @@ class GigaTurnipTest(APITestCase):
         responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 80)
+        self.assertEqual(task.responses[Quiz.SCORE], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
@@ -1399,14 +1391,15 @@ class GigaTurnipTest(APITestCase):
             responses=correct_responses)
         Quiz.objects.create(
             task_stage=self.initial_stage,
-            correct_responses_task=task_correct_responses
+            correct_responses_task=task_correct_responses,
+            show_answer=Quiz.ShowAnswers.ALWAYS
         )
         task = self.create_initial_task()
         responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 33)
-        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_INCORRECT_QUESTIONS], "Question 2\nQuestion 3")
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], "Question 2\nQuestion 3")
         self.assertEqual(Task.objects.count(), 2)
         self.assertTrue(task.complete)
 
@@ -1456,7 +1449,7 @@ class GigaTurnipTest(APITestCase):
         responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 80)
+        self.assertEqual(task.responses[Quiz.SCORE], 80)
         self.assertEqual(Task.objects.count(), 3)
         self.assertTrue(task.complete)
 
@@ -1505,9 +1498,296 @@ class GigaTurnipTest(APITestCase):
         responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
         task = self.complete_task(task, responses=responses)
 
-        self.assertEqual(task.responses[FieldsJsonConstants.META_QUIZ_SCORE], 80)
+        self.assertEqual(task.responses[Quiz.SCORE], 80)
         self.assertEqual(Task.objects.count(), 2)
         self.assertFalse(task.complete)
+
+    def test_quiz_show_answers_never(self):
+        task_correct_responses = self.create_initial_task()
+
+        js_schema = {
+            "type": "object",
+            "properties": {
+                "q_1": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "q_2": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "q_3": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 3",
+                    "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": [
+                "q_1",
+                "q_2",
+                "q_3"
+            ]
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        task_correct_responses.assignee = None
+        task_correct_responses.save()
+        quiz = Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            show_answer=Quiz.ShowAnswers.NEVER
+        )
+        # Test answers if no threshold
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 1)
+
+        # Test answers if below threshold
+        quiz.threshold = 50
+        quiz.save()
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertFalse(task.complete)
+        self.assertEqual(self.user.tasks.count(), 2)
+
+        # Test answers if above threshold
+        task = self.create_initial_task()
+        responses = correct_responses
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 100)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 3)
+
+    def test_quiz_show_answers_always(self):
+        task_correct_responses = self.create_initial_task()
+
+        js_schema = {
+            "type": "object",
+            "properties": {
+                "q_1": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "q_2": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "q_3": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 3",
+                    "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": [
+                "q_1",
+                "q_2",
+                "q_3"
+            ]
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        task_correct_responses.assignee = None
+        task_correct_responses.save()
+        quiz = Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            show_answer=Quiz.ShowAnswers.ALWAYS
+        )
+        # Test answers if no threshold
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS],
+                         'Question 2\nQuestion 3')
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 1)
+
+        # Test answers if below threshold
+        quiz.threshold = 50
+        quiz.save()
+        task = self.create_initial_task()
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS],
+                         'Question 2\nQuestion 3')
+        self.assertFalse(task.complete)
+        self.assertEqual(self.user.tasks.count(), 2)
+
+        # Test answers if above threshold
+        task = self.create_initial_task()
+        responses = correct_responses
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 100)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], '')
+        self.assertTrue(task.complete)
+
+    def test_quiz_show_answers_on_pass(self):
+        task_correct_responses = self.create_initial_task()
+
+        js_schema = {
+            "type": "object",
+            "properties": {
+                "q_1": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "q_2": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "q_3": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 3",
+                    "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": [
+                "q_1",
+                "q_2",
+                "q_3"
+            ]
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        task_correct_responses.assignee = None
+        task_correct_responses.save()
+        quiz = Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            show_answer=Quiz.ShowAnswers.ON_PASS
+        )
+        # Test answers if no threshold
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 1)
+
+        # Test answers if below threshold
+        quiz.threshold = 50
+        quiz.save()
+        task = self.create_initial_task()
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertFalse(task.complete)
+        self.assertEqual(self.user.tasks.count(), 2)
+
+        # Test answers if above threshold
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "b", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 66)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3')
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 3)
+
+    def test_quiz_show_answers_on_fail(self):
+        task_correct_responses = self.create_initial_task()
+
+        js_schema = {
+            "type": "object",
+            "properties": {
+                "q_1": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "q_2": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "q_3": {
+                    "enum": ["a", "b", "c"],
+                    "title": "Question 3",
+                    "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": [
+                "q_1",
+                "q_2",
+                "q_3"
+            ]
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.save()
+
+        correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        task_correct_responses.assignee = None
+        task_correct_responses.save()
+        quiz = Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            show_answer=Quiz.ShowAnswers.ON_FAIL
+        )
+        # Test answers if no threshold
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "c", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 1)
+
+        # Test answers if below threshold
+        quiz.threshold = 50
+        quiz.save()
+        task = self.create_initial_task()
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 33)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS],
+                         'Question 2\nQuestion 3')
+        self.assertFalse(task.complete)
+        self.assertEqual(self.user.tasks.count(), 2)
+
+        # Test answers if above threshold
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "b", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 66)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 3)
 
     def test_delete_stage_assign_by_ST(self):
         second_stage = self.initial_stage.add_stage(TaskStage(
@@ -4082,8 +4362,8 @@ class GigaTurnipTest(APITestCase):
         conditional_one = self.initial_stage.add_stage(ConditionalStage(
             name='60 <= x <= 90',
             conditions=[
-                {"field": FieldsJsonConstants.META_QUIZ_SCORE, "type": "integer", "value": "60", "condition": "<="},
-                {"field": FieldsJsonConstants.META_QUIZ_SCORE, "type": "integer", "value": "90", "condition": ">="},
+                {"field": Quiz.SCORE, "type": "integer", "value": "60", "condition": "<="},
+                {"field": Quiz.SCORE, "type": "integer", "value": "90", "condition": ">="},
             ]
         ))
 
