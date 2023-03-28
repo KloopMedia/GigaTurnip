@@ -625,7 +625,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             if next_direct_task:
                 is_new_campaign = \
                     instance.get_campaign().id \
-                    == next_direct_task.get_campaign().id
+                    != next_direct_task.get_campaign().id
                 return Response(
                     {"message": "Next direct task is available.",
                      "id": instance.id,
