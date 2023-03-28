@@ -3976,7 +3976,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.notifications.all()[0].title, notification.title)
 
     def test_forking_chain_happy(self):
-        correct_responses = {"1": "a"}
         self.initial_stage.json_schema = {"type": "object",
                                           "properties": {"1": {"enum": ["a", "b", "c", "d"], "type": "string"}}}
         self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
@@ -4000,7 +3999,10 @@ class GigaTurnipTest(APITestCase):
         response = self.complete_task(task, responses=responses, whole_response=True)
         task = Task.objects.get(id=response.data['id'])
         self.assertEqual(task.case.tasks.count(), 3)
-        self.assertEqual(response.data.get('next_direct_id'), None)
+        self.assertIn(
+            response.data.get('next_direct_id'),
+            task.out_tasks.values_list('id', flat=True)
+        )
 
     def test_forking_chain_with_conditional_happy(self):
         self.initial_stage.json_schema = {"type": "object",
@@ -4766,7 +4768,7 @@ class GigaTurnipTest(APITestCase):
         response_content = json.loads(response.content)
         task = Task.objects.get(id=response_content['id'])
 
-        self.assertFalse(response_content['is_new_campaign'])
+        self.assertTrue(response_content['is_new_campaign'])
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 2)
 
@@ -4775,3 +4777,85 @@ class GigaTurnipTest(APITestCase):
 
         self.assertEqual(Notification.objects.count(), 3)
         self.assertEqual(self.user.notifications.count(), 1)
+
+    def test_return_task_after_conditional(self):
+        self.initial_stage.json_schema = json.dumps(
+            {"type": "object", "properties": {"answer": {"type": "string"}}}
+        )
+        self.initial_stage.save()
+        # fourth ping pong
+        conditional_stage = self.initial_stage.add_stage(
+            ConditionalStage(
+                name='Conditional ping-pong stage',
+                conditions=[
+                    {"field": "answer", "type": "string", "value": "pass",
+                     "condition": "=="}],
+            )
+        )
+
+        final = conditional_stage.add_stage(TaskStage(
+            name='Final stage',
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+            json_schema='{}'
+        ))
+
+        task = self.create_initial_task()
+        response = self.complete_task(
+            task,
+            {"answer": "nopass"},
+            whole_response=True
+        )
+        self.assertEqual(json.loads(response.content),
+                         {"message": "Task saved.", "id": task.id})
+        self.assertEqual(Task.objects.count(), 1)
+        self.assertEqual(self.user.tasks.filter(case=task.case).count(), 1)
+        self.assertEqual(self.user.tasks.count(), 1)
+
+        task = self.create_initial_task()
+        response = self.complete_task(
+            task,
+            {"answer": "pass"},
+            whole_response=True
+        )
+        self.assertEqual(json.loads(response.content),
+                         {"message": "Next direct task is available.",
+                          "id": task.id,
+                          "is_new_campaign": False,
+                          "next_direct_id": task.out_tasks.get().id})
+        self.assertEqual(Task.objects.count(), 3)
+        self.assertEqual(self.user.tasks.filter(case=task.case).count(), 2)
+        self.assertEqual(self.user.tasks.count(), 3)
+
+    def test_get_next_task_after_autocomplete_stage(self):
+        self.initial_stage.json_schema = json.dumps(
+            {"type": "object", "properties": {"answer": {"type": "string"}}}
+        )
+        self.initial_stage.save()
+        # fourth ping pong
+        autocomplete_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name='Autocomplete',
+                assign_user_by=TaskStageConstants.AUTO_COMPLETE
+            )
+        )
+
+        final = autocomplete_stage.add_stage(TaskStage(
+            name='Final stage',
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+            json_schema='{}'
+        ))
+
+        task = self.create_initial_task()
+        response = self.complete_task(
+            task,
+            {"answer": "nopass"},
+            whole_response=True
+        )
+        self.assertEqual(json.loads(response.content),
+                         {"message": "Next direct task is available.",
+                          "id": task.id,
+                          "is_new_campaign": False,
+                          "next_direct_id": task.id+2})
+

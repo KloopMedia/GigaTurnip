@@ -10,7 +10,7 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint
+from django.db.models import UniqueConstraint, Q
 from django.http import HttpResponse
 from polymorphic.models import PolymorphicModel
 from jsonschema import validate
@@ -1327,20 +1327,35 @@ class Task(BaseDatesModel, CampaignInterface):
     def get_direct_previous(self):
         in_tasks = self.in_tasks.all()
         if len(in_tasks) == 1:
-            if self._are_directly_connected(in_tasks[0], self):
+            if Task.are_directly_connected(in_tasks[0], self):
                 return in_tasks[0]
         return None
 
-    def get_next_demo(self): # todo: have to refactor
-        tasks = self.out_tasks.filter(assignee=self.assignee)
-        if tasks.count() == 1:
-            return tasks[0]
+    def get_next_demo(self):
+        filter_next_tasks = {
+            Q(stage__assign_user_by=TaskStageConstants.AUTO_COMPLETE)
+            | Q(assignee=self.assignee)
+        }
+        tasks = list(self.out_tasks.filter(*filter_next_tasks))
+        used_tasks = list()
+        while tasks:
+            current = tasks.pop()
+            used_tasks.append(current.id)
+
+            if current.assignee == self.assignee:
+                return current
+            else:
+                tasks = tasks + list(
+                    current.out_tasks.filter(*filter_next_tasks).exclude(
+                        id__in=used_tasks
+                    )
+                )
         return None
 
     def get_direct_next(self):
         out_tasks = self.out_tasks.all()
         if len(out_tasks) == 1:
-            if self._are_directly_connected(self, out_tasks[0]):
+            if Task.are_directly_connected(self, out_tasks[0]):
                 return out_tasks[0]
         return None
 
@@ -1368,7 +1383,8 @@ class Task(BaseDatesModel, CampaignInterface):
             tasks = tasks.filter(stage__is_public=True)
         return tasks
 
-    def _are_directly_connected(self, task1, task2):
+    @staticmethod
+    def are_directly_connected(task1, task2):
         in_tasks = task2.in_tasks.all()
         if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
             if len(task2.stage.in_stages.all()) == 1 and \
