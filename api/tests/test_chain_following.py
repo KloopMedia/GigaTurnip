@@ -3976,7 +3976,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.notifications.all()[0].title, notification.title)
 
     def test_forking_chain_happy(self):
-        correct_responses = {"1": "a"}
         self.initial_stage.json_schema = {"type": "object",
                                           "properties": {"1": {"enum": ["a", "b", "c", "d"], "type": "string"}}}
         self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
@@ -4000,7 +3999,10 @@ class GigaTurnipTest(APITestCase):
         response = self.complete_task(task, responses=responses, whole_response=True)
         task = Task.objects.get(id=response.data['id'])
         self.assertEqual(task.case.tasks.count(), 3)
-        self.assertEqual(response.data.get('next_direct_id'), None)
+        self.assertIn(
+            response.data.get('next_direct_id'),
+            task.out_tasks.values_list('id', flat=True)
+        )
 
     def test_forking_chain_with_conditional_happy(self):
         self.initial_stage.json_schema = {"type": "object",
