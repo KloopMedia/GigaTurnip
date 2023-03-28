@@ -1157,13 +1157,14 @@ class Quiz(BaseDatesModel):
         choices=ShowAnswers.choices,
         default=ShowAnswers.ON_FAIL,
     )
+    SCORE = 'meta_quiz_score'
+    INCORRECT_QUESTIONS = 'meta_quiz_incorrect_questions'
 
     def is_ready(self):
         return bool(self.correct_responses_task)
 
-    def check_score(self, task):
-        score, incorrect_questions = self.compare_with_correct_answers(
-            task.responses)
+    def check_score(self, responses):
+        score, incorrect_questions = self.compare_with_correct_answers(responses)
         if self.show_answer == Quiz.ShowAnswers.ALWAYS:
             return score, incorrect_questions
         if self.show_answer == Quiz.ShowAnswers.NEVER:
@@ -1189,7 +1190,7 @@ class Quiz(BaseDatesModel):
                 incorrect_questions.append(questions.get(key).get('title'))
 
         len_correct_answers = len(correct_answers)
-        unnecessary_keys = ["meta_quiz_score", "meta_quiz_incorrect_questions"]
+        unnecessary_keys = [Quiz.SCORE, Quiz.INCORRECT_QUESTIONS]
         for k in unnecessary_keys:
             if correct_answers.get(k):
                 len_correct_answers -= 1
@@ -1420,6 +1421,20 @@ class Task(BaseDatesModel, CampaignInterface):
                     if task1.out_tasks.all().count() == 1:
                         return True
         return False
+
+    def evaluate_quiz(self):
+        quiz = self.stage.get_quiz()
+        is_reopened = False
+        if quiz and quiz.is_ready():
+            score, incorrect_questions = quiz.check_score(self.responses)
+            self.responses[Quiz.SCORE] = score
+            self.responses[Quiz.INCORRECT_QUESTIONS] = incorrect_questions
+            if quiz.threshold is not None and score < quiz.threshold:
+                self.complete = False
+                self.reopened = True
+                is_reopened = True
+            self.save()
+        return self, is_reopened
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())
