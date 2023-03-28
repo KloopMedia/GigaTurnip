@@ -4827,7 +4827,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.tasks.filter(case=task.case).count(), 2)
         self.assertEqual(self.user.tasks.count(), 3)
 
-    def test_assignee_after_autocomplete(self):
+    def test_get_next_task_after_autocomplete_stage(self):
         self.initial_stage.json_schema = json.dumps(
             {"type": "object", "properties": {"answer": {"type": "string"}}}
         )
