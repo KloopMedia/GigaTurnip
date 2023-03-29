@@ -180,6 +180,18 @@ class Campaign(BaseModel, CampaignInterface):
         help_text='User that logged in via sms can enter in the campaign'
     )
 
+    logo = models.TextField(
+        blank=True,
+        help_text="Text or url to the SVG"
+    )
+
+    descriptor = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text="Fast description to the campaign to attract new users."
+    )
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = RankRecord.objects.get_or_create(

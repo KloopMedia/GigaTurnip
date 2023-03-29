@@ -18,7 +18,11 @@ class CampaignTest(APITestCase):
         self.new_user = CustomUser.objects.create_user(username='new_user', email='new_user@email.com',
                                                        password='new_user')
         self.client.force_authenticate(user=self.user)
-        self.campaign_json = {"name": "name", "description": "description"}
+        self.campaign_json = {
+            "name": "name",
+            "description": "description",
+            "descriptor": "fast description"
+        }
         self.new_name = {"name": "new_name"}
 
         self.campaign_creator_group = Group.objects.create(name='campaign_creator')
