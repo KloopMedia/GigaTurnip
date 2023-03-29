@@ -187,8 +187,8 @@ class Campaign(BaseModel, CampaignInterface):
 
     descriptor = models.CharField(
         max_length=128,
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
         help_text="Fast description to the campaign to attract new users."
     )
 
