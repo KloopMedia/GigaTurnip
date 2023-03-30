@@ -69,6 +69,9 @@ class UserViewSet(viewsets.ModelViewSet):
             self.request, CustomUser.objects.all()
         )
 
+    def get_serializer_class(self):
+        return UserDeleteSerializer
+
     @action(detail=False, methods=['get'])
     def delete_init(self, request, *args, **kwargs):
         """
@@ -248,7 +251,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         elif self.action == 'public':
             return TaskStagePublicSerializer
         else:
-            if self.request.query_params.get('ranks_avatars'):
+            if self.request and self.request.query_params.get('ranks_avatars'):
                 return TaskStageFullRankReadSerializer
             return TaskStageReadSerializer
 
@@ -389,7 +392,7 @@ class CaseViewSet(viewsets.ModelViewSet):
     }
 
     @action(detail=True)
-    def info_by_case(self, request, pk=None):
+    def info_by_case(self, request, pk=None): # todo: through serializer
         tasks = self.get_object().tasks.all()
         filters_tasks_info = {
             "complete": ArrayAgg('complete'),
