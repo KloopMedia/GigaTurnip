@@ -709,23 +709,34 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         tasks = queryset
         if request.query_params.get('responses_contains') or request.method == "POST":
-            tasks = Task.objects.filter(id__in=Subquery(queryset.filter(out_tasks__isnull=False).values('out_tasks')))
+            tasks = Task.objects.filter(
+                id__in=Subquery(
+                    queryset.filter(
+                        out_tasks__isnull=False
+                    ).values('out_tasks')
+                )
+            )
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
-        result_tasks = by_datetime.values(
-            'id',
-            'case',
-            'stage__name',
-            'stage__description',
-            'stage__json_schema',
-            'stage__ui_schema',
-            'responses',
-            'complete',
-        ).annotate(
-            displayed_prev_stages=ArrayAgg('stage__displayed_prev_stages',
-                                           distinct=True)
-        )
-        return result_tasks
+
+        qs = by_datetime.annotate(
+            stage_data=JSONObject(
+                id='stage__id',
+                name="stage__name",
+                chain="stage__chain__campaign",
+                campaign="stage__chain",
+                card_json_schema="stage__card_json_schema",
+                card_ui_schema="stage__card_ui_schema",
+            )
+        ).values('id',
+                 'complete',
+                 'force_complete',
+                 'created_at',
+                 'reopened',
+                 'stage_data'
+                 )
+
+        return qs
 
     @paginate
     @action(detail=False)
