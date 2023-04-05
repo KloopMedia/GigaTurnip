@@ -2667,6 +2667,7 @@ class GigaTurnipTest(APITestCase):
                      self.initial_stage.in_stages.all().values('id')]
         out_stages = [i['id'] for i in
                       self.initial_stage.out_stages.all().values('id')]
+        # todo: add field 'users' to remove bug
         expected_activity = {
             'stage': self.initial_stage.id,
             'stage_name': self.initial_stage.name,
