@@ -4,7 +4,7 @@ from itertools import chain
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
 from api.models import TaskStage, Task, RankLimit, CampaignManagement
-from . import utils
+from api.utils import utils
 
 
 class CampaignAccessPolicy(AccessPolicy):

@@ -53,14 +53,16 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, \
     TaskAwardAccessPolicy, \
     DynamicJsonAccessPolicy, UserAccessPolicy
-from . import utils
+from .utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
-from .utils import paginate
+from .utils.utils import paginate
 import json
 
 from datetime import datetime
+
+from .utils.django_expressions import ArraySubquery
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -445,19 +447,6 @@ class CaseViewSet(viewsets.ModelViewSet):
 #         return response
 
 
-class SubqueryArray(Subquery):
-    template = 'ARRAY(%(subquery)s)'
-
-    @property
-    def output_field(self):
-        output_fields = [x.output_field for x in self.get_source_expressions()]
-
-        if len(output_fields) > 1:
-            raise FieldError('More than one column detected')
-
-        return ArrayField(base_field=output_fields[0])
-
-
 class TaskViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -747,7 +736,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             in_stages=ArrayAgg('stage__in_stages', distinct=True),
             out_stages=ArrayAgg('stage__out_stages', distinct=True),
             stage_name=F('stage__name'),
-            users=SubqueryArray(
+            users=ArraySubquery(
                 tasks.filter(stage_id=OuterRef('stage_id'))
                 .values('assignee', 'stage_id').annotate(
                     count=Count('pk'),
