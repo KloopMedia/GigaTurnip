@@ -1,64 +1,57 @@
 import csv
-import operator
-from functools import reduce
-from datetime import datetime, timedelta
+import json
+from datetime import datetime
+from datetime import timedelta
 from itertools import chain
 
-import django_filters
 import requests
-from django.core.paginator import Paginator
-from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
-from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef, Case as ExCase
-from django.db.models.functions import Cast, JSONObject
-from django.http import HttpResponse, Http404
-from django.template import loader
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
-from rest_framework.response import Response
-from django.utils.translation import gettext_lazy as _
-
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import (
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase
+)
+from django.db.models.functions import JSONObject
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
-from api.models import Campaign, Chain, TaskStage, \
-    ConditionalStage, Case, Task, Rank, \
-    RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, \
+from api.asyncstuff import (
+    process_completed_task, process_updating_schema_answers
+)
+from api.models import (
+    Campaign, Chain, TaskStage, ConditionalStage, Case, Task, Rank,
+    RankLimit, Track, RankRecord, CampaignManagement,
+    Notification, ResponseFlattener, TaskAward,
     DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete
-from api.serializer import CampaignSerializer, ChainSerializer, \
-    TaskStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, RankSerializer, RankLimitSerializer, \
-    TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
-    TaskEditSerializer, TaskDefaultSerializer, \
-    TaskRequestAssignmentSerializer, TestWebhookSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, \
-    TaskSelectSerializer, \
-    NotificationListSerializer, NotificationSerializer, \
-    TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
-    ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, \
-    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
-from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
-from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
-    TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
-    RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, \
-    NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, \
-    TaskAwardAccessPolicy, \
+)
+from api.permissions import (
+    CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
+    TaskAccessPolicy, RankAccessPolicy, RankRecordAccessPolicy,
+    TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy,
+    CampaignManagementAccessPolicy, NotificationAccessPolicy,
+    ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy
+)
+from api.serializer import (
+    CampaignSerializer, ChainSerializer, TaskStageSerializer,
+    ConditionalStageSerializer, CaseSerializer, RankSerializer,
+    RankLimitSerializer, TrackSerializer, RankRecordSerializer,
+    TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer,
+    TestWebhookSerializer, TaskStageReadSerializer,
+    CampaignManagementSerializer, NotificationListSerializer,
+    NotificationSerializer, TaskAutoCreateSerializer, TaskStagePublicSerializer,
+    ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer,
+    TaskAwardSerializer, DynamicJsonReadSerializer,
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
+    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
+)
 from . import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
 from .utils import paginate
-import json
-
-from datetime import datetime
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -527,8 +520,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        # elif self.action == 'user_selectable':
-        #     return TaskSelectSerializer
         elif self.action == 'public':
             return TaskListSerializer
         elif self.action == 'user_activity':
