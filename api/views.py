@@ -519,7 +519,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             return qs
 
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action in ['list', 'user_relevant', 'user_selectable']:
             return TaskListSerializer
         elif self.action == 'create':
             return TaskAutoCreateSerializer
@@ -527,8 +527,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        elif self.action == 'user_selectable':
-            return TaskSelectSerializer
+        # elif self.action == 'user_selectable':
+        #     return TaskSelectSerializer
         elif self.action == 'public':
             return TaskListSerializer
         elif self.action == 'user_activity':
@@ -539,13 +539,22 @@ class TaskViewSet(viewsets.ModelViewSet):
     @paginate
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(self.get_queryset())
-        qs = qs.values('id',
-                       'complete',
-                       'force_complete',
-                       'created_at',
-                       'reopened',
-                       'stage__name',
-                       'stage__description')
+        qs = qs.annotate(
+            stage_data=JSONObject(
+                id='stage__id',
+                name="stage__name",
+                chain="stage__chain__campaign",
+                campaign="stage__chain",
+                card_json_schema="stage__card_json_schema",
+                card_ui_schema="stage__card_ui_schema",
+            )
+        ).values('id',
+                 'complete',
+                 'force_complete',
+                 'created_at',
+                 'reopened',
+                 'stage_data'
+                 )
 
         return qs
 

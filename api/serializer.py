@@ -237,8 +237,7 @@ class TaskListSerializer(serializers.ModelSerializer):
         ]
 
     def get_stage(self, obj):
-        return {'name': obj['stage__name'],
-                'description': obj['stage__description']}
+        return obj['stage_data']
 
 
 class TaskEditSerializer(serializers.ModelSerializer):
