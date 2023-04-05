@@ -667,9 +667,27 @@ class TaskViewSet(viewsets.ModelViewSet):
         Get:
         Return a list of tasks where user is task assignee.
         """
-        queryset = self.filter_queryset(self.get_queryset())
-        tasks = queryset.filter(assignee=request.user) \
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.filter(assignee=request.user) \
             .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
+
+        tasks = qs.annotate(
+            stage_data=JSONObject(
+                id='stage__id',
+                name="stage__name",
+                chain="stage__chain__campaign",
+                campaign="stage__chain",
+                card_json_schema="stage__card_json_schema",
+                card_ui_schema="stage__card_ui_schema",
+            )
+        ).values('id',
+                 'complete',
+                 'force_complete',
+                 'created_at',
+                 'reopened',
+                 'stage_data'
+                 )
+
         return tasks
 
     @paginate
