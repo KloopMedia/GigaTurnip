@@ -6,6 +6,8 @@ from itertools import chain
 
 import django_filters
 import requests
+from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
@@ -443,6 +445,19 @@ class CaseViewSet(viewsets.ModelViewSet):
 #         return response
 
 
+class SubqueryArray(Subquery):
+    template = 'ARRAY(%(subquery)s)'
+
+    @property
+    def output_field(self):
+        output_fields = [x.output_field for x in self.get_source_expressions()]
+
+        if len(output_fields) > 1:
+            raise FieldError('More than one column detected')
+
+        return ArrayField(base_field=output_fields[0])
+
+
 class TaskViewSet(viewsets.ModelViewSet):
     """
     list:
@@ -718,14 +733,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = list(chain(is_public, is_public_publisher))
         return tasks
 
-    @paginate
+    # @paginate
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
             .select_related('stage',) \
             .prefetch_related('stage__ranks', 'stage__in_stages',
                               'stage__out_stages')
-
         groups = tasks.values('stage').annotate(
             chain=F('stage__chain'),
             chain_name=F('stage__chain__name'),
@@ -733,10 +747,36 @@ class TaskViewSet(viewsets.ModelViewSet):
             in_stages=ArrayAgg('stage__in_stages', distinct=True),
             out_stages=ArrayAgg('stage__out_stages', distinct=True),
             stage_name=F('stage__name'),
+            users=SubqueryArray(
+                tasks.filter(stage_id=OuterRef('stage_id'))
+                .values('assignee', 'stage_id').annotate(
+                    count=Count('pk'),
+                    complete_count=Count(
+                        'complete',
+                        filter=Q(complete=True),
+                        distinct=True
+                    ),
+                    force_complete_count=Count(
+                        "force_complete",
+                        filter=Q(force_complete=True),
+                        distinct=True
+                    ),
+                    tasks=ArrayAgg("id", distinct=True)
+                ).values(
+                    js=JSONObject(
+                        assignee="assignee__email",
+                        tasks="tasks"
+                        # count="count",
+                        # complete_count="complete_count",
+                        # force_complete_count="force_complete_count",
+                    )
+                )
+            ),
             **utils.task_stage_queries()
         )
-
-        return groups
+        # print(str(groups.query))
+        return Response(groups)
+        # return groups
 
     @action(detail=False)
     def user_activity_csv(self, request):
