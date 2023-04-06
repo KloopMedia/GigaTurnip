@@ -234,6 +234,7 @@ class TaskListSerializer(serializers.ModelSerializer):
             'complete',
             'force_complete',
             'reopened',
+            'responses',
             'stage',
             'created_at'
         ]
