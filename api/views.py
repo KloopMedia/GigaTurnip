@@ -544,6 +544,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                  'force_complete',
                  'created_at',
                  'reopened',
+                 'responses',
                  'stage_data'
                  )
 
@@ -676,6 +677,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                  'force_complete',
                  'created_at',
                  'reopened',
+                 'responses',
                  'stage_data'
                  )
 
@@ -724,6 +726,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                  'force_complete',
                  'created_at',
                  'reopened',
+                 'responses',
                  'stage_data'
                  )
 
