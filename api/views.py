@@ -1,64 +1,57 @@
 import csv
-import operator
-from functools import reduce
-from datetime import datetime, timedelta
+import json
+from datetime import datetime
+from datetime import timedelta
 from itertools import chain
 
-import django_filters
 import requests
-from django.core.paginator import Paginator
-from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
-from django.db import models
-from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField, OuterRef, Case as ExCase
-from django.db.models.functions import Cast, JSONObject
-from django.http import HttpResponse, Http404
-from django.template import loader
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
-from rest_framework.response import Response
-from django.utils.translation import gettext_lazy as _
-
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import (
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase
+)
+from django.db.models.functions import JSONObject
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
-from api.models import Campaign, Chain, TaskStage, \
-    ConditionalStage, Case, Task, Rank, \
-    RankLimit, Track, RankRecord, CampaignManagement, \
-    Notification, NotificationStatus, ResponseFlattener, TaskAward, \
+from api.asyncstuff import (
+    process_completed_task, process_updating_schema_answers
+)
+from api.models import (
+    Campaign, Chain, TaskStage, ConditionalStage, Case, Task, Rank,
+    RankLimit, Track, RankRecord, CampaignManagement,
+    Notification, ResponseFlattener, TaskAward,
     DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete
-from api.serializer import CampaignSerializer, ChainSerializer, \
-    TaskStageSerializer, ConditionalStageSerializer, \
-    CaseSerializer, RankSerializer, RankLimitSerializer, \
-    TrackSerializer, RankRecordSerializer, TaskCreateSerializer, \
-    TaskEditSerializer, TaskDefaultSerializer, \
-    TaskRequestAssignmentSerializer, TestWebhookSerializer, \
-    TaskStageReadSerializer, CampaignManagementSerializer, \
-    TaskSelectSerializer, \
-    NotificationListSerializer, NotificationSerializer, \
-    TaskAutoCreateSerializer, TaskPublicSerializer, \
-    TaskStagePublicSerializer, ResponseFlattenerCreateSerializer, \
-    ResponseFlattenerReadSerializer, TaskAwardSerializer, \
-    DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
-    TaskStageFullRankReadSerializer, TaskUserActivitySerializer, \
-    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
-from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
-from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
-    TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
-    RankRecordAccessPolicy, TrackAccessPolicy, RankLimitAccessPolicy, \
-    ConditionalStageAccessPolicy, CampaignManagementAccessPolicy, \
-    NotificationAccessPolicy, \
-    NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, \
-    TaskAwardAccessPolicy, \
+)
+from api.permissions import (
+    CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
+    TaskAccessPolicy, RankAccessPolicy, RankRecordAccessPolicy,
+    TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy,
+    CampaignManagementAccessPolicy, NotificationAccessPolicy,
+    ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy
+)
+from api.serializer import (
+    CampaignSerializer, ChainSerializer, TaskStageSerializer,
+    ConditionalStageSerializer, CaseSerializer, RankSerializer,
+    RankLimitSerializer, TrackSerializer, RankRecordSerializer,
+    TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer,
+    TestWebhookSerializer, TaskStageReadSerializer,
+    CampaignManagementSerializer, NotificationListSerializer,
+    NotificationSerializer, TaskAutoCreateSerializer, TaskStagePublicSerializer,
+    ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer,
+    TaskAwardSerializer, DynamicJsonReadSerializer,
+    TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
+    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
+)
 from . import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
 from .utils import paginate
-import json
-
-from datetime import datetime
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -519,7 +512,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             return qs
 
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action in ['list', 'user_relevant', 'user_selectable']:
             return TaskListSerializer
         elif self.action == 'create':
             return TaskAutoCreateSerializer
@@ -527,8 +520,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        elif self.action == 'user_selectable':
-            return TaskSelectSerializer
         elif self.action == 'public':
             return TaskListSerializer
         elif self.action == 'user_activity':
@@ -539,13 +530,22 @@ class TaskViewSet(viewsets.ModelViewSet):
     @paginate
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(self.get_queryset())
-        qs = qs.values('id',
-                       'complete',
-                       'force_complete',
-                       'created_at',
-                       'reopened',
-                       'stage__name',
-                       'stage__description')
+        qs = qs.annotate(
+            stage_data=JSONObject(
+                id='stage__id',
+                name="stage__name",
+                chain="stage__chain__campaign",
+                campaign="stage__chain",
+                card_json_schema="stage__card_json_schema",
+                card_ui_schema="stage__card_ui_schema",
+            )
+        ).values('id',
+                 'complete',
+                 'force_complete',
+                 'created_at',
+                 'reopened',
+                 'stage_data'
+                 )
 
         return qs
 
@@ -658,9 +658,27 @@ class TaskViewSet(viewsets.ModelViewSet):
         Get:
         Return a list of tasks where user is task assignee.
         """
-        queryset = self.filter_queryset(self.get_queryset())
-        tasks = queryset.filter(assignee=request.user) \
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.filter(assignee=request.user) \
             .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
+
+        tasks = qs.annotate(
+            stage_data=JSONObject(
+                id='stage__id',
+                name="stage__name",
+                chain="stage__chain__campaign",
+                campaign="stage__chain",
+                card_json_schema="stage__card_json_schema",
+                card_ui_schema="stage__card_ui_schema",
+            )
+        ).values('id',
+                 'complete',
+                 'force_complete',
+                 'created_at',
+                 'reopened',
+                 'stage_data'
+                 )
+
         return tasks
 
     @paginate
@@ -682,23 +700,34 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         tasks = queryset
         if request.query_params.get('responses_contains') or request.method == "POST":
-            tasks = Task.objects.filter(id__in=Subquery(queryset.filter(out_tasks__isnull=False).values('out_tasks')))
+            tasks = Task.objects.filter(
+                id__in=Subquery(
+                    queryset.filter(
+                        out_tasks__isnull=False
+                    ).values('out_tasks')
+                )
+            )
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
-        result_tasks = by_datetime.values(
-            'id',
-            'case',
-            'stage__name',
-            'stage__description',
-            'stage__json_schema',
-            'stage__ui_schema',
-            'responses',
-            'complete',
-        ).annotate(
-            displayed_prev_stages=ArrayAgg('stage__displayed_prev_stages',
-                                           distinct=True)
-        )
-        return result_tasks
+
+        qs = by_datetime.annotate(
+            stage_data=JSONObject(
+                id='stage__id',
+                name="stage__name",
+                chain="stage__chain__campaign",
+                campaign="stage__chain",
+                card_json_schema="stage__card_json_schema",
+                card_ui_schema="stage__card_ui_schema",
+            )
+        ).values('id',
+                 'complete',
+                 'force_complete',
+                 'created_at',
+                 'reopened',
+                 'stage_data'
+                 )
+
+        return qs
 
     @paginate
     @action(detail=False)
