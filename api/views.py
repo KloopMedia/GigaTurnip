@@ -722,7 +722,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = list(chain(is_public, is_public_publisher))
         return tasks
 
-    # @paginate
+    @paginate
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
@@ -730,42 +730,16 @@ class TaskViewSet(viewsets.ModelViewSet):
             .prefetch_related('stage__ranks', 'stage__in_stages',
                               'stage__out_stages')
         groups = tasks.values('stage').annotate(
+            stage_name=F('stage__name'),
             chain=F('stage__chain'),
             chain_name=F('stage__chain__name'),
             ranks=ArrayAgg('stage__ranks', distinct=True),
             in_stages=ArrayAgg('stage__in_stages', distinct=True),
             out_stages=ArrayAgg('stage__out_stages', distinct=True),
-            stage_name=F('stage__name'),
-            users=ArraySubquery(
-                tasks.filter(stage_id=OuterRef('stage_id'))
-                .values('assignee', 'stage_id').annotate(
-                    count=Count('pk'),
-                    complete_count=Count(
-                        'complete',
-                        filter=Q(complete=True),
-                        distinct=True
-                    ),
-                    force_complete_count=Count(
-                        "force_complete",
-                        filter=Q(force_complete=True),
-                        distinct=True
-                    ),
-                    tasks=ArrayAgg("id", distinct=True)
-                ).values(
-                    js=JSONObject(
-                        assignee="assignee__email",
-                        tasks="tasks"
-                        # count="count",
-                        # complete_count="complete_count",
-                        # force_complete_count="force_complete_count",
-                    )
-                )
-            ),
             **utils.task_stage_queries()
         )
-        # print(str(groups.query))
-        return Response(groups)
-        # return groups
+
+        return groups
 
     @action(detail=False)
     def user_activity_csv(self, request):
