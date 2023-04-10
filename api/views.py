@@ -1364,13 +1364,20 @@ class UserStatisticViewSet(GenericViewSet):
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    **{"key": "created_at"})
 
-        qs = self.get_queryset().filter(
+        qs = self.get_queryset()
+
+        admin_preference = request.user.get_admin_preference()
+        if not admin_preference:
+            return qs.none()
+
+        qs = qs.filter(
             **date_range_filter
         ).annotate(
             tasks_count=Subquery(
-                Task.objects.filter(
-                    **date_range_filter,
-                    assignee_id=OuterRef("id"), # todo: Add filter by campaign to make detail analysis
+                Task.objects.select_related("stage__chain__campaign").filter(
+                    stage__chain__campaign=admin_preference.campaign,
+                    ** date_range_filter,
+                    assignee_id=OuterRef("id"),
                 ).values("assignee_id")
                 .annotate(
                     tasks_count=Count("id")
