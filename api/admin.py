@@ -780,7 +780,6 @@ class AutoNotificationAdmin(admin.ModelAdmin):
     )
     search_fields = (
         "notification__title",
-        "notification",
         "trigger_stage__name",
         "recipient_stage__name",
     )
