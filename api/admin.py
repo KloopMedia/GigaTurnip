@@ -429,34 +429,46 @@ class QuizAdmin(admin.ModelAdmin):
 
 
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'case',
-                    'stage',
-                    'assignee',
-                    'created_at',
-                    'updated_at')
-    list_filter = (StageFilter,
-                   'stage__chain__campaign',
-                   'stage__chain',
-                   'stage',
-                   'stage__is_public',
-                   'complete',
-                   'force_complete',
-                   TaskResponsesStatusFilter,
-                   'created_at',
-                   'updated_at',
-                   DuplicateTasksFilter)
-    search_fields = ('id',
-                     'case__id',
-                     'stage__name',
-                     'assignee__email',
-                     'stage__chain__name',
-                     'stage__chain__campaign__name')
-    autocomplete_fields = ('in_tasks',)
-    raw_id_fields = ('stage', 'assignee', 'case',)
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = (
+        "id",
+        "case",
+        "stage",
+        "assignee",
+        "created_at",
+        "updated_at"
+    )
+    list_filter = (
+        StageFilter,
+        "stage__chain__campaign",
+        "stage__chain",
+        "stage",
+        "stage__is_public",
+        "complete",
+        "force_complete",
+        TaskResponsesStatusFilter,
+        "created_at",
+        "updated_at",
+        DuplicateTasksFilter
+    )
+    search_fields = (
+        "id",
+        "case__id",
+        "stage__name",
+        "assignee__email",
+        "stage__chain__name",
+        "stage__chain__campaign__name"
+    )
+    autocomplete_fields = ("in_tasks",)
+    raw_id_fields = ("stage", "assignee", "case",)
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = (
+        "stage",
+        "stage__chain",
+        "case",
+        "assignee"
+    )
 
-    actions = ['make_completed', 'make_completed_force']
+    actions = ["make_completed", "make_completed_force"]
 
     def get_form(self, request, *args, **kwargs):
         form = super(TaskAdmin, self).get_form(request, *args, **kwargs)
