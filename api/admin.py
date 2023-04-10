@@ -401,14 +401,14 @@ class TaskAwardAdmin(admin.ModelAdmin):
 
 
 class CopyFieldAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'task_stage',
-                    'copy_from_stage',
-                    'fields_to_copy',
-                    'created_at',
-                    'updated_at')
-    autocomplete_fields = ('task_stage', 'copy_from_stage')
-    search_fields = ('task_stage', 'copy_from_stage')
+    list_display = ("id",
+                    "task_stage",
+                    "copy_from_stage",
+                    "fields_to_copy",
+                    "created_at",
+                    "updated_at")
+    autocomplete_fields = ("task_stage", "copy_from_stage")
+    search_fields = ("task_stage__name", "copy_from_stage__name")
 
     def get_queryset(self, request):
         queryset = super(CopyFieldAdmin, self).get_queryset(request)
