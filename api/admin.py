@@ -285,7 +285,7 @@ class TaskStageAdmin(StageAdmin):
 
 
 class IntegrationAdmin(admin.ModelAdmin):
-    search_fields = ('task_stage',)
+    search_fields = ('task_stage__name',)
     autocomplete_fields = ('task_stage',)
 
     def get_form(self, request, *args, **kwargs):
@@ -687,9 +687,9 @@ class ApproveLinkAdmin(admin.ModelAdmin):
 
 class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
-    list_display = ('target', 'webhook', 'id', 'created_at', 'updated_at', )
-    search_fields = ('target', 'webhook', )
-    autocomplete_fields = ('target', 'webhook', )
+    list_display = ("target", "webhook", "id", "created_at", "updated_at", )
+    search_fields = ("target__name", "webhook__url", )
+    autocomplete_fields = ("target", "webhook", )
     list_filter = (
         "target",
         "target__chain",
