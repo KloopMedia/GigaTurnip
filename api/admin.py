@@ -587,7 +587,12 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
 
 class CampaignManagementAdmin(admin.ModelAdmin):
     list_display = ("campaign", "user",)
-    search_fields = ("user", "campaign", "id",)
+    search_fields = (
+        "user__email",
+        "user__phone_number",
+        "campaign__name",
+        "campaign__description",
+    )
     autocomplete_fields = ("user", 'campaign')
 
 
