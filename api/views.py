@@ -1370,19 +1370,20 @@ class UserStatisticViewSet(GenericViewSet):
         if not admin_preference:
             return qs.none()
 
+        tasks_of_campaign = Task.objects.select_related(
+            "stage__chain__campaign").filter(
+            stage__chain__campaign=admin_preference.campaign,
+            **date_range_filter,
+            assignee_id=OuterRef("id"),
+        )
+
         qs = qs.filter(
             **date_range_filter
         ).annotate(
             tasks_count=Subquery(
-                Task.objects.select_related("stage__chain__campaign").filter(
-                    stage__chain__campaign=admin_preference.campaign,
-                    ** date_range_filter,
-                    assignee_id=OuterRef("id"),
-                ).values("assignee_id")
-                .annotate(
+                tasks_of_campaign.values("assignee_id").annotate(
                     tasks_count=Count("id")
-                )
-                .values("tasks_count")
+                ).values("tasks_count")
             )
         ).filter(tasks_count__gt=0)
 
