@@ -641,14 +641,15 @@ class ApproveLinkAdmin(admin.ModelAdmin):
     list_display = (
         "linker",
         "rank",
+        "approved",
         "notification",
         "created_at",
         "updated_at",
     )
     search_fields = (
-        "linker",
-        "rank",
-        "notification",
+        "linker__name",
+        "rank__name",
+        "task_stage__name",
     )
     autocomplete_fields = (
         "linker",

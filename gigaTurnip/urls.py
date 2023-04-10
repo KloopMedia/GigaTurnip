@@ -14,7 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework.documentation import include_docs_urls
 from .yasg import urlpatterns as doc_urls
@@ -84,7 +84,7 @@ router.register(api_v1 + r'numberranks',
 
 urlpatterns = [
                   path('admin/', admin.site.urls),
-                  # path('__debug__/', include('debug_toolbar.urls')),
+                  path('__debug__/', include('debug_toolbar.urls')),
                   path('docs/', include_docs_urls(
                       title='Giga Turnip API Documentation'))
               ] + router.urls
