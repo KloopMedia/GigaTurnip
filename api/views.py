@@ -3,11 +3,12 @@ import operator
 from functools import reduce
 from datetime import datetime, timedelta
 from itertools import chain
+import re
 
 import django_filters
 import requests
 from django.contrib.postgres.fields import ArrayField
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldError, ValidationError
 from django.core.paginator import Paginator
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import models
@@ -15,14 +16,16 @@ from django.db.models import Count, Q, Subquery, F, When, Func, Value, TextField
 from django.db.models.functions import Cast, JSONObject
 from django.http import HttpResponse, Http404
 from django.template import loader
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status, filters
+from django_filters.rest_framework import DjangoFilterBackend, FilterSet
+from rest_framework import viewsets, status, filters, mixins
 from rest_framework.decorators import action
+from rest_framework.fields import IntegerField
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from django.utils.translation import gettext_lazy as _
 
 from django.shortcuts import get_object_or_404
+from rest_framework.viewsets import GenericViewSet
 
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, Task, Rank, \
@@ -52,7 +55,7 @@ from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     NotificationAccessPolicy, \
     NotificationStatusesAccessPolicy, ResponseFlattenerAccessPolicy, \
     TaskAwardAccessPolicy, \
-    DynamicJsonAccessPolicy, UserAccessPolicy
+    DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy
 from .utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
@@ -1301,3 +1304,115 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         return Response({'equals': False,
                          'expected_response': expected_task.responses,
                          'actual_response': response})
+
+
+class UserStatisticViewSet(GenericViewSet):
+    permission_classes = (UserStatisticAccessPolicy,)
+
+    def get_serializer_class(self):
+        pass
+
+    def get_queryset(self):
+        return UserStatisticAccessPolicy.scope_queryset(
+            self.request, CustomUser.objects.values('id')
+        )
+
+    @action(methods=["GET"], detail=False)
+    def total_count(self, request, *args, **kwargs):
+        """
+        Returns total count of users in one campaign.
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        qs = self.get_queryset()
+        return Response({"total": qs.values('id').count()})
+
+    @action(methods=["GET"], detail=False)
+    def new_users(self, request, *args, **kwargs):
+        """
+        Returns list of all users that have joined to the system during some period.
+        In query params provide start and end dates for filter by period.
+        Example: ?start=2020-01-16&end=2021-01-16
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        date_range_filter = self.range_date_filter(*self.get_range(request),
+                                                   {"key": "created_at"})
+        qs = self.get_queryset().filter(
+            **date_range_filter
+        )
+
+        return Response(qs.values("id", "email"))
+
+    @action(methods=["GET"], detail=False)
+    def unique_users(self, request, *args, **kwargs):
+        """
+        Returns list of users that have any activity during some period of time.
+        Activity means that users has new tasks during some period.
+        To filter by some period use filters start and end.
+        Example: ?start=2020-01-16&end=2021-01-16
+
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        date_range_filter = self.range_date_filter(*self.get_range(request),
+                                                   **{"key": "created_at"})
+
+        qs = self.get_queryset().filter(
+            **date_range_filter
+        ).annotate(
+            tasks_count=Subquery(
+                Task.objects.filter(
+                    **date_range_filter,
+                    assignee_id=OuterRef("id"), # todo: Add filter by campaign to make detail analysis
+                ).values("assignee_id")
+                .annotate(
+                    tasks_count=Count("id")
+                )
+                .values("tasks_count")
+            )
+        ).filter(tasks_count__gt=0)
+
+        return Response(qs.values("id", "email", "tasks_count"))
+
+    date_format = "%Y-%m-%d"  # "2013-11-30"
+    query_params = ['start', 'end']
+
+    def get_range(self, request):
+        start = self.get_date(
+            request.query_params.get(self.query_params[0], None))
+        end = self.get_date(
+            request.query_params.get(self.query_params[1], None))
+
+        return start, end
+
+    # converts date to DateTime object
+    def get_date(self, date):
+        if date:
+            try:
+                date = date[:10]
+                return datetime.strptime(date, self.date_format)
+            except:
+                raise ValidationError(
+                    f"Invalid key format: {date}. "
+                    f"Properly format: {self.date_format}")
+        return None
+
+    # generate filter dictionary to filter by datetime
+    def range_date_filter(self, start, end, key):
+        greater_key = key + "__gte"
+        less_key = key + "__lte"
+        if start and end:
+            return {greater_key: start, less_key: end}
+        elif start and not end:
+            return {greater_key: start}
+        elif not start and end:
+            return {less_key: end}
+        elif not start and not end:
+            return {}

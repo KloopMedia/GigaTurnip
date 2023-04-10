@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from itertools import chain
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
@@ -565,3 +564,30 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
         )
 
         return tasks_for_current_stage.count() > 0
+
+
+class UserStatisticAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["total_count", "new_users", "unique_users"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_user_campaign_manager"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        admin_preference = request.user.get_admin_preference()
+        if not admin_preference:
+            return qs.none()
+
+        # get users that have any rank of admin preference campaign
+        result = qs.filter(
+            ranks__in=admin_preference.campaign.tracks.values('ranks')
+        ).distinct()
+
+        return result
+
+    def is_user_campaign_manager(self, request, view, action):
+        return request.user.managed_campaigns.exists()
