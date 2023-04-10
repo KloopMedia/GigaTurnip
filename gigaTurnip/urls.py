@@ -81,7 +81,7 @@ router.register(api_v1 + r'testwebhook',
 router.register(api_v1 + r'numberranks',
                 turnip_app.NumberRankViewSet,
                 basename='numberrank')
-router.register(api_v1 + r'users_tatistics',
+router.register(api_v1 + r'users_statistics',
                 turnip_app.UserStatisticViewSet,
                 basename='user_statistic')
 
