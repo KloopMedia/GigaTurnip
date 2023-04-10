@@ -201,11 +201,12 @@ class CampaignAdmin(admin.ModelAdmin):
     search_fields = ('id', 'name', )
     autocomplete_fields = ('default_track', )
 
+
 class ChainAdmin(admin.ModelAdmin):
-    list_display = ('name', 'campaign',)
-    list_filter = ('campaign',)
-    autocomplete_fields = ('campaign',)
-    search_fields = ('name',)
+    list_display = ("name", "campaign",)
+    list_filter = ("campaign",)
+    autocomplete_fields = ("campaign",)
+    search_fields = ("name", "description",)
 
     def get_form(self, request, *args, **kwargs):
         form = super(ChainAdmin, self).get_form(request, *args, **kwargs)
