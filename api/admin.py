@@ -768,18 +768,40 @@ class NotificationAdmin(admin.ModelAdmin):
 
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
-    list_display = ('trigger_stage', 'recipient_stage', 'notification')
-    autocomplete_fields = ('trigger_stage', 'recipient_stage', 'notification', )
-    search_fields = ('notification__title', 'notification', 'trigger_stage__name', 'recipient_stage__name', )
+    list_display = (
+        "trigger_stage",
+        "recipient_stage",
+        "notification"
+    )
+    autocomplete_fields = (
+        "trigger_stage",
+        "recipient_stage",
+        "notification",
+    )
+    search_fields = (
+        "notification__title",
+        "notification",
+        "trigger_stage__name",
+        "recipient_stage__name",
+    )
     list_filter = (
-        'trigger_stage',
-        'recipient_stage',
+        "trigger_stage",
+        "recipient_stage",
         "trigger_stage__chain",
         "trigger_stage__chain__campaign",
         "recipient_stage__chain",
         "recipient_stage__chain__campaign",
-        'go',
-        'notification__title',
+        "go",
+        "notification__title",
+    )
+    list_select_related = (
+        "trigger_stage",
+        "recipient_stage",
+        "trigger_stage__chain",
+        "trigger_stage__chain__campaign",
+        "recipient_stage__chain",
+        "recipient_stage__chain__campaign",
+        'notification',
     )
 
     def get_queryset(self, request):
