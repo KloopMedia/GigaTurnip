@@ -502,38 +502,50 @@ class TaskAdmin(admin.ModelAdmin):
 
 
 class LogAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'name',
-                    'campaign',
-                    'stage',
-                    'task',
-                    'user',
-                    'created_at',
-                    'updated_at')
-    list_filter = ('campaign',
-                   'stage',
-                   'created_at',
-                   'task__complete',
+    list_display = ("id",
+                    "name",
+                    "campaign",
+                    "stage",
+                    "task",
+                    "user",
+                    "created_at",
+                    "updated_at")
+    list_filter = ("campaign",
+                   "stage",
+                   "created_at",
+                   "task__complete",
                    LogsTaskResponsesStatusFilter)
-    search_fields = ('id',
-                     'name',
-                     'stage__name',
-                     'task__id'
+    search_fields = ("id",
+                     "name",
+                     "stage__name",
+                     "task__id"
                      )
     autocomplete_fields = (
-        'campaign',
-        'chain',
-        'stage',
-        'user',
-        'case',
-        'task',
-        'track',
-        'rank',
-        'rank_limit',
-        'rank_record'
+        "campaign",
+        "chain",
+        "stage",
+        "user",
+        "case",
+        "task",
+        "track",
+        "rank",
+        "rank_limit",
+        "rank_record"
     )
-    raw_id_fields = ('stage', 'user', 'case', 'task')
-    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ("stage", "user", "case", "task")
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = (
+        "campaign",
+        "chain",
+        "stage",
+        "user",
+        "case",
+        "task",
+        "track",
+        "rank",
+        "rank_limit",
+        "rank_record"
+    )
 
 
 class ResponseFlattenerAdmin(admin.ModelAdmin):
