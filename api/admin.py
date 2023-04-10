@@ -416,12 +416,17 @@ class CopyFieldAdmin(admin.ModelAdmin):
 
 
 class QuizAdmin(admin.ModelAdmin):
-    list_display = ('pk',
-                    'task_stage',
-                    'correct_responses_task')
-    autocomplete_fields = ('task_stage', )
-    raw_id_fields = ('correct_responses_task',)
-    search_fields = ('task_stage', )
+    list_display = ("pk",
+                    "task_stage",
+                    "correct_responses_task")
+    autocomplete_fields = ("task_stage", )
+    raw_id_fields = ("correct_responses_task",)
+    search_fields = ("task_stage", )
+    list_select_related = (
+        "task_stage",
+        "correct_responses_task",
+        "correct_responses_task__case"
+    )
 
     def get_queryset(self, request):
         queryset = super(QuizAdmin, self).get_queryset(request)
