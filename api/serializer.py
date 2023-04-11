@@ -625,3 +625,9 @@ class NumberRankSerializer(serializers.Serializer):
     campaign_id = serializers.IntegerField()
     campaign_name = serializers.CharField()
     ranks = serializers.JSONField()
+
+
+class UserStatisticSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    tasks_count = serializers.IntegerField(read_only=True)

@@ -16,7 +16,7 @@ from api.models import (
     TaskStage, ConditionalStage, Task, Case,
     RankLimit, DatetimeSort, ApproveLink
 )
-from api.utils import find_user, value_from_json, reopen_task, \
+from api.utils.utils import find_user, value_from_json, reopen_task, \
     get_ranks_where_user_have_parent_ranks, \
     connect_user_with_ranks, give_task_awards, process_auto_completed_task, \
     get_conditional_limit_count

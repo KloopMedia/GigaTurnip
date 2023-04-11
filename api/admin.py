@@ -5,6 +5,7 @@ from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count
 
+from .asyncstuff import process_completed_task
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, \
     RankRecord, CampaignManagement, Track, Log, \
@@ -13,10 +14,9 @@ from .models import Campaign, Chain, \
     ResponseFlattener, TaskAward, DynamicJson, PreviousManual, \
     AutoNotification, ConditionalLimit, DatetimeSort, \
     ErrorItem, TestWebhook, CampaignLinker, ApproveLink
-from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
-from .utils import set_rank_to_user_action, filter_by_admin_preference
+from api.utils.utils import set_rank_to_user_action, filter_by_admin_preference
 
 
 class InputFilter(admin.SimpleListFilter, ABC):
