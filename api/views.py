@@ -46,7 +46,8 @@ from api.serializer import CampaignSerializer, ChainSerializer, \
     ResponseFlattenerReadSerializer, TaskAwardSerializer, \
     DynamicJsonReadSerializer, TaskResponsesFilterSerializer, \
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer, \
-    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
+    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer, \
+    UserStatisticSerializer
 from api.asyncstuff import process_completed_task, update_schema_dynamic_answers, process_updating_schema_answers
 from api.permissions import CampaignAccessPolicy, ChainAccessPolicy, \
     TaskStageAccessPolicy, TaskAccessPolicy, RankAccessPolicy, \
@@ -1317,6 +1318,9 @@ class UserStatisticViewSet(GenericViewSet):
             self.request, CustomUser.objects.values('id')
         )
 
+    def get_serializer_class(self):
+        return UserStatisticSerializer
+
     @action(methods=["GET"], detail=False)
     def total_count(self, request, *args, **kwargs):
         """
@@ -1329,6 +1333,7 @@ class UserStatisticViewSet(GenericViewSet):
         qs = self.get_queryset()
         return Response({"total": qs.values('id').count()})
 
+    @paginate
     @action(methods=["GET"], detail=False)
     def new_users(self, request, *args, **kwargs):
         """
@@ -1341,13 +1346,14 @@ class UserStatisticViewSet(GenericViewSet):
         :return:
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
-                                                   {"key": "created_at"})
+                                                   key="created_at")
         qs = self.get_queryset().filter(
             **date_range_filter
         )
 
-        return Response(qs.values("id", "email"))
+        return qs.values("id", "email")
 
+    @paginate
     @action(methods=["GET"], detail=False)
     def unique_users(self, request, *args, **kwargs):
         """
@@ -1362,7 +1368,7 @@ class UserStatisticViewSet(GenericViewSet):
         :return:
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
-                                                   **{"key": "created_at"})
+                                                   key="created_at")
 
         qs = self.get_queryset()
 
@@ -1387,7 +1393,7 @@ class UserStatisticViewSet(GenericViewSet):
             )
         ).filter(tasks_count__gt=0)
 
-        return Response(qs.values("id", "email", "tasks_count"))
+        return qs.values("id", "email", "tasks_count")
 
     date_format = "%Y-%m-%d"  # "2013-11-30"
     query_params = ['start', 'end']
