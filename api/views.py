@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -34,7 +35,7 @@ from api.permissions import (
     TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy,
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
-    DynamicJsonAccessPolicy, UserAccessPolicy
+    DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -43,18 +44,21 @@ from api.serializer import (
     TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer,
     TestWebhookSerializer, TaskStageReadSerializer,
     CampaignManagementSerializer, NotificationListSerializer,
-    NotificationSerializer, TaskAutoCreateSerializer, TaskStagePublicSerializer,
+    NotificationSerializer, TaskAutoCreateSerializer,
+    TaskStagePublicSerializer,
     ResponseFlattenerCreateSerializer, ResponseFlattenerReadSerializer,
     TaskAwardSerializer, DynamicJsonReadSerializer,
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
-    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer
+    NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
+    UserStatisticSerializer
 )
-from . import utils
+from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
-from .utils import paginate
+from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
+
 
 
 class UserViewSet(viewsets.ModelViewSet):
