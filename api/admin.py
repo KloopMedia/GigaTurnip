@@ -366,13 +366,16 @@ class TrackAdmin(admin.ModelAdmin):
 
 
 class RankAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'name',
-                    'track',
-                    'created_at',
-                    'updated_at')
-    autocomplete_fields = ('track', )
-    search_fields = ('name', )
+    list_display = ("id",
+                    "name",
+                    "track",
+                    "created_at",
+                    "updated_at")
+    autocomplete_fields = ("track", )
+    search_fields = ("name", )
+    list_select_related = (
+        "track",
+    )
 
     def get_queryset(self, request):
         queryset = super(RankAdmin, self).get_queryset(request)
