@@ -358,7 +358,7 @@ class TrackAdmin(admin.ModelAdmin):
                     'created_at',
                     'updated_at')
     #autocomplete_fields = ('campaign', )
-    search_fields = ('id', 'campaign', 'name')
+    search_fields = ('campaign__name', 'name')
 
     def get_queryset(self, request):
         queryset = super(TrackAdmin, self).get_queryset(request)
