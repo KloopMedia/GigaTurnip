@@ -258,6 +258,14 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Categories of the campaign."
     )
 
+    language = models.ForeignKey(
+        "Language",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        help_text="Language of the campaign."
+    )
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = RankRecord.objects.get_or_create(
