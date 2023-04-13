@@ -165,9 +165,10 @@ class Category(models.Model):
         null=False,
         help_text="Title of category."
     )
-    parent = models.ManyToManyField(
+    parents = models.ManyToManyField(
         "self",
         blank=True,
+        related_name="out_categories",
         null=True,
         symmetrical=False,
         help_text="Category that hierarchically upper then this category."
