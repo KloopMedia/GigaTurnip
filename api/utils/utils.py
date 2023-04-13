@@ -76,9 +76,9 @@ def filter_for_datetime(tasks):
 
 
 def filter_for_user_campaigns(queryset, request):
-    stages = TaskStage.objects.filter(ranks__users=request.user).distinct()
-    chains = Chain.objects.filter(stages__in=stages).distinct()
-    return queryset.filter(chains__in=chains).distinct()
+    return queryset.filter(
+        tracks__ranks__in=request.user.ranks.all()
+    ).distinct("id")
 
 
 def filter_for_user_selectable_campaigns(queryset, request):

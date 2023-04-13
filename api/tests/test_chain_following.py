@@ -18,6 +18,10 @@ from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ErrorGroup, ErrorItem, CampaignManagement
 
 
+def to_json(string):
+    return json.loads(string)
+
+
 class GigaTurnipTest(APITestCase):
 
     def create_client(self, u):
@@ -2667,6 +2671,7 @@ class GigaTurnipTest(APITestCase):
                      self.initial_stage.in_stages.all().values('id')]
         out_stages = [i['id'] for i in
                       self.initial_stage.out_stages.all().values('id')]
+        # todo: add field 'users' to remove bug
         expected_activity = {
             'stage': self.initial_stage.id,
             'stage_name': self.initial_stage.name,
@@ -5139,3 +5144,54 @@ class GigaTurnipTest(APITestCase):
                           "is_new_campaign": False,
                           "next_direct_id": task.id+2})
 
+    def test_campaign_list_user_campaigns(self):
+        # check that employee doesn't have any rank
+        response = self.get_objects(
+            "campaign-list-user-campaigns", client=self.employee_client
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(to_json(response.content)['count'], 0)
+
+        # join employee to campaign
+        self.campaign.open = True
+        self.campaign.save()
+        response = self.employee_client.get(
+            reverse("campaign-join-campaign", kwargs={"pk": self.campaign.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # check that employee joined
+        response = self.get_objects(
+            "campaign-list-user-campaigns", client=self.employee_client
+        )
+        response_content = to_json(response.content)
+        self.assertEqual(response_content["count"],1)
+        self.assertEqual(
+            response_content["results"][0]["notifications_count"], 0)
+
+        # check serializer works properly
+        notifications_count = 15
+        [Notification.objects.create(
+            title="Hello world",
+            campaign=self.campaign
+        ) for _ in range(notifications_count)]
+        response = self.get_objects(
+            "campaign-list-user-campaigns", client=self.employee_client
+        )
+        response_content = to_json(response.content)
+        self.assertEqual(response_content["count"], 1)
+        self.assertEqual(
+            response_content["results"][0]["notifications_count"], notifications_count)
+
+        # check serializer works properly
+        notifications_count = int(notifications_count/2)
+        [Notification.objects.all().first().delete()
+         for _ in range(notifications_count+1)]
+        response = self.get_objects(
+            "campaign-list-user-campaigns", client=self.employee_client
+        )
+        response_content = to_json(response.content)
+        self.assertEqual(response_content["count"], 1)
+        self.assertEqual(
+            response_content["results"][0]["notifications_count"],
+            notifications_count)
