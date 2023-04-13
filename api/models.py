@@ -157,6 +157,25 @@ class CampaignInterface:
         ErrorItem.create_from_data(self.get_campaign(), exc_type, details, tb, tb_info, data)
 
 
+class Category(models.Model):
+    name = models.CharField(
+        max_length=128,
+        blank=False,
+        null=False,
+        help_text="Title of category."
+    )
+    parent = models.ManyToManyField(
+        "self",
+        blank=True,
+        null=True,
+        symmetrical=False,
+        help_text="Category that hierarchically upper then this category."
+    )
+
+    def __str__(self):
+        return self.name
+
+
 class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey(
         "Track",
