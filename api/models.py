@@ -211,6 +211,13 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Fast description to the campaign to attract new users."
     )
 
+    category = models.ManyToManyField(
+        "Category",
+        blank=True,
+        null=True,
+        help_text="Categories of the campaign."
+    )
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = RankRecord.objects.get_or_create(
