@@ -23,6 +23,7 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 
 class CampaignSerializer(serializers.ModelSerializer):
     managers = serializers.SerializerMethodField()
+    notifications_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
@@ -30,6 +31,9 @@ class CampaignSerializer(serializers.ModelSerializer):
 
     def get_managers(self, obj):
         return obj.managers.values_list(flat=True)
+
+    def get_notifications_count(self, obj):
+        return obj.notifications.count()
 
 
 class UserDeleteSerializer(serializers.Serializer):
