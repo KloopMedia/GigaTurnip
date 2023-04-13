@@ -169,7 +169,7 @@ class Category(models.Model):
         "self",
         blank=True,
         related_name="out_categories",
-        null=True,
+        default=None,
         symmetrical=False,
         help_text="Category that hierarchically upper then this category."
     )
@@ -255,7 +255,7 @@ class Campaign(BaseModel, CampaignInterface):
     category = models.ManyToManyField(
         "Category",
         blank=True,
-        null=True,
+        default=None,
         help_text="Categories of the campaign."
     )
 
