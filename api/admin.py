@@ -5,6 +5,7 @@ from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count
 
+from .asyncstuff import process_completed_task
 from .models import Campaign, Chain, \
     TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, \
     RankRecord, CampaignManagement, Track, Log, \
@@ -13,10 +14,9 @@ from .models import Campaign, Chain, \
     ResponseFlattener, TaskAward, DynamicJson, PreviousManual, \
     AutoNotification, ConditionalLimit, DatetimeSort, \
     ErrorItem, TestWebhook, CampaignLinker, ApproveLink
-from api.asyncstuff import process_completed_task
 from django.contrib import messages
 from django.utils.translation import ngettext
-from .utils import set_rank_to_user_action, filter_by_admin_preference
+from api.utils.utils import set_rank_to_user_action, filter_by_admin_preference
 
 
 class InputFilter(admin.SimpleListFilter, ABC):
@@ -168,11 +168,11 @@ class CustomUserAdmin(UserAdmin):
     list_filter = (
         UserTaskCompleteFilter,
         UserNoRankFilter,
-        'ranks',
-        'is_active',
-        'is_staff',
-        'is_superuser',
-        'groups',
+        "ranks",
+        "is_active",
+        "is_staff",
+        "is_superuser",
+        "groups",
     )
     search_fields = ("id", "email", "first_name", "last_name", "username")
 
@@ -201,11 +201,12 @@ class CampaignAdmin(admin.ModelAdmin):
     search_fields = ('id', 'name', )
     autocomplete_fields = ('default_track', )
 
+
 class ChainAdmin(admin.ModelAdmin):
-    list_display = ('name', 'campaign',)
-    list_filter = ('campaign',)
-    autocomplete_fields = ('campaign',)
-    search_fields = ('name',)
+    list_display = ("name", "campaign",)
+    list_filter = ("campaign",)
+    autocomplete_fields = ("campaign",)
+    search_fields = ("name", "description",)
 
     def get_form(self, request, *args, **kwargs):
         form = super(ChainAdmin, self).get_form(request, *args, **kwargs)
@@ -284,7 +285,7 @@ class TaskStageAdmin(StageAdmin):
 
 
 class IntegrationAdmin(admin.ModelAdmin):
-    search_fields = ('task_stage',)
+    search_fields = ('task_stage__name',)
     autocomplete_fields = ('task_stage',)
 
     def get_form(self, request, *args, **kwargs):
@@ -357,7 +358,7 @@ class TrackAdmin(admin.ModelAdmin):
                     'created_at',
                     'updated_at')
     #autocomplete_fields = ('campaign', )
-    search_fields = ('id', 'campaign', 'name')
+    search_fields = ('campaign__name', 'name')
 
     def get_queryset(self, request):
         queryset = super(TrackAdmin, self).get_queryset(request)
@@ -365,13 +366,16 @@ class TrackAdmin(admin.ModelAdmin):
 
 
 class RankAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'name',
-                    'track',
-                    'created_at',
-                    'updated_at')
-    autocomplete_fields = ('track', )
-    search_fields = ('name', )
+    list_display = ("id",
+                    "name",
+                    "track",
+                    "created_at",
+                    "updated_at")
+    autocomplete_fields = ("track", )
+    search_fields = ("name", )
+    list_select_related = (
+        "track",
+    )
 
     def get_queryset(self, request):
         queryset = super(RankAdmin, self).get_queryset(request)
@@ -393,6 +397,12 @@ class TaskAwardAdmin(admin.ModelAdmin):
         "count"
     )
     autocomplete_fields = ('task_stage_completion', 'task_stage_verified', 'rank', 'notification')
+    list_select_related = (
+        "task_stage_completion",
+        "task_stage_completion__chain__campaign",
+        "task_stage_verified",
+        "rank",
+    )
 
     def get_queryset(self, request):
         queryset = super(TaskAwardAdmin, self).get_queryset(request)
@@ -400,14 +410,14 @@ class TaskAwardAdmin(admin.ModelAdmin):
 
 
 class CopyFieldAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'task_stage',
-                    'copy_from_stage',
-                    'fields_to_copy',
-                    'created_at',
-                    'updated_at')
-    autocomplete_fields = ('task_stage', 'copy_from_stage')
-    search_fields = ('task_stage', 'copy_from_stage')
+    list_display = ("id",
+                    "task_stage",
+                    "copy_from_stage",
+                    "fields_to_copy",
+                    "created_at",
+                    "updated_at")
+    autocomplete_fields = ("task_stage", "copy_from_stage")
+    search_fields = ("task_stage__name", "copy_from_stage__name")
 
     def get_queryset(self, request):
         queryset = super(CopyFieldAdmin, self).get_queryset(request)
@@ -415,12 +425,17 @@ class CopyFieldAdmin(admin.ModelAdmin):
 
 
 class QuizAdmin(admin.ModelAdmin):
-    list_display = ('pk',
-                    'task_stage',
-                    'correct_responses_task')
-    autocomplete_fields = ('task_stage', )
-    raw_id_fields = ('correct_responses_task',)
-    search_fields = ('task_stage', )
+    list_display = ("pk",
+                    "task_stage",
+                    "correct_responses_task")
+    autocomplete_fields = ("task_stage", )
+    raw_id_fields = ("correct_responses_task",)
+    search_fields = ("task_stage", )
+    list_select_related = (
+        "task_stage",
+        "correct_responses_task",
+        "correct_responses_task__case"
+    )
 
     def get_queryset(self, request):
         queryset = super(QuizAdmin, self).get_queryset(request)
@@ -428,34 +443,46 @@ class QuizAdmin(admin.ModelAdmin):
 
 
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'case',
-                    'stage',
-                    'assignee',
-                    'created_at',
-                    'updated_at')
-    list_filter = (StageFilter,
-                   'stage__chain__campaign',
-                   'stage__chain',
-                   'stage',
-                   'stage__is_public',
-                   'complete',
-                   'force_complete',
-                   TaskResponsesStatusFilter,
-                   'created_at',
-                   'updated_at',
-                   DuplicateTasksFilter)
-    search_fields = ('id',
-                     'case__id',
-                     'stage__name',
-                     'assignee__email',
-                     'stage__chain__name',
-                     'stage__chain__campaign__name')
-    autocomplete_fields = ('in_tasks',)
-    raw_id_fields = ('stage', 'assignee', 'case',)
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = (
+        "id",
+        "case",
+        "stage",
+        "assignee",
+        "created_at",
+        "updated_at"
+    )
+    list_filter = (
+        StageFilter,
+        "stage__chain__campaign",
+        "stage__chain",
+        "stage",
+        "stage__is_public",
+        "complete",
+        "force_complete",
+        TaskResponsesStatusFilter,
+        "created_at",
+        "updated_at",
+        DuplicateTasksFilter
+    )
+    search_fields = (
+        "id",
+        "case__id",
+        "stage__name",
+        "assignee__email",
+        "stage__chain__name",
+        "stage__chain__campaign__name"
+    )
+    autocomplete_fields = ("in_tasks",)
+    raw_id_fields = ("stage", "assignee", "case",)
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = (
+        "stage",
+        "stage__chain",
+        "case",
+        "assignee"
+    )
 
-    actions = ['make_completed', 'make_completed_force']
+    actions = ["make_completed", "make_completed_force"]
 
     def get_form(self, request, *args, **kwargs):
         form = super(TaskAdmin, self).get_form(request, *args, **kwargs)
@@ -489,46 +516,61 @@ class TaskAdmin(admin.ModelAdmin):
 
 
 class LogAdmin(admin.ModelAdmin):
-    list_display = ('id',
-                    'name',
-                    'campaign',
-                    'stage',
-                    'task',
-                    'user',
-                    'created_at',
-                    'updated_at')
-    list_filter = ('campaign',
-                   'stage',
-                   'created_at',
-                   'task__complete',
+    list_display = ("id",
+                    "name",
+                    "campaign",
+                    "stage",
+                    "task",
+                    "user",
+                    "created_at",
+                    "updated_at")
+    list_filter = ("campaign",
+                   "stage",
+                   "created_at",
+                   "task__complete",
                    LogsTaskResponsesStatusFilter)
-    search_fields = ('id',
-                     'name',
-                     'stage__name',
-                     'task__id'
+    search_fields = ("id",
+                     "name",
+                     "stage__name",
+                     "task__id"
                      )
     autocomplete_fields = (
-        'campaign',
-        'chain',
-        'stage',
-        'user',
-        'case',
-        'task',
-        'track',
-        'rank',
-        'rank_limit',
-        'rank_record'
+        "campaign",
+        "chain",
+        "stage",
+        "user",
+        "case",
+        "task",
+        "track",
+        "rank",
+        "rank_limit",
+        "rank_record"
     )
-    raw_id_fields = ('stage', 'user', 'case', 'task')
-    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ("stage", "user", "case", "task")
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = (
+        "campaign",
+        "chain",
+        "stage",
+        "user",
+        "case",
+        "task",
+        "track",
+        "rank",
+        "rank_limit",
+        "rank_record"
+    )
 
 
 class ResponseFlattenerAdmin(admin.ModelAdmin):
     model = ResponseFlattener
-    list_display = ('task_stage', 'id', 'copy_first_level', 'copy_system_fields')
-    list_filter = ('task_stage', 'id', 'copy_first_level', 'copy_system_fields')
-    search_fields = ('task_stage',)
-    autocomplete_fields = ('task_stage',)
+    list_display = ("task_stage", "id", "copy_first_level", "copy_system_fields")
+    list_filter = ("task_stage", "id", "copy_first_level", "copy_system_fields")
+    search_fields = ("task_stage__name",)
+    autocomplete_fields = ("task_stage",)
+    list_select_related = (
+        "task_stage",
+    )
 
     def get_queryset(self, request):
         queryset = super(ResponseFlattenerAdmin, self).get_queryset(request)
@@ -587,7 +629,12 @@ class AdminPreferenceAdmin(admin.ModelAdmin):
 
 class CampaignManagementAdmin(admin.ModelAdmin):
     list_display = ("campaign", "user",)
-    search_fields = ("user", "campaign", "id",)
+    search_fields = (
+        "user__email",
+        "user__phone_number",
+        "campaign__name",
+        "campaign__description",
+    )
     autocomplete_fields = ("user", 'campaign')
 
 
@@ -636,14 +683,15 @@ class ApproveLinkAdmin(admin.ModelAdmin):
     list_display = (
         "linker",
         "rank",
+        "approved",
         "notification",
         "created_at",
         "updated_at",
     )
     search_fields = (
-        "linker",
-        "rank",
-        "notification",
+        "linker__name",
+        "rank__name",
+        "task_stage__name",
     )
     autocomplete_fields = (
         "linker",
@@ -668,9 +716,9 @@ class ApproveLinkAdmin(admin.ModelAdmin):
 
 class DynamicJsonAdmin(admin.ModelAdmin):
     model = DynamicJson
-    list_display = ('target', 'webhook', 'id', 'created_at', 'updated_at', )
-    search_fields = ('target', 'webhook', )
-    autocomplete_fields = ('target', 'webhook', )
+    list_display = ("target", "webhook", "id", "created_at", "updated_at", )
+    search_fields = ("target__name", "webhook__url", )
+    autocomplete_fields = ("target", "webhook", )
     list_filter = (
         "target",
         "target__chain",
@@ -711,12 +759,19 @@ class PreviousManualAdmin(admin.ModelAdmin):
 
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
-    search_fields = ('title', )
-    list_display = ('title', 'campaign', 'rank', 'target_user', 'importance', )
-    autocomplete_fields = ('campaign', 'rank', 'target_user')
-    readonly_fields = ('sender_task', 'receiver_task', 'trigger_go',)
+    search_fields = ("title", )
+    list_display = ("title", "campaign", "rank", "target_user", "importance", )
+    autocomplete_fields = ("campaign", "rank", "target_user")
+    readonly_fields = ("sender_task", "receiver_task", "trigger_go",)
     list_filter = (
         "campaign", "rank", "importance"
+    )
+    list_select_related = (
+        "campaign",
+        "rank",
+        "target_user",
+        "sender_task",
+        "receiver_task",
     )
 
     def get_queryset(self, request):
@@ -762,18 +817,39 @@ class NotificationAdmin(admin.ModelAdmin):
 
 class AutoNotificationAdmin(admin.ModelAdmin):
     model = AutoNotification
-    list_display = ('trigger_stage', 'recipient_stage', 'notification')
-    autocomplete_fields = ('trigger_stage', 'recipient_stage', 'notification', )
-    search_fields = ('notification__title', 'notification', 'trigger_stage__name', 'recipient_stage__name', )
+    list_display = (
+        "trigger_stage",
+        "recipient_stage",
+        "notification"
+    )
+    autocomplete_fields = (
+        "trigger_stage",
+        "recipient_stage",
+        "notification",
+    )
+    search_fields = (
+        "notification__title",
+        "trigger_stage__name",
+        "recipient_stage__name",
+    )
     list_filter = (
-        'trigger_stage',
-        'recipient_stage',
+        "trigger_stage",
+        "recipient_stage",
         "trigger_stage__chain",
         "trigger_stage__chain__campaign",
         "recipient_stage__chain",
         "recipient_stage__chain__campaign",
-        'go',
-        'notification__title',
+        "go",
+        "notification__title",
+    )
+    list_select_related = (
+        "trigger_stage",
+        "recipient_stage",
+        "trigger_stage__chain",
+        "trigger_stage__chain__campaign",
+        "recipient_stage__chain",
+        "recipient_stage__chain__campaign",
+        'notification',
     )
 
     def get_queryset(self, request):

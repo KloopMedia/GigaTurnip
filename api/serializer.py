@@ -163,7 +163,6 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
 
 
 class TaskStageReadSerializer(serializers.ModelSerializer):
-    chain = ChainSerializer(read_only=True)
     dynamic_jsons_target = serializers.SlugRelatedField(
         many=True,
         read_only=True,
@@ -174,16 +173,19 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         read_only=True,
         slug_field='dynamic_fields'
     )
+    campaign = serializers.SerializerMethodField()
 
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by', 'ranks',
+                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params', 'dynamic_jsons_source', 'dynamic_jsons_target',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
+    def get_campaign(self, obj):
+        return obj.get_campaign().id
 
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):
@@ -232,13 +234,13 @@ class TaskListSerializer(serializers.ModelSerializer):
             'complete',
             'force_complete',
             'reopened',
+            'responses',
             'stage',
             'created_at'
         ]
 
     def get_stage(self, obj):
-        return {'name': obj['stage__name'],
-                'description': obj['stage__description']}
+        return obj['stage_data']
 
 
 class TaskEditSerializer(serializers.ModelSerializer):
@@ -623,3 +625,9 @@ class NumberRankSerializer(serializers.Serializer):
     campaign_id = serializers.IntegerField()
     campaign_name = serializers.CharField()
     ranks = serializers.JSONField()
+
+
+class UserStatisticSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    tasks_count = serializers.IntegerField(read_only=True)

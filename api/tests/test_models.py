@@ -1,13 +1,12 @@
-import json
 from uuid import uuid4
 
 from django.db import IntegrityError, transaction
-from rest_framework.test import APITestCase, APIClient, RequestsClient
 from rest_framework.reverse import reverse
-from rest_framework import status
+from rest_framework.test import APITestCase, APIClient
 
-from api.models import CustomUser, Campaign, CampaignManagement, Chain, TaskStage, Integration, Webhook, Task, Track, \
-    RankRecord, Notification, Rank, RankLimit, CopyField, StagePublisher, Quiz, Case
+from api.models import CustomUser, Campaign, CampaignManagement, Chain, \
+    TaskStage, Integration, Webhook, Task, Track, \
+    RankRecord, Rank, RankLimit, CopyField, StagePublisher, Quiz, Case
 
 
 class GigaTurnip(APITestCase):

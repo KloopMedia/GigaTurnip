@@ -10,11 +10,13 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint
-from django.http import HttpResponse
+from django.db.models import UniqueConstraint, Q
+from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
-from jsonschema import validate
-from api.constans import TaskStageConstants, CopyFieldConstants, AutoNotificationConstants, WebhookConstants
+
+from api.constans import (
+    WebhookConstants
+)
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, ErrorConstants
 
@@ -176,6 +178,18 @@ class Campaign(BaseModel, CampaignInterface):
     sms_login_allow = models.BooleanField(
         default=False,
         help_text='User that logged in via sms can enter in the campaign'
+    )
+
+    logo = models.TextField(
+        blank=True,
+        help_text="Text or url to the SVG"
+    )
+
+    descriptor = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text="Fast description to the campaign to attract new users."
     )
 
     def join(self, request):
@@ -1144,13 +1158,39 @@ class Quiz(BaseDatesModel):
                   "quiz scores lower than this threshold"
     )
 
+    class ShowAnswers(models.TextChoices):
+        NEVER = 'NE', _('Never')
+        ALWAYS = 'AL', _('Always')
+        ON_FAIL = 'FA', _('On Fail')
+        ON_PASS = 'PS', _('On Pass')
+
+    show_answer = models.CharField(
+        max_length=2,
+        choices=ShowAnswers.choices,
+        default=ShowAnswers.ON_FAIL,
+    )
+    SCORE = 'meta_quiz_score'
+    INCORRECT_QUESTIONS = 'meta_quiz_incorrect_questions'
+
     def is_ready(self):
         return bool(self.correct_responses_task)
 
-    def check_score(self, task):
-        return self._determine_correctness_ratio(task.responses)
+    def check_score(self, responses):
+        score, incorrect_questions = self.compare_with_correct_answers(responses)
+        if self.show_answer == Quiz.ShowAnswers.ALWAYS:
+            return score, incorrect_questions
+        if self.show_answer == Quiz.ShowAnswers.NEVER:
+            return score, []
+        if self.threshold:
+            if ((self.show_answer == Quiz.ShowAnswers.ON_FAIL
+                 and score <= self.threshold)
+                    or (self.show_answer == Quiz.ShowAnswers.ON_PASS
+                        and score >= self.threshold)):
+                return score, incorrect_questions
 
-    def _determine_correctness_ratio(self, responses):
+        return score, []
+
+    def compare_with_correct_answers(self, responses):
         correct_answers = self.correct_responses_task.responses
         correct = 0
         questions = eval(self.task_stage.json_schema).get('properties')
@@ -1162,7 +1202,7 @@ class Quiz(BaseDatesModel):
                 incorrect_questions.append(questions.get(key).get('title'))
 
         len_correct_answers = len(correct_answers)
-        unnecessary_keys = ["meta_quiz_score", "meta_quiz_incorrect_questions"]
+        unnecessary_keys = [Quiz.SCORE, Quiz.INCORRECT_QUESTIONS]
         for k in unnecessary_keys:
             if correct_answers.get(k):
                 len_correct_answers -= 1
@@ -1327,20 +1367,35 @@ class Task(BaseDatesModel, CampaignInterface):
     def get_direct_previous(self):
         in_tasks = self.in_tasks.all()
         if len(in_tasks) == 1:
-            if self._are_directly_connected(in_tasks[0], self):
+            if Task.are_directly_connected(in_tasks[0], self):
                 return in_tasks[0]
         return None
 
-    def get_next_demo(self): # todo: have to refactor
-        tasks = self.out_tasks.filter(assignee=self.assignee)
-        if tasks.count() == 1:
-            return tasks[0]
+    def get_next_demo(self):
+        filter_next_tasks = {
+            Q(stage__assign_user_by=TaskStageConstants.AUTO_COMPLETE)
+            | Q(assignee=self.assignee)
+        }
+        tasks = list(self.out_tasks.filter(*filter_next_tasks))
+        used_tasks = list()
+        while tasks:
+            current = tasks.pop()
+            used_tasks.append(current.id)
+
+            if current.assignee == self.assignee:
+                return current
+            else:
+                tasks = tasks + list(
+                    current.out_tasks.filter(*filter_next_tasks).exclude(
+                        id__in=used_tasks
+                    )
+                )
         return None
 
     def get_direct_next(self):
         out_tasks = self.out_tasks.all()
         if len(out_tasks) == 1:
-            if self._are_directly_connected(self, out_tasks[0]):
+            if Task.are_directly_connected(self, out_tasks[0]):
                 return out_tasks[0]
         return None
 
@@ -1368,7 +1423,8 @@ class Task(BaseDatesModel, CampaignInterface):
             tasks = tasks.filter(stage__is_public=True)
         return tasks
 
-    def _are_directly_connected(self, task1, task2):
+    @staticmethod
+    def are_directly_connected(task1, task2):
         in_tasks = task2.in_tasks.all()
         if in_tasks and len(in_tasks) == 1 and task1 == in_tasks[0]:
             if len(task2.stage.in_stages.all()) == 1 and \
@@ -1377,6 +1433,20 @@ class Task(BaseDatesModel, CampaignInterface):
                     if task1.out_tasks.all().count() == 1:
                         return True
         return False
+
+    def evaluate_quiz(self):
+        quiz = self.stage.get_quiz()
+        is_reopened = False
+        if quiz and quiz.is_ready():
+            score, incorrect_questions = quiz.check_score(self.responses)
+            self.responses[Quiz.SCORE] = score
+            self.responses[Quiz.INCORRECT_QUESTIONS] = incorrect_questions
+            if quiz.threshold is not None and score < quiz.threshold:
+                self.complete = False
+                self.reopened = True
+                is_reopened = True
+            self.save()
+        return self, is_reopened
 
     def __str__(self):
         return str("Task #:" + str(self.id) + self.case.__str__())

@@ -80,11 +80,6 @@ class AutoNotificationConstants:
     LAST_ONE = 'LO'
 
 
-class FieldsJsonConstants:
-    META_QUIZ_SCORE = 'meta_quiz_score'
-    META_QUIZ_INCORRECT_QUESTIONS = 'meta_quiz_incorrect_questions'
-
-
 class ErrorConstants:
     ERROR_CAMPAIGN = "09A09E345A3634A86002ACB5CAFE1C10"
     ERROR_CHAIN = "09A09E345A3634A86002ACB5CAFE1C10"
