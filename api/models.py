@@ -252,7 +252,7 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Fast description to the campaign to attract new users."
     )
 
-    category = models.ManyToManyField(
+    categories = models.ManyToManyField(
         "Category",
         blank=True,
         default=None,
