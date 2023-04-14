@@ -238,13 +238,13 @@ class GigaTurnipTest(APITestCase):
         campaign_ky_data["campaign"].save()
 
         response = self.get_objects("campaign-list")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.content)['count'], 4)
 
         response = self.get_objects("campaign-list",
                                     params={"language__code": "ru"}
                                     )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.content)['count'], 1)
         self.assertEqual(to_json(response.content)['results'][0]['id'],
                          campaign_ru_data['campaign'].id)
@@ -252,7 +252,7 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects("campaign-list",
                                     params={"language__code": "ky"}
                                     )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.content)['count'], 1)
         self.assertEqual(to_json(response.content)['results'][0]['id'],
                          campaign_ky_data['campaign'].id)
@@ -260,7 +260,7 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects("campaign-list",
                                     params={"language__code": "en"}
                                     )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.content)['count'], 2)
         for i in [campaign_en_data['campaign'].id, self.campaign.id]:
             self.assertIn(i, [_['id'] for _ in
