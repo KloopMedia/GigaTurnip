@@ -56,7 +56,8 @@ from api.serializer import (
 from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
-from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
+from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter, \
+    CategoryInFilter
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
@@ -177,6 +178,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
         # 'ranklimits__total_limit': ['exact', 'lt', 'gt'],
         # 'ranklimits__open_limit': ['exact', 'lt', 'gt']
     }
+    filter_backends = (
+        CategoryInFilter,
+    )
 
     @action(detail=True, methods=['post', 'get'])
     def join_campaign(self, request, pk=None):
