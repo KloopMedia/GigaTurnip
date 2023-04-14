@@ -174,6 +174,9 @@ class Category(models.Model):
         help_text="Category that hierarchically upper then this category."
     )
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return self.name
 
