@@ -200,7 +200,7 @@ class CustomUserAdmin(UserAdmin):
 
 class CampaignAdmin(admin.ModelAdmin):
     search_fields = ("id", "name", )
-    autocomplete_fields = ("default_track", "category", "language", )
+    autocomplete_fields = ("default_track", "categories", "language", )
 
 
 class ChainAdmin(admin.ModelAdmin):
