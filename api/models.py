@@ -180,6 +180,24 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+    def get_all_subcategories(self, used=None, recursively=None):
+        all_ids = self.out_categories
+        if not recursively:
+            return all_ids.all()
+        all_ids = set(all_ids.values_list('id', flat=True))
+
+        used = set()
+        while all_ids:
+            current_id = all_ids.pop()
+            sub_categories = Category.objects.get(id=current_id)\
+                .out_categories.values_list(
+                "id", flat=True
+            )
+            used.add(current_id)
+            all_ids.update(sub_categories)
+
+        return used
+
 
 class Country(models.Model):
     name = models.CharField(
