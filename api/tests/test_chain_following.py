@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase, APIClient
 from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
     ErrorConstants, WebhookConstants)
-from api.models import CampaignLinker, ApproveLink
+from api.models import CampaignLinker, ApproveLink, Language, Category
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
@@ -57,7 +57,7 @@ class GigaTurnipTest(APITestCase):
         return self.create_client(u)
 
     def generate_new_basic_campaign(self, name):
-        campaign = Campaign.objects.create(name=name)
+        campaign = Campaign.objects.create(name=name, language=self.lang)
         default_track = Track.objects.create(
             campaign=campaign,
         )
@@ -80,9 +80,18 @@ class GigaTurnipTest(APITestCase):
         }
 
     def setUp(self):
+        self.lang = Language.objects.create(
+            name="English",
+            code="en"
+        )
+        self.category = Category.objects.create(
+            name="Commerce"
+        )
+
         basic_data = self.generate_new_basic_campaign("Coca-Cola")
 
         self.campaign = basic_data['campaign']
+        self.campaign.categories.add(self.category)
         self.default_track = basic_data['default_track']
         self.default_rank = basic_data['rank']
         self.chain = basic_data['chain']
@@ -204,6 +213,58 @@ class GigaTurnipTest(APITestCase):
         if responses is not None:
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
+
+    def test_campaign_filters_by_language(self):
+        campaign_en_data = self.generate_new_basic_campaign(name="Pepsi")
+        campaign_ru_data = self.generate_new_basic_campaign(name="Добрый Кола")
+        campaign_ky_data = self.generate_new_basic_campaign(name="Джакшы Кола")
+
+        lang_ru = Language.objects.create(
+            name="Russian",
+            code="ru"
+        )
+        lang_ky = Language.objects.create(
+            name="Kyrgyz",
+            code="ky"
+        )
+
+        campaign_ru_data["campaign"].language = lang_ru
+        campaign_ky_data["campaign"].language = lang_ky
+
+        campaign_ru_data["campaign"].open = True
+        campaign_ky_data["campaign"].open = True
+
+        campaign_ru_data["campaign"].save()
+        campaign_ky_data["campaign"].save()
+
+        response = self.get_objects("campaign-list")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(to_json(response.content)['count'], 4)
+
+        response = self.get_objects("campaign-list",
+                                    params={"language__code": "ru"}
+                                    )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(to_json(response.content)['count'], 1)
+        self.assertEqual(to_json(response.content)['results'][0]['id'],
+                         campaign_ru_data['campaign'].id)
+
+        response = self.get_objects("campaign-list",
+                                    params={"language__code": "ky"}
+                                    )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(to_json(response.content)['count'], 1)
+        self.assertEqual(to_json(response.content)['results'][0]['id'],
+                         campaign_ky_data['campaign'].id)
+
+        response = self.get_objects("campaign-list",
+                                    params={"language__code": "en"}
+                                    )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(to_json(response.content)['count'], 2)
+        for i in [campaign_en_data['campaign'].id, self.campaign.id]:
+            self.assertIn(i, [_['id'] for _ in
+                              to_json(response.content)['results']])
 
     def test_initial_task_creation(self):
         task = self.create_initial_task()
@@ -2414,7 +2475,6 @@ class GigaTurnipTest(APITestCase):
                                                          title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 1)
 
-
     def test_datetime_sort_for_tasks(self):
         from datetime import datetime
 
@@ -2572,7 +2632,6 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses)
         task2 = task.out_tasks.get()
         self.assertEqual(task2.responses, expected_task.responses)
-
 
     def test_task_awards_for_giving_ranks(self):
         self.initial_stage.json_schema = json.dumps({
@@ -4220,7 +4279,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks[20].stage, award_stage)
         self.assertEqual(task_awards.count * 2 + 1, self.user.notifications.count())
 
-
     def test_auto_notification_simple(self):
         js_schema = {
             "type": "object",
@@ -4474,8 +4532,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(rank2['condition'], 'prerequisite_ranks')
         self.assertEqual(rank3['condition'], 'task_awards')
 
-
-
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
         self.initial_stage.json_schema = json.dumps(schema)
@@ -4602,7 +4658,6 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(prize_rank_1, self.user.ranks.all())
         self.assertIn(prize_rank_2, self.user.ranks.all())
         self.assertIn(prize_rank_3, self.user.ranks.all())
-
 
     def test_error_creating_for_managers(self):
         self.initial_stage.json_schema = json.dumps({

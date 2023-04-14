@@ -147,6 +147,18 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     permission_classes = (CampaignAccessPolicy,)
 
+    filterset_fields = {
+        "language__code": ["exact"]
+        # 'chain': ['exact'],
+        # 'chain__campaign': ['exact'],
+        # 'is_creatable': ['exact'],
+        # 'ranks': ['exact'],
+        # 'ranks__users': ['exact'],
+        # 'ranklimits__is_creation_open': ['exact'],
+        # 'ranklimits__total_limit': ['exact', 'lt', 'gt'],
+        # 'ranklimits__open_limit': ['exact', 'lt', 'gt']
+    }
+
     @action(detail=True, methods=['post', 'get'])
     def join_campaign(self, request, pk=None):
         rank_record, created = self.get_object().join(request)
