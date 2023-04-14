@@ -14,7 +14,7 @@ from django.db.models.functions import JSONObject
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -27,7 +27,7 @@ from api.models import (
     Campaign, Chain, TaskStage, ConditionalStage, Case, Task, Rank,
     RankLimit, Track, RankRecord, CampaignManagement,
     Notification, ResponseFlattener, TaskAward,
-    DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete
+    DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete, Category
 )
 from api.permissions import (
     CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
@@ -35,7 +35,8 @@ from api.permissions import (
     TrackAccessPolicy, RankLimitAccessPolicy, ConditionalStageAccessPolicy,
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
-    DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy
+    DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
+    CategoryAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -50,7 +51,7 @@ from api.serializer import (
     TaskAwardSerializer, DynamicJsonReadSerializer,
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
-    UserStatisticSerializer
+    UserStatisticSerializer, CategoryListSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -59,6 +60,24 @@ from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
+
+class CategoryViewSet(mixins.ListModelMixin, GenericViewSet):
+    permission_classes = (CategoryAccessPolicy, )
+
+    def get_queryset(self):
+        return CategoryAccessPolicy.scope_queryset(
+            self.request,
+            Category.objects.all().prefetch_related("out_categories")
+        )
+
+    def get_serializer_class(self):
+        return CategoryListSerializer
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        return qs
 
 
 class UserViewSet(viewsets.ModelViewSet):
