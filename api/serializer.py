@@ -9,7 +9,8 @@ from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants
+from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants, \
+    TaskStageSchemaSourceConstants
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
@@ -289,6 +290,13 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'reopened',
                             'force_complete',
                             'complete']
+
+    def to_representation(self, instance):
+        """Replace stage schema with schema from task stage is so configured."""
+        if instance.stage.schema_source == TaskStageSchemaSourceConstants.TASK:
+            instance.stage.json_schema = instance.schema
+            instance.stage.ui_schema = instance.ui_schema
+        return super().to_representation(instance)
 
 
 class TaskUserActivitySerializer(serializers.Serializer):

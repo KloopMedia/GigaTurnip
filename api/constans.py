@@ -9,6 +9,11 @@ class TaskStageConstants:
     PREVIOUS_MANUAL = 'PA'
 
 
+class TaskStageSchemaSourceConstants:
+    STAGE = 'ST'
+    TASK = 'TA'
+
+
 class ConditionalStageConstants:
     from api.functions_utils import eq, ne, gt, lt, ge, le, contains, not_contains
 

@@ -18,7 +18,7 @@ from api.constans import (
     WebhookConstants
 )
 from api.constans import TaskStageConstants, CopyFieldConstants, \
-    AutoNotificationConstants, ErrorConstants
+    AutoNotificationConstants, ErrorConstants, TaskStageSchemaSourceConstants
 
 
 class BaseDatesModel(models.Model):
@@ -523,6 +523,16 @@ class TaskStage(Stage, SchemaProvider):
         blank=True,
         help_text=""  # todo: add help text for card ui schema
     )
+
+    SCHEMA_SOURCE_CHOICES = [
+        (TaskStageSchemaSourceConstants.STAGE, 'Stage'),
+        (TaskStageSchemaSourceConstants.TASK, 'Task'),
+    ]
+    schema_source = models.CharField(
+        max_length=2,
+        choices=SCHEMA_SOURCE_CHOICES,
+        default=TaskStageSchemaSourceConstants.STAGE,
+        help_text="Flag indicating from where Task should get its schema.")
 
     def get_integration(self):
         if hasattr(self, 'integration'):
@@ -1311,6 +1321,18 @@ class Task(BaseDatesModel, CampaignInterface):
         blank=True,
         null=True,
         help_text='the time until which this task is available'
+    )
+    schema = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="JSON schema for responses that will supersede schema from Stage."
+    )
+    ui_schema = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="JSON ui schema for responses that will supersede ui schema from Stage."
     )
 
     class Meta:
