@@ -169,17 +169,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     filterset_fields = {
         "language__code": ["exact"]
-        # 'chain': ['exact'],
-        # 'chain__campaign': ['exact'],
-        # 'is_creatable': ['exact'],
-        # 'ranks': ['exact'],
-        # 'ranks__users': ['exact'],
-        # 'ranklimits__is_creation_open': ['exact'],
-        # 'ranklimits__total_limit': ['exact', 'lt', 'gt'],
-        # 'ranklimits__open_limit': ['exact', 'lt', 'gt']
     }
     filter_backends = (
-        CategoryInFilter,
+        DjangoFilterBackend, CategoryInFilter,
     )
 
     @action(detail=True, methods=['post', 'get'])
