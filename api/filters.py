@@ -92,7 +92,7 @@ class CategoryInFilter(BaseFilterBackend):
             recursively=True
         )
 
-        return queryset.filter(categories__in=categories)
+        return queryset.filter(categories__in=categories).distinct()
 
     def get_search_terms(self, request):
         """

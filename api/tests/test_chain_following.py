@@ -338,6 +338,116 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(content["count"], Category.objects.count())
         self.assertEqual(content["results"], answer)
 
+    def test_filter_campaign_by_categories_in(self):
+        products_category = Category.objects.create(
+            name="Producs"
+        )
+
+        e_commerce_category = Category.objects.create(
+            name="E-Commerce"
+        )
+        e_commerce_category.parents.add(self.category)
+
+        electronics_category = Category.objects.create(
+            name="Electronics"
+        )
+        pcs_category = Category.objects.create(
+            name="Personal computers"
+        )
+        pcs_devices_category = Category.objects.create(
+            name="Personal computers attributes."
+        )
+        pcs_mouses_category = Category.objects.create(
+            name="Mouses"
+        )
+
+        electronics_category.out_categories.add(pcs_category)
+        electronics_category.out_categories.add(pcs_devices_category)
+        pcs_devices_category.out_categories.add(pcs_mouses_category)
+
+        answer = [
+            {
+                'id': self.category.id,
+                'name': self.category.name,
+                'out_categories': [
+                    e_commerce_category.id
+                ]},
+            {
+                'id': e_commerce_category.id,
+                'name': e_commerce_category.name,
+                'out_categories': []},
+            {
+                'id': electronics_category.id,
+                'name': electronics_category.name,
+                'out_categories': [
+                    pcs_category.id,
+                    pcs_devices_category.id
+                ]
+            },
+            {
+                'id': pcs_mouses_category.id,
+                'name': pcs_mouses_category.name,
+                'out_categories': []},
+            {
+                'id': pcs_category.id,
+                'name': pcs_category.name,
+                'out_categories': []
+            },
+            {
+                'id': pcs_devices_category.id,
+                'name': pcs_devices_category.name,
+                'out_categories': [pcs_mouses_category.id]
+            },
+            {
+                'id': products_category.id,
+                'name': products_category.name,
+                'out_categories': []
+            }
+        ]
+        response = self.get_objects("category-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], Category.objects.count())
+        self.assertEqual(content["results"], answer)
+
+        campaign_e_commerce = self.generate_new_basic_campaign(name="ElPay")
+        campaign_products = self.generate_new_basic_campaign(name="Pepsi")
+        campaign_electronics = self.generate_new_basic_campaign(name="Techno")
+        campaign_pcs = self.generate_new_basic_campaign(name="Personal droid")
+        campaign_pcs_attributes = self.generate_new_basic_campaign(name="Techno mouse")
+
+        campaign_e_commerce["campaign"].categories.add(e_commerce_category)
+        campaign_products["campaign"].categories.add(products_category)
+        campaign_electronics["campaign"].categories.add(electronics_category)
+        campaign_pcs["campaign"].categories.add(pcs_category)
+        campaign_pcs["campaign"].categories.add(pcs_devices_category)
+        campaign_pcs_attributes["campaign"].categories.add(pcs_devices_category)
+
+        response = self.get_objects("campaign-list",
+                                    params={})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 6)
+
+        response = self.get_objects("campaign-list",
+                                    params={
+                                        "categories": electronics_category.id
+                                    })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+
+        response = self.get_objects("campaign-list",
+                                    params={
+                                        "category_in": electronics_category.id
+                                    })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        ids = [i["id"] for i in content["results"]]
+        self.assertIn(campaign_pcs["campaign"].id, ids)
+        self.assertIn(campaign_pcs_attributes["campaign"].id, ids)
+
     def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)

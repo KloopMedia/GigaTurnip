@@ -168,7 +168,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
     permission_classes = (CampaignAccessPolicy,)
 
     filterset_fields = {
-        "language__code": ["exact"]
+        "language__code": ["exact"],
+        "categories": ["exact"],
     }
     filter_backends = (
         DjangoFilterBackend, CategoryInFilter,
