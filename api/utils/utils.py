@@ -95,7 +95,8 @@ def paginate(func):
 
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
+            serializer = self.get_serializer(page, many=True,
+                                             context={"request": args[0]})
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
