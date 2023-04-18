@@ -591,3 +591,17 @@ class UserStatisticAccessPolicy(ManagersOnlyAccessPolicy):
 
     def is_user_campaign_manager(self, request, view, action):
         return request.user.managed_campaigns.exists()
+
+
+class CategoryAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs

@@ -3,6 +3,7 @@ from abc import ABCMeta, ABC
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 from jsonschema import validate
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
@@ -12,8 +13,9 @@ from api.asyncstuff import process_updating_schema_answers
 from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
-    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson, TestWebhook
+    Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
+    NotificationStatus, ResponseFlattener, \
+    TaskAward, DynamicJson, TestWebhook, Category
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -33,7 +35,10 @@ class CampaignSerializer(serializers.ModelSerializer):
         return obj.managers.values_list(flat=True)
 
     def get_notifications_count(self, obj):
-        return obj.notifications.count()
+        user = self.context['request'].user
+        return obj.notifications.filter(
+            Q(rank__id__in=user.ranks.values('id'))
+            | Q(target_user=user)).count()
 
 
 class UserDeleteSerializer(serializers.Serializer):
@@ -635,3 +640,14 @@ class UserStatisticSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     email = serializers.EmailField(read_only=True)
     tasks_count = serializers.IntegerField(read_only=True)
+
+
+class CategoryListSerializer(serializers.ModelSerializer):
+    out_categories = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ["id", "name", "out_categories"]
+
+    def get_out_categories(self, obj):
+        return obj.out_categories.values_list("id", flat=True)

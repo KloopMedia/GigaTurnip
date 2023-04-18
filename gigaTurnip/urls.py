@@ -84,6 +84,9 @@ router.register(api_v1 + r'numberranks',
 router.register(api_v1 + r'users_statistics',
                 turnip_app.UserStatisticViewSet,
                 basename='user_statistic')
+router.register(api_v1 + r'categories',
+                turnip_app.CategoryViewSet,
+                basename='category')
 
 urlpatterns = [
                   path('admin/', admin.site.urls),
