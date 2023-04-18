@@ -205,6 +205,54 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
+    def test_list_campaign_serializer(self):
+        # join employee to campaign
+        self.campaign.open = True
+        self.campaign.save()
+        response = self.employee_client.get(
+            reverse("campaign-join-campaign", kwargs={"pk": self.campaign.id})
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        Notification.objects.create(
+            title="title",
+            campaign=self.campaign,
+            target_user=self.employee
+        )
+        Notification.objects.create(
+            title="title",
+            campaign=self.campaign,
+            rank=self.default_rank
+        )
+        Notification.objects.create(
+            title="title",
+            campaign=self.campaign,
+        )
+        response = self.get_objects("campaign-list", client=self.employee_client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            to_json(response.content)["results"][0]["notifications_count"], 2)
+
+        response = self.client.get(
+            reverse("campaign-join-campaign", kwargs={"pk": self.campaign.id})
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.get_objects("campaign-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            to_json(response.content)["results"][0]["notifications_count"], 1)
+
+
+        new_user = CustomUser.objects.create_user(username="new_new",
+                                                       email='new_new@email.com',
+                                                       password='123')
+        new_user_client = self.create_client(new_user)
+        response = self.get_objects("campaign-list", client=new_user_client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            to_json(response.content)["results"][0]["notifications_count"], 0)
+
     def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
@@ -4474,8 +4522,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(rank2['condition'], 'prerequisite_ranks')
         self.assertEqual(rank3['condition'], 'task_awards')
 
-
-
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
         self.initial_stage.json_schema = json.dumps(schema)
@@ -4602,7 +4648,6 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(prize_rank_1, self.user.ranks.all())
         self.assertIn(prize_rank_2, self.user.ranks.all())
         self.assertIn(prize_rank_3, self.user.ranks.all())
-
 
     def test_error_creating_for_managers(self):
         self.initial_stage.json_schema = json.dumps({
@@ -5181,7 +5226,7 @@ class GigaTurnipTest(APITestCase):
         response_content = to_json(response.content)
         self.assertEqual(response_content["count"], 1)
         self.assertEqual(
-            response_content["results"][0]["notifications_count"], notifications_count)
+            response_content["results"][0]["notifications_count"], 0)
 
         # check serializer works properly
         notifications_count = int(notifications_count/2)
@@ -5194,4 +5239,4 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response_content["count"], 1)
         self.assertEqual(
             response_content["results"][0]["notifications_count"],
-            notifications_count)
+            0)

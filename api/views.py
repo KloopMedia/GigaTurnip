@@ -147,6 +147,13 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     permission_classes = (CampaignAccessPolicy,)
 
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(
+            self.get_queryset()
+        ).prefetch_related("managers", "notifications")
+        return qs
+
     @action(detail=True, methods=['post', 'get'])
     def join_campaign(self, request, pk=None):
         rank_record, created = self.get_object().join(request)
