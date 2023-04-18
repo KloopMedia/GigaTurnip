@@ -27,7 +27,8 @@ from api.models import (
     Campaign, Chain, TaskStage, ConditionalStage, Case, Task, Rank,
     RankLimit, Track, RankRecord, CampaignManagement,
     Notification, ResponseFlattener, TaskAward,
-    DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete, Category
+    DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete, Category,
+    Country, Language
 )
 from api.permissions import (
     CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
@@ -36,7 +37,7 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -51,7 +52,8 @@ from api.serializer import (
     TaskAwardSerializer, DynamicJsonReadSerializer,
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
-    UserStatisticSerializer, CategoryListSerializer
+    UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
+    LanguageListSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -73,6 +75,44 @@ class CategoryViewSet(mixins.ListModelMixin, GenericViewSet):
 
     def get_serializer_class(self):
         return CategoryListSerializer
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        return qs
+
+
+class CountryViewSet(mixins.ListModelMixin, GenericViewSet):
+    permission_classes = (CountryAccessPolicy, )
+
+    def get_queryset(self):
+        return CountryAccessPolicy.scope_queryset(
+            self.request,
+            Country.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return CountryListSerializer
+
+    @paginate
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        return qs
+
+
+class LanguageViewSet(mixins.ListModelMixin, GenericViewSet):
+    permission_classes = (LanguageAccessPolicy, )
+
+    def get_queryset(self):
+        return LanguageAccessPolicy.scope_queryset(
+            self.request,
+            Language.objects.all()
+        )
+
+    def get_serializer_class(self):
+        return LanguageListSerializer
 
     @paginate
     def list(self, request, *args, **kwargs):
