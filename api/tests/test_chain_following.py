@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase, APIClient
 from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
     ErrorConstants, WebhookConstants)
-from api.models import CampaignLinker, ApproveLink
+from api.models import CampaignLinker, ApproveLink, Language, Category
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
@@ -57,7 +57,7 @@ class GigaTurnipTest(APITestCase):
         return self.create_client(u)
 
     def generate_new_basic_campaign(self, name):
-        campaign = Campaign.objects.create(name=name)
+        campaign = Campaign.objects.create(name=name, language=self.lang)
         default_track = Track.objects.create(
             campaign=campaign,
         )
@@ -80,9 +80,18 @@ class GigaTurnipTest(APITestCase):
         }
 
     def setUp(self):
+        self.lang = Language.objects.create(
+            name="English",
+            code="en"
+        )
+        self.category = Category.objects.create(
+            name="Commerce"
+        )
+
         basic_data = self.generate_new_basic_campaign("Coca-Cola")
 
         self.campaign = basic_data['campaign']
+        self.campaign.categories.add(self.category)
         self.default_track = basic_data['default_track']
         self.default_rank = basic_data['rank']
         self.chain = basic_data['chain']
@@ -252,6 +261,240 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             to_json(response.content)["results"][0]["notifications_count"], 0)
+
+    def test_campaign_filters_by_language(self):
+        campaign_en_data = self.generate_new_basic_campaign(name="Pepsi")
+        campaign_ru_data = self.generate_new_basic_campaign(name="Добрый Кола")
+        campaign_ky_data = self.generate_new_basic_campaign(name="Джакшы Кола")
+
+        lang_ru = Language.objects.create(
+            name="Russian",
+            code="ru"
+        )
+        lang_ky = Language.objects.create(
+            name="Kyrgyz",
+            code="ky"
+        )
+
+        campaign_ru_data["campaign"].language = lang_ru
+        campaign_ky_data["campaign"].language = lang_ky
+
+        campaign_ru_data["campaign"].open = True
+        campaign_ky_data["campaign"].open = True
+
+        campaign_ru_data["campaign"].save()
+        campaign_ky_data["campaign"].save()
+
+        response = self.get_objects("campaign-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(to_json(response.content)['count'], 4)
+
+        response = self.get_objects("campaign-list",
+                                    params={"language__code": "ru"}
+                                    )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(to_json(response.content)['count'], 1)
+        self.assertEqual(to_json(response.content)['results'][0]['id'],
+                         campaign_ru_data['campaign'].id)
+
+        response = self.get_objects("campaign-list",
+                                    params={"language__code": "ky"}
+                                    )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(to_json(response.content)['count'], 1)
+        self.assertEqual(to_json(response.content)['results'][0]['id'],
+                         campaign_ky_data['campaign'].id)
+
+        response = self.get_objects("campaign-list",
+                                    params={"language__code": "en"}
+                                    )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(to_json(response.content)['count'], 2)
+        for i in [campaign_en_data['campaign'].id, self.campaign.id]:
+            self.assertIn(i, [_['id'] for _ in
+                              to_json(response.content)['results']])
+
+    def test_list_categories(self):
+        products_category = Category.objects.create(
+            name="Producs"
+        )
+
+        e_commerce_category = Category.objects.create(
+            name="E-Commerce"
+        )
+        e_commerce_category.parents.add(self.category)
+
+        electronics_category = Category.objects.create(
+            name="Electronics"
+        )
+        pcs_category = Category.objects.create(
+            name="Personal computers"
+        )
+        pcs_devices_category = Category.objects.create(
+            name="Personal computers attributes."
+        )
+        pcs_mouses_category = Category.objects.create(
+            name="Mouses"
+        )
+
+        electronics_category.out_categories.add(pcs_category)
+        electronics_category.out_categories.add(pcs_devices_category)
+        pcs_devices_category.out_categories.add(pcs_mouses_category)
+
+        answer = [
+            {
+                'id': self.category.id,
+                'name': self.category.name,
+                'out_categories': [
+                    e_commerce_category.id
+                ]},
+            {
+                'id': e_commerce_category.id,
+                'name': e_commerce_category.name,
+                'out_categories': []},
+            {
+                'id': electronics_category.id,
+                'name': electronics_category.name,
+                'out_categories': [
+                    pcs_category.id,
+                    pcs_devices_category.id
+                ]
+            },
+            {
+                'id': pcs_mouses_category.id,
+                'name': pcs_mouses_category.name,
+                'out_categories': []},
+            {
+                'id': pcs_category.id,
+                'name': pcs_category.name,
+                'out_categories': []
+            },
+            {
+                'id': pcs_devices_category.id,
+                'name': pcs_devices_category.name,
+                'out_categories': [pcs_mouses_category.id]
+            },
+            {
+                'id': products_category.id,
+                'name': products_category.name,
+                'out_categories': []
+            }
+        ]
+        response = self.get_objects("category-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], Category.objects.count())
+        self.assertEqual(content["results"], answer)
+
+    def test_filter_campaign_by_categories_in(self):
+        products_category = Category.objects.create(
+            name="Producs"
+        )
+
+        e_commerce_category = Category.objects.create(
+            name="E-Commerce"
+        )
+        e_commerce_category.parents.add(self.category)
+
+        electronics_category = Category.objects.create(
+            name="Electronics"
+        )
+        pcs_category = Category.objects.create(
+            name="Personal computers"
+        )
+        pcs_devices_category = Category.objects.create(
+            name="Personal computers attributes."
+        )
+        pcs_mouses_category = Category.objects.create(
+            name="Mouses"
+        )
+
+        electronics_category.out_categories.add(pcs_category)
+        electronics_category.out_categories.add(pcs_devices_category)
+        pcs_devices_category.out_categories.add(pcs_mouses_category)
+
+        answer = [
+            {
+                'id': self.category.id,
+                'name': self.category.name,
+                'out_categories': [
+                    e_commerce_category.id
+                ]},
+            {
+                'id': e_commerce_category.id,
+                'name': e_commerce_category.name,
+                'out_categories': []},
+            {
+                'id': electronics_category.id,
+                'name': electronics_category.name,
+                'out_categories': [
+                    pcs_category.id,
+                    pcs_devices_category.id
+                ]
+            },
+            {
+                'id': pcs_mouses_category.id,
+                'name': pcs_mouses_category.name,
+                'out_categories': []},
+            {
+                'id': pcs_category.id,
+                'name': pcs_category.name,
+                'out_categories': []
+            },
+            {
+                'id': pcs_devices_category.id,
+                'name': pcs_devices_category.name,
+                'out_categories': [pcs_mouses_category.id]
+            },
+            {
+                'id': products_category.id,
+                'name': products_category.name,
+                'out_categories': []
+            }
+        ]
+        response = self.get_objects("category-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], Category.objects.count())
+        self.assertEqual(content["results"], answer)
+
+        campaign_e_commerce = self.generate_new_basic_campaign(name="ElPay")
+        campaign_products = self.generate_new_basic_campaign(name="Pepsi")
+        campaign_electronics = self.generate_new_basic_campaign(name="Techno")
+        campaign_pcs = self.generate_new_basic_campaign(name="Personal droid")
+        campaign_pcs_attributes = self.generate_new_basic_campaign(name="Techno mouse")
+
+        campaign_e_commerce["campaign"].categories.add(e_commerce_category)
+        campaign_products["campaign"].categories.add(products_category)
+        campaign_electronics["campaign"].categories.add(electronics_category)
+        campaign_pcs["campaign"].categories.add(pcs_category)
+        campaign_pcs["campaign"].categories.add(pcs_devices_category)
+        campaign_pcs_attributes["campaign"].categories.add(pcs_devices_category)
+
+        response = self.get_objects("campaign-list",
+                                    params={})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 6)
+
+        response = self.get_objects("campaign-list",
+                                    params={
+                                        "categories": electronics_category.id
+                                    })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+
+        response = self.get_objects("campaign-list",
+                                    params={
+                                        "category_in": electronics_category.id
+                                    })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        ids = [i["id"] for i in content["results"]]
+        self.assertIn(campaign_pcs["campaign"].id, ids)
+        self.assertIn(campaign_pcs_attributes["campaign"].id, ids)
 
     def test_initial_task_creation(self):
         task = self.create_initial_task()
@@ -2462,7 +2705,6 @@ class GigaTurnipTest(APITestCase):
                                                          title=task_awards.notification.title)
         self.assertEqual(user_notifications.count(), 1)
 
-
     def test_datetime_sort_for_tasks(self):
         from datetime import datetime
 
@@ -2620,7 +2862,6 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, responses)
         task2 = task.out_tasks.get()
         self.assertEqual(task2.responses, expected_task.responses)
-
 
     def test_task_awards_for_giving_ranks(self):
         self.initial_stage.json_schema = json.dumps({
@@ -4267,7 +4508,6 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(all_tasks.count(), 21)
         self.assertEqual(all_tasks[20].stage, award_stage)
         self.assertEqual(task_awards.count * 2 + 1, self.user.notifications.count())
-
 
     def test_auto_notification_simple(self):
         js_schema = {

@@ -6,14 +6,15 @@ from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count
 
 from .asyncstuff import process_completed_task
-from .models import Campaign, Chain, \
-    TaskStage, ConditionalStage, Case, Task, CustomUser, Rank, RankLimit, \
-    RankRecord, CampaignManagement, Track, Log, \
-    Notification, NotificationStatus, AdminPreference, Stage, Integration, \
-    Webhook, CopyField, StagePublisher, Quiz, \
-    ResponseFlattener, TaskAward, DynamicJson, PreviousManual, \
-    AutoNotification, ConditionalLimit, DatetimeSort, \
-    ErrorItem, TestWebhook, CampaignLinker, ApproveLink
+from .models import (
+    Campaign, Chain, TaskStage, ConditionalStage, Case, Task,  CustomUser,
+    Rank, RankLimit, RankRecord, CampaignManagement, Track, Log,
+    Notification, NotificationStatus, AdminPreference, Stage, Integration,
+    Webhook, CopyField, StagePublisher, Quiz, ResponseFlattener, TaskAward,
+    DynamicJson, PreviousManual, AutoNotification, ConditionalLimit,
+    DatetimeSort, ErrorItem, TestWebhook, CampaignLinker, ApproveLink,
+    Language, Category
+)
 from django.contrib import messages
 from django.utils.translation import ngettext
 from api.utils.utils import set_rank_to_user_action, filter_by_admin_preference
@@ -198,8 +199,8 @@ class CustomUserAdmin(UserAdmin):
 
 
 class CampaignAdmin(admin.ModelAdmin):
-    search_fields = ('id', 'name', )
-    autocomplete_fields = ('default_track', )
+    search_fields = ("id", "name", )
+    autocomplete_fields = ("default_track", "categories", "language", )
 
 
 class ChainAdmin(admin.ModelAdmin):
@@ -513,6 +514,21 @@ class TaskAdmin(admin.ModelAdmin):
             '%d tasks were successfully marked as force completed.',
             updated,
         ) % updated, messages.SUCCESS)
+
+
+class LanguageAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "id")
+    search_fields = ("name", "code")
+
+
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", )
+    list_filter = ("parents__name", )
+    search_fields = ("name", )
+    autocomplete_fields = ("parents", )
+
+    class Meta:
+        verbose_name = "Categories"
 
 
 class LogAdmin(admin.ModelAdmin):
@@ -915,6 +931,8 @@ class TestWebhookAdmin(admin.ModelAdmin):
     autocomplete_fields = ('expected_task', 'sent_task')
 
 
+admin.site.register(Language, LanguageAdmin)
+admin.site.register(Category, CategoryAdmin)
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Campaign, CampaignAdmin)
 admin.site.register(CampaignLinker, CampaignLinkerAdmin)
