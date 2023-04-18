@@ -3,6 +3,7 @@ from abc import ABCMeta, ABC
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 from jsonschema import validate
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
@@ -34,7 +35,10 @@ class CampaignSerializer(serializers.ModelSerializer):
         return obj.managers.values_list(flat=True)
 
     def get_notifications_count(self, obj):
-        return obj.notifications.count()
+        user = self.context['request'].user
+        return obj.notifications.filter(
+            Q(rank__id__in=user.ranks.values('id'))
+            | Q(target_user=user)).count()
 
 
 class UserDeleteSerializer(serializers.Serializer):
