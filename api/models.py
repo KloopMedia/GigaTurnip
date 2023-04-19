@@ -626,6 +626,18 @@ class TaskStage(Stage, SchemaProvider):
         blank=True,
         help_text=""  # todo: add help text for card ui schema
     )
+    STAGE_TYPES = (
+        ("PR", "Proactive"),
+        ("RE", "Reactive")
+    )
+    stage_type = models.CharField(
+        choices=STAGE_TYPES,
+        max_length=2,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Stage type."
+    )
 
     def get_integration(self):
         if hasattr(self, 'integration'):
