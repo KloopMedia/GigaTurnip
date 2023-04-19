@@ -444,7 +444,9 @@ class Chain(BaseModel, CampaignInterface):
         related_name="chains",
         help_text="Campaign id"
     )
-
+    is_individual = models.BooleanField(
+        default=False,
+    )
     def get_campaign(self) -> Campaign:
         return self.campaign
 
