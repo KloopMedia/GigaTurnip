@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase, APIClient
 from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
     ErrorConstants, WebhookConstants)
-from api.models import CampaignLinker, ApproveLink, Language, Category
+from api.models import CampaignLinker, ApproveLink, Language, Category, Country
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
@@ -56,10 +56,19 @@ class GigaTurnipTest(APITestCase):
         rank_l.save()
         return self.create_client(u)
 
-    def generate_new_basic_campaign(self, name):
-        campaign = Campaign.objects.create(name=name, language=self.lang)
+    def generate_new_basic_campaign(self, name, lang=None, countries=None):
+        l = lang
+        if not l:
+            l = self.lang
+        c = countries
+        if not c:
+            c = [self.country]
+
+        campaign = Campaign.objects.create(name=name, language=l)
+        campaign.countries.set(c)
         default_track = Track.objects.create(
             campaign=campaign,
+
         )
         campaign.default_track = default_track
         rank = Rank.objects.create(name=f"Default {name} rank",
@@ -87,6 +96,10 @@ class GigaTurnipTest(APITestCase):
         self.category = Category.objects.create(
             name="Commerce"
         )
+        self.country = Country.objects.create(
+            name="Vinland"
+        )
+
 
         basic_data = self.generate_new_basic_campaign("Coca-Cola")
 
@@ -213,6 +226,45 @@ class GigaTurnipTest(APITestCase):
         if responses is not None:
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
+
+    def test_list_languages(self):
+        Language.objects.create(
+            code="ru",
+            name="Russian"
+        )
+        Language.objects.create(
+            code="ky",
+            name="Kyrgyz"
+        )
+
+        response = self.get_objects("language-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 3)
+        langs_en_data = {
+            "id": self.lang.id,
+            "name": self.lang.name,
+            "code": self.lang.code
+        }
+        self.assertIn(langs_en_data, content["results"])
+
+    def test_list_countries(self):
+        Country.objects.create(
+            name="Russian"
+        )
+        Country.objects.create(
+            name="Kyrgyzstan"
+        )
+
+        response = self.get_objects("country-list")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 3)
+        country_data = {
+            "id": self.country.id,
+            "name": self.country.name
+        }
+        self.assertIn(country_data, content["results"])
 
     def test_list_campaign_serializer(self):
         # join employee to campaign
@@ -495,6 +547,37 @@ class GigaTurnipTest(APITestCase):
         ids = [i["id"] for i in content["results"]]
         self.assertIn(campaign_pcs["campaign"].id, ids)
         self.assertIn(campaign_pcs_attributes["campaign"].id, ids)
+
+    def test_filter_campaigns_by_country_name(self):
+        rus_country = Country.objects.create(
+            name="Russian"
+        )
+        kyz_country = Country.objects.create(
+            name="Kyrgyzstan"
+        )
+
+        pepsi = self.generate_new_basic_campaign("Pepsi", countries=[rus_country, kyz_country])
+        fanta = self.generate_new_basic_campaign("Fanta", countries=[rus_country])
+
+        response = self.get_objects("campaign-list", params={
+            "countries__name": self.country.name}
+                                    )
+        # print([i.countries.all() for i in Campaign.objects.all()])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        # print(content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual(self.campaign.id, content["results"][0]["id"])
+
+
+        response = self.get_objects("campaign-list", params={
+            "countries__name": rus_country.name}
+                                    )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        for i in [pepsi["campaign"].id, fanta["campaign"].id]:
+            self.assertIn(i, [_["id"] for _ in content["results"]])
 
     def test_initial_task_creation(self):
         task = self.create_initial_task()
@@ -3423,7 +3506,6 @@ class GigaTurnipTest(APITestCase):
         del updated_schema['properties']['time']['enum'][1]
         del updated_schema['properties']['time']['enum'][1]
         self.assertIn("10:00", response.data['schema']['properties']['time']['enum'])
-        print(response.data)
 
     def test_dynamic_json_schema_single_unique_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
@@ -3778,7 +3860,6 @@ class GigaTurnipTest(APITestCase):
         response = self.get_objects('taskstage-load-schema-answers', pk=choose_name_stage.id,
                                     params={"current_task":task.id})
         updated_enums = response.data['schema']['properties']['choose_name']['enum']
-        print(response.data)
         self.assertEqual(len(updated_enums), 5)
         self.assertEqual(['Person #1', 'Person #2', 'Person #3', 'Person #4', 'Person #5'], updated_enums)
         right_return = {
@@ -4876,7 +4957,6 @@ class GigaTurnipTest(APITestCase):
         task = self.create_task(new_initial)
         for i in range(task_award_2.count):
             task = self.complete_task(task, responses)
-            print(task.complete)
             if task_award_2.count - 1 > i:
                 task = self.create_task(new_initial)
                 self.assertIn(prize_rank_1, self.user.ranks.all())

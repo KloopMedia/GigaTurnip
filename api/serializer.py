@@ -15,7 +15,7 @@ from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson, TestWebhook, Category
+    TaskAward, DynamicJson, TestWebhook, Category, Language, Country
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -651,3 +651,17 @@ class CategoryListSerializer(serializers.ModelSerializer):
 
     def get_out_categories(self, obj):
         return obj.out_categories.values_list("id", flat=True)
+
+
+class LanguageListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Language
+        fields = ["id", "name", "code"]
+
+
+class CountryListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Country
+        fields = ["id", "name"]
