@@ -548,6 +548,37 @@ class GigaTurnipTest(APITestCase):
         self.assertIn(campaign_pcs["campaign"].id, ids)
         self.assertIn(campaign_pcs_attributes["campaign"].id, ids)
 
+    def test_filter_campaigns_by_country_name(self):
+        rus_country = Country.objects.create(
+            name="Russian"
+        )
+        kyz_country = Country.objects.create(
+            name="Kyrgyzstan"
+        )
+
+        pepsi = self.generate_new_basic_campaign("Pepsi", countries=[rus_country, kyz_country])
+        fanta = self.generate_new_basic_campaign("Fanta", countries=[rus_country])
+
+        response = self.get_objects("campaign-list", params={
+            "countries__name": self.country.name}
+                                    )
+        # print([i.countries.all() for i in Campaign.objects.all()])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        # print(content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual(self.campaign.id, content["results"][0]["id"])
+
+
+        response = self.get_objects("campaign-list", params={
+            "countries__name": rus_country.name}
+                                    )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        for i in [pepsi["campaign"].id, fanta["campaign"].id]:
+            self.assertIn(i, [_["id"] for _ in content["results"]])
+
     def test_initial_task_creation(self):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
