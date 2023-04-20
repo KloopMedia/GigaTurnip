@@ -1642,6 +1642,12 @@ class Rank(BaseModel, CampaignInterface):
         blank=True,
         help_text="Text or url to the SVG"
     )
+    priority = models.PositiveIntegerField(
+        default=0,
+        blank=False,
+        null=False,
+        help_text="Priority of the rank in the system."
+    )
 
     def get_campaign(self):
         return self.track.campaign
