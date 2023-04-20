@@ -8,6 +8,7 @@ import requests
 from django.apps import apps
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
 from django.db.models import UniqueConstraint, Q
@@ -158,6 +159,86 @@ class CampaignInterface:
         ErrorItem.create_from_data(self.get_campaign(), exc_type, details, tb, tb_info, data)
 
 
+class Category(models.Model):
+    name = models.CharField(
+        max_length=128,
+        blank=False,
+        null=False,
+        help_text="Title of category."
+    )
+    parents = models.ManyToManyField(
+        "self",
+        blank=True,
+        related_name="out_categories",
+        default=None,
+        symmetrical=False,
+        help_text="Category that hierarchically upper then this category."
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    def get_all_subcategories(self, used=None, recursively=None):
+        all_ids = self.out_categories
+        if not recursively:
+            return all_ids.all()
+        all_ids = set(all_ids.values_list('id', flat=True))
+
+        used = set()
+        while all_ids:
+            current_id = all_ids.pop()
+            sub_categories = Category.objects.get(id=current_id)\
+                .out_categories.values_list(
+                "id", flat=True
+            )
+            used.add(current_id)
+            all_ids.update(sub_categories)
+
+        return used
+
+
+class Country(models.Model):
+    name = models.CharField(
+        max_length=526,
+        unique=True,
+        help_text="Country name"
+    )
+
+    def __str__(self):
+        return self.name
+
+
+def validate_language_code(val):
+    if len(val) == 2 and val.isalpha():
+        return val.lower()
+    raise ValidationError(
+        "This field is two letters code(format ISO 639-1).\n"
+        "Check available codes in wikipedia: \"https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes\"."
+    )
+
+
+class Language(models.Model):
+    name = models.CharField(
+        max_length=128,
+        blank=False,
+        null=False,
+        help_text="ISO language name."
+    )
+    code = models.CharField(
+        max_length=2,
+        blank=False,
+        null=False,
+        validators=[validate_language_code],
+        help_text="Two letters code of language."
+    )
+
+    def __str__(self):
+        return "{}: {}".format(self.name, self.code)
+
+
 class Campaign(BaseModel, CampaignInterface):
     default_track = models.ForeignKey(
         "Track",
@@ -191,6 +272,28 @@ class Campaign(BaseModel, CampaignInterface):
         blank=True,
         null=True,
         help_text="Fast description to the campaign to attract new users."
+    )
+
+    countries = models.ManyToManyField(
+        "Country",
+        blank=True,
+        default=None,
+        help_text="Countries where campaign works."
+    )
+
+    categories = models.ManyToManyField(
+        "Category",
+        blank=True,
+        default=None,
+        help_text="Categories of the campaign."
+    )
+
+    language = models.ForeignKey(
+        "Language",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        help_text="Language of the campaign."
     )
 
     def join(self, request):

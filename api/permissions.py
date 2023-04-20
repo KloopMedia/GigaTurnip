@@ -228,7 +228,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
         return tasks_for_current_stage.count() > 0
 
     def is_displayed_prev(self, request, view, action) -> bool:
-        return view.get_object() in view.get_queryset()
+        return view.get_object() in view.get_queryset
 
 
 class TaskAccessPolicy(AccessPolicy):
@@ -591,3 +591,45 @@ class UserStatisticAccessPolicy(ManagersOnlyAccessPolicy):
 
     def is_user_campaign_manager(self, request, view, action):
         return request.user.managed_campaigns.exists()
+
+
+class CategoryAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs
+
+
+class LanguageAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs
+
+
+class CountryAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": "authenticated",
+            "effect": "allow"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs

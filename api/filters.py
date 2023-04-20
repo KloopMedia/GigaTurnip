@@ -1,4 +1,6 @@
+from django.apps import apps
 from rest_framework import filters
+from rest_framework.filters import BaseFilterBackend
 
 from api.api_exceptions import CustomApiException
 from api.constans import DjangoORMConstants, ConditionalStageConstants
@@ -69,3 +71,36 @@ class TaskResponsesContainsFilter(BasePostJSONFilter):
 
     def prefilter_queryset(self, queryset, data):
         return queryset.filter(stage=data.get('stage'))
+
+
+class CategoryInFilter(BaseFilterBackend):
+    search_param = "category_in"
+    search_title = "All campaigns with categories eaquals or below selected category."
+
+    def filter_queryset(self, request, queryset, view):
+        """
+        Return a filtered queryset.
+        """
+        term = self.get_search_terms(request)
+
+        if not term or not term.isdigit():
+            return queryset
+
+        model_Category = apps.get_model(app_label="api", model_name="Category")
+        categories = model_Category.objects.get(
+            id=int(term)).get_all_subcategories(
+            recursively=True
+        )
+
+        return queryset.filter(categories__in=categories).distinct()
+
+    def get_search_terms(self, request):
+        """
+        Search terms are set by a ?search=... query parameter,
+        and may be comma and/or whitespace delimited.
+        """
+        params = request.query_params.get(self.search_param, '')
+        params = params.replace('\x00', '')  # strip null characters
+        params = params.replace(',', ' ')
+        return params
+
