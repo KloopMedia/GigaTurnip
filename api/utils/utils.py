@@ -22,11 +22,10 @@ def is_user_campaign_manager(user, campaign_id):
 
 
 def filter_for_user_creatable_stages(queryset, request):
-    stages = queryset \
-        .filter(is_creatable=True) \
-        .filter(ranks__users=request.user.id) \
-        .filter(ranklimits__is_creation_open=True) \
-        .distinct()
+    stages = queryset.filter(
+        is_creatable=True,
+        ranks__users=request.user.id,
+        ranklimits__is_creation_open=True).distinct()
     filtered_stages = TaskStage.objects.none()
     for stage in stages:
         tasks = Task.objects.filter(assignee=request.user.id) \
