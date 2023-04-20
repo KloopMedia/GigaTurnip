@@ -20,7 +20,6 @@ from api.constans import (
 )
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, ErrorConstants, TaskStageSchemaSourceConstants
-from api.utils.utils import top_level_replace
 
 
 class BaseDatesModel(models.Model):
@@ -979,11 +978,17 @@ class Webhook(BaseDatesModel):
             return list(task.in_tasks.values_list('responses', flat=True))
         return task.responses
 
-    # TODO Finish method stub
     def process_data(self, task):
         replace_dict = {}
         replace_dict[ReplaceConstants.USER_ID] = task.assignee.pk
         return top_level_replace(self.data, replace_dict)
+
+    def top_level_replace(data, replace_dict):
+        for key in data:
+            new_value = replace_dict.get(data[key])
+            if new_value is not None:
+                data[key] = new_value
+        return data
 
 
 

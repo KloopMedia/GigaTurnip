@@ -338,11 +338,3 @@ def process_auto_completed_task(stage, task):
 
 def get_conditional_limit_count(stage, filters):
     return stage.out_stages.get().tasks.count()
-
-
-def top_level_replace(data, replace_dict):
-    for key in data:
-        new_value = replace_dict.get(data[key])
-        if new_value is not None:
-            data[key] = new_value
-    return data
