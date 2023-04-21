@@ -936,7 +936,7 @@ class Webhook(BaseDatesModel):
         else:
             data = self.get_responses(task)
 
-        "----------Webhook triggered!!!-----------"
+        print("----------Webhook triggered!!!-----------")
 
         response = requests.post(self.url, json=data, headers=self.headers)
 
@@ -955,16 +955,20 @@ class Webhook(BaseDatesModel):
             else:
                 data = response.json()
             if self.target == WebhookTargetConstants.SCHEMA:
+                print("---------DATA--------")
+                print(data)
                 task.schema = data
                 task.ui_schema = (
                     {} if self.ui_schema_field is None
-                    else self.ui_schema_field
+                    else response.json()[self.ui_schema_field]
                 )
             else:
                 if task.responses:
                     task.responses.update(data)  # TODO Add error related to updating
                 else:
                     task.responses = data
+            print("---------TASK FROM TRIGGER--------")
+            print(task.schema)
             task.save()
             return True, task, response, ""
         except JSONDecodeError:
@@ -983,15 +987,14 @@ class Webhook(BaseDatesModel):
     def process_data(self, task):
         replace_dict = {}
         replace_dict[ReplaceConstants.USER_ID] = task.assignee.pk
-        return top_level_replace(self.data, replace_dict)
+        return self.top_level_replace(self.data, replace_dict)
 
-    def top_level_replace(data, replace_dict):
+    def top_level_replace(self, data, replace_dict):
         for key in data:
             new_value = replace_dict.get(data[key])
             if new_value is not None:
                 data[key] = new_value
         return data
-
 
 
 class TestWebhook(BaseDatesModel):

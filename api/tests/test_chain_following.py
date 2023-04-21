@@ -5659,7 +5659,8 @@ class GigaTurnipTest(APITestCase):
             "review": False,
             "stack_size": 10
         }
-        headers = "Authorization: Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"
+        headers = {"Authorization": "Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"}
+
         Webhook.objects.create(
             task_stage=second_stage,
             headers=headers,
@@ -5667,7 +5668,7 @@ class GigaTurnipTest(APITestCase):
             ui_schema_field="uischema",
             target=WebhookTargetConstants.SCHEMA,
             data=data,
-            url='http://127.0.0.1:8001/api/v1/answersheet/',
+            url='http://172.17.0.1:8001/api/v1/answersheet/',
             is_triggered=False,
             which_responses=WebhookConstants.MODIFIER_FIELD,
         )
@@ -5686,9 +5687,10 @@ class GigaTurnipTest(APITestCase):
 
 
         print("----------RESPONSE-----------")
-        print(response)
+        print(response.data)
 
+        next_task = task.out_tasks.get()
         print("----------TASK-----------")
-        print(task.schema)
+        print(next_task.schema)
 
         self.assertEqual(1, 1)
