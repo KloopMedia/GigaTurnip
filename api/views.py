@@ -984,6 +984,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def trigger_webhook(self, request, pk=None):
         task = self.get_object()
         webhook = task.stage.get_webhook()
+        print("-----------Webhook Endpoint-----------")
         if webhook:
             is_altered, altered_task, response, error_description = webhook.trigger(task)
             if is_altered:

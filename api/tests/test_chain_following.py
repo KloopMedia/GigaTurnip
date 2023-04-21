@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase, APIClient
 
 from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
-    ErrorConstants, WebhookConstants, TaskStageSchemaSourceConstants)
+    ErrorConstants, WebhookConstants, TaskStageSchemaSourceConstants, WebhookTargetConstants)
 from api.models import CampaignLinker, ApproveLink, Language, Category, Country
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
@@ -5630,3 +5630,65 @@ class GigaTurnipTest(APITestCase):
                          json.dumps(stage_schema))
         self.assertEqual(response.data["stage"]["ui_schema"],
                          json.dumps(stage_ui_schema))
+
+    def test_schema_provider_webhook(self):
+        js_schema = {
+            "type": "object",
+            "properties": {
+                'answer': {
+                    "type": "string",
+                }
+            }
+        }
+        self.initial_stage.json_schema = json.dumps(js_schema)
+
+        self.initial_stage.save()
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+        data = {
+            "type": "SK",
+            "learner": 1,
+            "test_language": "EN",
+            "native_language": "RU",
+            "collection": None,
+            "regenerate_stack": False,
+            "clear_excluded": False,
+            "review": False,
+            "stack_size": 10
+        }
+        headers = "Authorization: Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"
+        Webhook.objects.create(
+            task_stage=second_stage,
+            headers=headers,
+            response_field="questions",
+            ui_schema_field="uischema",
+            target=WebhookTargetConstants.SCHEMA,
+            data=data,
+            url='http://127.0.0.1:8001/api/v1/answersheet/',
+            is_triggered=False,
+            which_responses=WebhookConstants.MODIFIER_FIELD,
+        )
+
+
+        task = self.create_initial_task()
+        task = self.update_task_responses(task, {"answer": "Hello world!"})
+
+
+        task = Task.objects.get(id=task.id)
+        task = self.complete_task(task, task.responses)
+
+
+        next_task = task.out_tasks.get()
+        response = self.get_objects('task-trigger-webhook', pk=next_task.pk)
+
+
+        print("----------RESPONSE-----------")
+        print(response)
+
+        print("----------TASK-----------")
+        print(task.schema)
+
+        self.assertEqual(1, 1)
