@@ -373,6 +373,9 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task = Task(stage=stage, assignee=request.user, case=case)
         for copy_field in stage.copy_fields.all():
             task.responses = copy_field.copy_response(task)
+        webhook = stage.get_webhook()
+        if webhook and webhook.is_triggered:
+            webhook.trigger(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
@@ -984,7 +987,6 @@ class TaskViewSet(viewsets.ModelViewSet):
     def trigger_webhook(self, request, pk=None):
         task = self.get_object()
         webhook = task.stage.get_webhook()
-        print("-----------Webhook Endpoint-----------")
         if webhook:
             is_altered, altered_task, response, error_description = webhook.trigger(task)
             if is_altered:

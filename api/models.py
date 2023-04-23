@@ -936,8 +936,6 @@ class Webhook(BaseDatesModel):
         else:
             data = self.get_responses(task)
 
-        print("----------Webhook triggered!!!-----------")
-
         response = requests.post(self.url, json=data, headers=self.headers)
 
         if not response:
@@ -955,8 +953,6 @@ class Webhook(BaseDatesModel):
             else:
                 data = response.json()
             if self.target == WebhookTargetConstants.SCHEMA:
-                print("---------DATA--------")
-                print(data)
                 task.schema = data
                 task.ui_schema = (
                     {} if self.ui_schema_field is None
@@ -967,8 +963,6 @@ class Webhook(BaseDatesModel):
                     task.responses.update(data)  # TODO Add error related to updating
                 else:
                     task.responses = data
-            print("---------TASK FROM TRIGGER--------")
-            print(task.schema)
             task.save()
             return True, task, response, ""
         except JSONDecodeError:

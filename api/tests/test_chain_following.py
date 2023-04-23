@@ -5631,23 +5631,44 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.data["stage"]["ui_schema"],
                          json.dumps(stage_ui_schema))
 
-    def test_schema_provider_webhook(self):
-        js_schema = {
-            "type": "object",
-            "properties": {
-                'answer': {
-                    "type": "string",
-                }
-            }
+    def test_schema_provider_webhook_creatable_task(self):
+        data = {
+            "type": "SK",
+            "learner": 1,
+            "test_language": "EN",
+            "native_language": "RU",
+            "collection": None,
+            "regenerate_stack": False,
+            "clear_excluded": False,
+            "review": False,
+            "stack_size": 10
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        headers = {"Authorization": "Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"}
 
-        self.initial_stage.save()
+        Webhook.objects.create(
+            task_stage=self.initial_stage,
+            headers=headers,
+            response_field="questions",
+            ui_schema_field="uischema",
+            target=WebhookTargetConstants.SCHEMA,
+            data=data,
+            url='http://172.17.0.1:8001/api/v1/answersheet/',
+            is_triggered=True,
+            which_responses=WebhookConstants.MODIFIER_FIELD,
+        )
+
+        task = self.create_initial_task()
+
+        self.assertEqual(task.schema, {'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'}, 'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'}, 'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'}, 'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'}, 'human': {'type': 'boolean', 'title': 'human'}, 'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(task.ui_schema, {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+
+    def test_schema_provider_webhook_second_task(self):
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage
         ))
+
         data = {
             "type": "SK",
             "learner": 1,
@@ -5669,28 +5690,90 @@ class GigaTurnipTest(APITestCase):
             target=WebhookTargetConstants.SCHEMA,
             data=data,
             url='http://172.17.0.1:8001/api/v1/answersheet/',
+            is_triggered=True,
+            which_responses=WebhookConstants.MODIFIER_FIELD,
+        )
+
+        task = self.create_initial_task()
+        task = self.complete_task(task)
+
+        task = Task.objects.get(id=task.id)
+        next_task = task.out_tasks.get()
+
+        self.assertEqual(next_task.schema, {'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'}, 'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'}, 'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'}, 'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'}, 'human': {'type': 'boolean', 'title': 'human'}, 'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(next_task.ui_schema, {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+
+    def test_schema_provider_webhook_manual_trigger(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+        data = {
+            "type": "SK",
+            "learner": 1,
+            "test_language": "EN",
+            "native_language": "RU",
+            "collection": None,
+            "regenerate_stack": False,
+            "clear_excluded": False,
+            "review": False,
+            "stack_size": 10
+        }
+        headers = {"Authorization": "Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"}
+
+        Webhook.objects.create(
+            task_stage=self.initial_stage,
+            headers=headers,
+            response_field="questions",
+            ui_schema_field="uischema",
+            target=WebhookTargetConstants.SCHEMA,
+            data=data,
+            url='http://172.17.0.1:8001/api/v1/answersheet/',
+            is_triggered=False,
+            which_responses=WebhookConstants.MODIFIER_FIELD,
+        )
+        Webhook.objects.create(
+            task_stage=second_stage,
+            headers=headers,
+            response_field="questions",
+            ui_schema_field="uischema",
+            target=WebhookTargetConstants.SCHEMA,
+            data=data,
+            url='http://172.17.0.1:8001/api/v1/answersheet/',
             is_triggered=False,
             which_responses=WebhookConstants.MODIFIER_FIELD,
         )
 
-
         task = self.create_initial_task()
-        task = self.update_task_responses(task, {"answer": "Hello world!"})
 
-
+        self.assertIsNone(task.schema)
+        self.assertIsNone(task.ui_schema)
+        self.get_objects('task-trigger-webhook', pk=task.pk)
         task = Task.objects.get(id=task.id)
-        task = self.complete_task(task, task.responses)
+        self.assertEqual(task.schema, {
+            'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'},
+                           'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'},
+                           'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'},
+                           'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'},
+                           'human': {'type': 'boolean', 'title': 'human'},
+                           'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(task.ui_schema,
+                         {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
 
+        task = self.complete_task(task)
 
         next_task = task.out_tasks.get()
-        response = self.get_objects('task-trigger-webhook', pk=next_task.pk)
-
-
-        print("----------RESPONSE-----------")
-        print(response.data)
-
-        next_task = task.out_tasks.get()
-        print("----------TASK-----------")
-        print(next_task.schema)
-
-        self.assertEqual(1, 1)
+        self.assertIsNone(next_task.schema)
+        self.assertIsNone(next_task.ui_schema)
+        self.get_objects('task-trigger-webhook', pk=next_task.pk)
+        next_task = Task.objects.get(id=next_task.id)
+        self.assertEqual(next_task.schema, {
+            'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'},
+                           'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'},
+                           'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'},
+                           'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'},
+                           'human': {'type': 'boolean', 'title': 'human'},
+                           'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(next_task.ui_schema,
+                         {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
