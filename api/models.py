@@ -11,7 +11,8 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, Subquery, OuterRef
+from django.db.models.functions import JSONObject
 from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
@@ -81,6 +82,15 @@ class CustomUser(AbstractUser, BaseDatesModel):
         if hasattr(self, 'admin_preference'):
             return self.admin_preference
         return None
+
+    def get_highest_ranks_by_track(self):
+        highest_ranks = self.ranks.values("track").annotate(
+            max_rank_id=Subquery(
+                Rank.objects.filter(track=OuterRef("track")).order_by(
+                    "-priority").values("id")[:1])
+        ).distinct().values("max_rank_id")
+        print(highest_ranks)
+        return highest_ranks
 
 
 class UserDelete(BaseDatesModel):
@@ -444,7 +454,9 @@ class Chain(BaseModel, CampaignInterface):
         related_name="chains",
         help_text="Campaign id"
     )
-
+    is_individual = models.BooleanField(
+        default=False,
+    )
     def get_campaign(self) -> Campaign:
         return self.campaign
 
@@ -625,6 +637,18 @@ class TaskStage(Stage, SchemaProvider):
         null=True,
         blank=True,
         help_text=""  # todo: add help text for card ui schema
+    )
+    STAGE_TYPES = (
+        ("PR", "Proactive"),
+        ("RE", "Reactive")
+    )
+    stage_type = models.CharField(
+        choices=STAGE_TYPES,
+        max_length=2,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Stage type."
     )
 
     def get_integration(self):
@@ -1627,6 +1651,12 @@ class Rank(BaseModel, CampaignInterface):
     avatar = models.TextField(
         blank=True,
         help_text="Text or url to the SVG"
+    )
+    priority = models.PositiveIntegerField(
+        default=0,
+        blank=False,
+        null=False,
+        help_text="Priority of the rank in the system."
     )
 
     def get_campaign(self):

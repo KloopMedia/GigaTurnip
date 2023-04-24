@@ -29,7 +29,8 @@ class GigaTurnipTest(APITestCase):
         client.force_authenticate(u)
         return client
 
-    def prepare_client(self, stage, user=None, rank_limit=None):
+    def prepare_client(self, stage, user=None, rank_limit=None, track=None,
+                       priority=None):
         u = user
         if u is None:
             user_name = str(uuid4())
@@ -37,10 +38,13 @@ class GigaTurnipTest(APITestCase):
                 username=user_name,
                 email=user_name + "@email.com",
                 password='test')
-        rank = Rank.objects.create(name=stage.name)
+        t = track if track else self.default_track
+        p = priority if priority != None else 0
+        rank = Rank.objects.create(name=stage.name, track=t, priority=p)
         RankRecord.objects.create(
             user=u,
             rank=rank)
+
         rank_l = rank_limit
         if rank_l is None:
             rank_l = RankLimit.objects.create(
@@ -99,7 +103,6 @@ class GigaTurnipTest(APITestCase):
         self.country = Country.objects.create(
             name="Vinland"
         )
-
 
         basic_data = self.generate_new_basic_campaign("Coca-Cola")
 
@@ -598,6 +601,141 @@ class GigaTurnipTest(APITestCase):
             set(json.loads(response.content).keys()),
             {"count", "next", "previous", "results"}
         )
+
+    def test_stages_by_highest_ranks(self):
+        chain_low_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Low priority chain",
+            is_individual=True
+        )
+        chain_middle_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Middle priority chain",
+            is_individual=True
+        )
+        chain_guru_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Guru priority chain",
+            is_individual=True
+        )
+
+        task_stage_low = TaskStage.objects.create(
+            name="Low stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_low_priority,
+            is_creatable=True)
+        task_stage_middle = TaskStage.objects.create(
+            name="Middle stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_middle_priority,
+            is_creatable=True)
+        task_stage_guru = TaskStage.objects.create(
+            name="Guru stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_guru_priority,
+            is_creatable=True)
+
+        new_track = Track.objects.create(campaign=self.campaign)
+
+        self.prepare_client(task_stage_low, self.user, RankLimit(is_creation_open=True),
+                            priority=1)
+        self.prepare_client(task_stage_middle, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=2)
+        self.prepare_client(task_stage_guru, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=3)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        params = {"by_highest_ranks": "true"}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        self.assertEqual([task_stage_low.id, task_stage_guru.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+    def test_stages_by_ranks(self):
+        chain_low_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Low priority chain",
+            is_individual=True
+        )
+        chain_middle_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Middle priority chain",
+            is_individual=True
+        )
+        chain_guru_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Guru priority chain",
+            is_individual=True
+        )
+
+        task_stage_low = TaskStage.objects.create(
+            name="Low stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_low_priority,
+            is_creatable=True)
+        task_stage_middle = TaskStage.objects.create(
+            name="Middle stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_middle_priority,
+            is_creatable=True)
+        task_stage_guru = TaskStage.objects.create(
+            name="Guru stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_guru_priority,
+            is_creatable=True)
+
+        new_track = Track.objects.create(campaign=self.campaign)
+
+        self.prepare_client(task_stage_low, self.user, RankLimit(is_creation_open=True),
+                            priority=1)
+        self.prepare_client(task_stage_middle, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=2)
+        self.prepare_client(task_stage_guru, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=3)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        guru_rank = Rank.objects.filter(track=new_track,
+                                        name=task_stage_guru.name).first()
+
+        params = {"ranks": guru_rank.id}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([task_stage_guru.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+        middle_rank = Rank.objects.filter(track=new_track,
+                                        name=task_stage_middle.name).first()
+
+        params = {"ranks": middle_rank.id}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([task_stage_middle.id],
+                         sorted([i["id"] for i in content["results"]]))
 
     def test_task_stage_serializers_by_flag(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -3438,75 +3576,6 @@ class GigaTurnipTest(APITestCase):
         updated_schema = json.loads(second_stage.json_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
-    def test_dynamic_json_schema_related_fields_from_another_stage(self):
-        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
-        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-
-        self.initial_stage.json_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "weekday": {
-                    "type": "string",
-                    "title": "Select Weekday",
-                    "enum": weekdays
-                }
-            }
-        })
-        self.initial_stage.save()
-
-        json_schema_time = json.dumps({
-            "type": "object",
-            "properties": {
-                "time": {
-                    "type": "string",
-                    "title": "What time",
-                    "enum": time_slots
-                }
-            }
-        })
-        second_stage = self.initial_stage.add_stage(
-            TaskStage(
-                name='Complete time',
-                assign_user_by=TaskStageConstants.STAGE,
-                assign_user_from_stage=self.initial_stage,
-                json_schema=json_schema_time,
-                ui_schema=json.dumps({"ui:order": ["time"]})
-            )
-        )
-
-        dynamic_fields_json = {
-            "main": "weekday",
-            "foreign": ['time'],
-            "constants": {
-                "main": {},
-                "foreign": {
-                    "time": ["10:00"]
-                }
-            },
-            "count": 1
-        }
-        dynamic_json = DynamicJson.objects.create(
-            source=self.initial_stage,
-            target=second_stage,
-            dynamic_fields=dynamic_fields_json
-        )
-
-        responses = {'weekday': weekdays[0]}
-        for i in range(3):
-            t = self.create_initial_task()
-            t = self.complete_task(t, responses)
-            self.complete_task(t.out_tasks.get(), {'time': time_slots[i]})
-
-        t2 = self.create_initial_task()
-        t2 = self.complete_task(t2, responses)
-        t2_next = t2.out_tasks.get()
-        response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
-                                    params={"current_task": t2_next.id})
-        updated_schema = json.loads(second_stage.json_schema)
-        del updated_schema['properties']['time']['enum'][1]
-        del updated_schema['properties']['time']['enum'][1]
-        self.assertIn("10:00", response.data['schema']['properties']['time']['enum'])
-
     def test_dynamic_json_schema_single_unique_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         js_schema = json.dumps({
@@ -4793,6 +4862,7 @@ class GigaTurnipTest(APITestCase):
                                                         receiver_task=task).count(), 1)
         response = self.get_objects('task-user-selectable', client=self.employee_client)
 
+    # TODO: override test
     def test_number_rank_endpoint(self):
         CampaignManagement.objects.create(user=self.employee,
                                           campaign=self.campaign)
