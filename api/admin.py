@@ -775,7 +775,11 @@ class PreviousManualAdmin(admin.ModelAdmin):
 
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
-    search_fields = ("title", )
+    search_fields = (
+        "title",
+        "target_user__email",
+        "target_user__phone_number",
+    )
     list_display = ("title", "campaign", "rank", "target_user", "importance", )
     autocomplete_fields = ("campaign", "rank", "target_user")
     readonly_fields = ("sender_task", "receiver_task", "trigger_go",)
