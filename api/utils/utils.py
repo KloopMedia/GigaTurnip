@@ -55,6 +55,7 @@ def filter_for_user_creatable_stages(queryset, request, ranks=None):
         .filter(id__in=filtered_stages) \
         .select_related("chain", "assign_user_from_stage")
 
+
 def filter_for_user_selectable_tasks(queryset, request):
     tasks = queryset \
         .filter(complete=False) \

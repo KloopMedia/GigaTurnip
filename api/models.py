@@ -11,7 +11,8 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, Subquery, OuterRef
+from django.db.models.functions import JSONObject
 from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
@@ -81,6 +82,15 @@ class CustomUser(AbstractUser, BaseDatesModel):
         if hasattr(self, 'admin_preference'):
             return self.admin_preference
         return None
+
+    def get_highest_ranks_by_track(self):
+        highest_ranks = self.ranks.values("track").annotate(
+            max_rank_id=Subquery(
+                Rank.objects.filter(track=OuterRef("track")).order_by(
+                    "-priority").values("id")[:1])
+        ).distinct().values("max_rank_id")
+        print(highest_ranks)
+        return highest_ranks
 
 
 class UserDelete(BaseDatesModel):

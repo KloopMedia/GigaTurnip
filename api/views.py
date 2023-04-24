@@ -354,8 +354,15 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def user_relevant(self, request):
+        # return stages where user can create new task
         stages = self.filter_queryset(self.get_queryset())
-        stages = utils.filter_for_user_creatable_stages(stages, request)
+
+        # filter by highest user ranks
+        ranks = request.user.ranks.all()
+        if request.query_params.get("by_highest_ranks"):
+            ranks = request.user.get_highest_ranks_by_track()
+
+        stages = utils.filter_for_user_creatable_stages(stages, request, ranks)
         return stages
 
     @paginate
