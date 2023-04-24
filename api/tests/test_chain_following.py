@@ -665,6 +665,78 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual([task_stage_low.id, task_stage_guru.id],
                          sorted([i["id"] for i in content["results"]]))
 
+    def test_stages_by_ranks(self):
+        chain_low_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Low priority chain",
+            is_individual=True
+        )
+        chain_middle_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Middle priority chain",
+            is_individual=True
+        )
+        chain_guru_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Guru priority chain",
+            is_individual=True
+        )
+
+        task_stage_low = TaskStage.objects.create(
+            name="Low stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_low_priority,
+            is_creatable=True)
+        task_stage_middle = TaskStage.objects.create(
+            name="Middle stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_middle_priority,
+            is_creatable=True)
+        task_stage_guru = TaskStage.objects.create(
+            name="Guru stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_guru_priority,
+            is_creatable=True)
+
+        new_track = Track.objects.create(campaign=self.campaign)
+
+        self.prepare_client(task_stage_low, self.user, RankLimit(is_creation_open=True),
+                            priority=1)
+        self.prepare_client(task_stage_middle, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=2)
+        self.prepare_client(task_stage_guru, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=3)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        guru_rank = Rank.objects.filter(track=new_track,
+                                        name=task_stage_guru.name).first()
+
+        params = {"ranks": guru_rank.id}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([task_stage_guru.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+        middle_rank = Rank.objects.filter(track=new_track,
+                                        name=task_stage_middle.name).first()
+
+        params = {"ranks": middle_rank.id}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([task_stage_middle.id],
+                         sorted([i["id"] for i in content["results"]]))
+
     def test_task_stage_serializers_by_flag(self):
         self.user.managed_campaigns.add(self.campaign)
         response = self.get_objects('taskstage-list')
