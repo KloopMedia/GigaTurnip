@@ -22,13 +22,22 @@ def is_user_campaign_manager(user, campaign_id):
 
 
 def filter_for_user_creatable_stages(queryset, request, ranks=None):
+    queryset = queryset.select_related("ranklimits")
+
     r = ranks
     if not r:
         r = request.user.ranks.all()
+
+    all_rank_limits = RankLimit.objects.filter(
+        rank__in=r,
+        is_creation_open=True,
+        stage__in=queryset
+    ).distinct().select_related("stage")
+
     stages = queryset.filter(
         is_creatable=True,
-        ranks__in=r,
-        ranklimits__is_creation_open=True).distinct()
+        ranklimits__in=all_rank_limits
+    ).distinct()
     tasks_user_by_stages = stages.values("id").annotate(
         total=Count(Q(tasks__assignee=request.user)),
         incomplete=Count(Q(tasks__assignee=request.user) & Q(tasks__complete=False)),
@@ -37,12 +46,11 @@ def filter_for_user_creatable_stages(queryset, request, ranks=None):
     for stage_info in tasks_user_by_stages.iterator():
         total = stage_info["total"]
         incomplete = stage_info["incomplete"]
-        rank_limits = RankLimit.objects.filter(
+        rank_limits = all_rank_limits.filter(
             stage=stage_info["id"],
-            rank__in=r,
-        ).filter(
-            rank__rankrecord__user__id=request.user.id
+            rank__rankrecord__user=request.user
         )
+
         for rank_limit in rank_limits:
             if ((rank_limit.open_limit > incomplete and rank_limit.total_limit > total) or
                     (rank_limit.open_limit == 0 and rank_limit.total_limit > total) or
