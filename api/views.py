@@ -361,6 +361,9 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         ranks = request.user.ranks.all()
         if request.query_params.get("by_highest_ranks"):
             ranks = request.user.get_highest_ranks_by_track()
+        ranks = ranks.prefetch_related("ranklimits").filter(
+            ranklimits__is_creation_open=True
+        )
 
         stages = utils.filter_for_user_creatable_stages(stages, request, ranks)
         return stages

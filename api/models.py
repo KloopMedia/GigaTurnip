@@ -1723,6 +1723,7 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     rank = models.ForeignKey(
         Rank,
         on_delete=models.CASCADE,
+        related_name="ranklimits",
         help_text="Rank id"
     )
     stage = models.ForeignKey(
