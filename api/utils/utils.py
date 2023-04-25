@@ -2,7 +2,7 @@ import json
 from functools import wraps
 from json import JSONDecodeError
 
-from django.db.models import QuerySet, Count, Q
+from django.db.models import QuerySet, Count, Q, OuterRef
 from rest_framework.response import Response
 
 from api.api_exceptions import CustomApiException
@@ -22,7 +22,6 @@ def is_user_campaign_manager(user, campaign_id):
 
 
 def filter_for_user_creatable_stages(queryset, request, ranks=None):
-    queryset = queryset.select_related("ranklimits")
 
     r = ranks
     if not r:
@@ -38,10 +37,13 @@ def filter_for_user_creatable_stages(queryset, request, ranks=None):
         is_creatable=True,
         ranklimits__in=all_rank_limits
     ).distinct()
+
     tasks_user_by_stages = stages.values("id").annotate(
-        total=Count(Q(tasks__assignee=request.user)),
-        incomplete=Count(Q(tasks__assignee=request.user) & Q(tasks__complete=False)),
+        total=Count("tasks", filter=Q(tasks__assignee=request.user)),
+        incomplete=Count("tasks", filter=Q(tasks__assignee=request.user)
+                                         & Q(tasks__complete=False)),
     )
+
     filtered_stages = set()
     for stage_info in tasks_user_by_stages.iterator():
         total = stage_info["total"]
