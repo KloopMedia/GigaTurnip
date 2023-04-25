@@ -399,7 +399,7 @@ def assign_by_previous_manual(stage, new_task, in_task):
         new_task.delete()
         raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_DOESNT_EXIST % ('User', value))
 
-    if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
+    if not user.ranks.filter(ranklimits__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
         reopen_task(task_with_email)
         new_task.delete()
         raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_IS_NOT_IN_CAMPAIGN % 'User')
