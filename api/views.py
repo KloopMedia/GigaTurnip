@@ -1427,9 +1427,6 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
 class UserStatisticViewSet(GenericViewSet):
     permission_classes = (UserStatisticAccessPolicy,)
 
-    def get_serializer_class(self):
-        pass
-
     def get_queryset(self):
         return UserStatisticAccessPolicy.scope_queryset(
             self.request, CustomUser.objects.values('id')
@@ -1457,10 +1454,7 @@ class UserStatisticViewSet(GenericViewSet):
         Returns list of all users that have joined to the system during some period.
         In query params provide start and end dates for filter by period.
         Example: ?start=2020-01-16&end=2021-01-16
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
+
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
@@ -1479,10 +1473,6 @@ class UserStatisticViewSet(GenericViewSet):
         To filter by some period use filters start and end.
         Example: ?start=2020-01-16&end=2021-01-16
 
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
@@ -1495,7 +1485,7 @@ class UserStatisticViewSet(GenericViewSet):
 
         tasks_of_campaign = Task.objects.select_related(
             "stage__chain__campaign").filter(
-            stage__chain__campaign=admin_preference.campaign,
+            stage__chain__campaign__in=request.user.managed_campaigns.values("id"),
             **date_range_filter,
             assignee_id=OuterRef("id"),
         )
