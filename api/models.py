@@ -89,7 +89,7 @@ class CustomUser(AbstractUser, BaseDatesModel):
                 Rank.objects.filter(track=OuterRef("track")).order_by(
                     "-priority").values("id")[:1])
         ).distinct().values("max_rank_id")
-        print(highest_ranks)
+
         return highest_ranks
 
 
@@ -1298,6 +1298,11 @@ class Quiz(BaseDatesModel):
     )
     SCORE = 'meta_quiz_score'
     INCORRECT_QUESTIONS = 'meta_quiz_incorrect_questions'
+    provide_answers = models.BooleanField(
+        default=False,
+        help_text="If set as true then with questions title users will "
+                  "see correct answers."
+    )
 
     def is_ready(self):
         return bool(self.correct_responses_task)
@@ -1326,7 +1331,11 @@ class Quiz(BaseDatesModel):
             if str(responses.get(key)) == str(answer):
                 correct += 1
             else:
-                incorrect_questions.append(questions.get(key).get('title'))
+                title = questions.get(key).get('title')
+                if self.provide_answers:
+                    incorrect_questions.append(f"{title}: {answer}")
+                else:
+                    incorrect_questions.append(title)
 
         len_correct_answers = len(correct_answers)
         unnecessary_keys = [Quiz.SCORE, Quiz.INCORRECT_QUESTIONS]
