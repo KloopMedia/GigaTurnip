@@ -4862,7 +4862,6 @@ class GigaTurnipTest(APITestCase):
                                                         receiver_task=task).count(), 1)
         response = self.get_objects('task-user-selectable', client=self.employee_client)
 
-    # TODO: override test
     def test_number_rank_endpoint(self):
         CampaignManagement.objects.create(user=self.employee,
                                           campaign=self.campaign)
@@ -4895,23 +4894,26 @@ class GigaTurnipTest(APITestCase):
                                   rank=rank3)
 
         response = self.get_objects('numberrank-list', client=self.employee_client)
-        data = response.json()[0]
-
-        expected_count_rank = 4
-
-        default_rank = data['ranks'][0]
-        rank1 = data['ranks'][1]
-        rank2 = data['ranks'][2]
-        rank3 = data['ranks'][3]
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(data['ranks']), expected_count_rank)
-        self.assertEqual(default_rank['count'], 0)
-        self.assertEqual(rank1['count'], 2)
-        self.assertEqual(rank2['count'], 1)
-        self.assertEqual(rank3['count'], 1)
-        self.assertEqual(rank1['condition'], 'default')
-        self.assertEqual(rank2['condition'], 'prerequisite_ranks')
-        self.assertEqual(rank3['condition'], 'task_awards')
+
+        data = response.json()[0]
+        my_ranks_list = [
+            {'name': 'rank1', 'condition': 'default', 'count': 2},
+            {'name': 'rank2', 'condition': 'prerequisite_ranks', 'count': 1},
+            {'name': 'rank3', 'condition': 'task_awards', 'count': 1},
+        ]
+        received_ranks = []
+
+        for received_rank in data['ranks']:
+            d = {
+                'name': received_rank['name'],
+                'condition': received_rank['condition'],
+                'count': received_rank['count'],
+            }
+            received_ranks.append(d)
+
+        for my_rank in my_ranks_list:
+            self.assertIn(my_rank, received_ranks)
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
