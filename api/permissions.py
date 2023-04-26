@@ -577,13 +577,9 @@ class UserStatisticAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, qs):
-        admin_preference = request.user.get_admin_preference()
-        if not admin_preference:
-            return qs.none()
-
         # get users that have any rank of admin preference campaign
         result = qs.filter(
-            ranks__in=admin_preference.campaign.tracks.values('ranks')
+            ranks__in=request.user.managed_campaigns.values("tracks__ranks")
         ).distinct()
 
         return result
