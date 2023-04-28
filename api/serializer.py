@@ -78,6 +78,24 @@ class ChainSerializer(serializers.ModelSerializer,
                                           "to this campaign")
 
 
+class TaskStageChainInfoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    assign_type = serializers.CharField()
+    in_stages = serializers.ListField(child=serializers.IntegerField())
+    out_stages = serializers.ListField(child=serializers.IntegerField())
+    total_count = serializers.IntegerField()
+    complete_count = serializers.IntegerField()
+
+
+class ChainIndividualsSerializer(serializers.ModelSerializer):
+    stages_data = TaskStageChainInfoSerializer(source="data", many=True)
+
+    class Meta:
+        model = Chain
+        fields = ["id", "name", "stages_data"]
+
+
 class ConditionalStageSerializer(serializers.ModelSerializer,
                                  CampaignValidationCheck):
     queryset = ConditionalStage.objects.all() \
@@ -195,6 +213,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
 
     def get_campaign(self, obj):
         return obj.get_campaign().id
+
 
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):

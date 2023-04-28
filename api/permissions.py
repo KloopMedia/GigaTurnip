@@ -111,7 +111,7 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     def __init__(self):
         self.statements += [{
-            "action": ["get_graph"],
+            "action": ["get_graph", "individuals"],
             "principal": "authenticated",
             "effect": "allow"
 

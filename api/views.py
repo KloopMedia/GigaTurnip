@@ -53,7 +53,7 @@ from api.serializer import (
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
-    LanguageListSerializer
+    LanguageListSerializer, ChainIndividualsSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -267,14 +267,22 @@ class ChainViewSet(viewsets.ModelViewSet):
     Partial update chain data.
     """
 
-    filterset_fields = ['campaign', ]
     serializer_class = ChainSerializer
     permission_classes = (ChainAccessPolicy,)
+    filterset_fields = {
+        "id": ["exact"],
+        "campaign": ["exact"]
+    }
 
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
             self.request, Chain.objects.all()
         )
+
+    def get_serializer_class(self):
+        if self.action == "individuals":
+            return ChainIndividualsSerializer
+        return ChainSerializer
 
     @action(detail=True)
     def get_graph(self, request, pk=None):
@@ -284,6 +292,40 @@ class ChainViewSet(viewsets.ModelViewSet):
             out_stages=ArrayAgg('out_stages', distinct=True)
         )
         return Response(graph)
+
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def individuals(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        cases = Task.objects.filter(
+            assignee=request.user,
+            stage__chain__in=qs)\
+            .values("case").distinct()
+
+        qs = qs.values("id", "name").annotate(
+            data=ArraySubquery(
+                TaskStage.objects.filter(chain=OuterRef("id")).annotate(
+                    all_out_stages=ArrayAgg("out_stages", distinct=True),
+                    all_in_stages=ArrayAgg("in_stages", distinct=True),
+                    total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
+                    complete_count=Count("tasks",
+                                               filter=Q(tasks__case__in=cases,
+                                                        tasks__complete=True))
+                ).values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        assign_type="assign_user_by",
+                        out_stages="all_out_stages",
+                        in_stages="all_in_stages",
+                        total_count="total_count",
+                        complete_count="complete_count"
+                    )
+                )
+            )
+        )
+
+        return qs
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
