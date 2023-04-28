@@ -469,6 +469,17 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def selectable_stages(self, request):
+        tasks = Task.objects.all().select_related('stage')
+        tasks = TaskAccessPolicy.scope_queryset(request, tasks)
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
+                                                                  request)
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.filter(id__in=tasks_selectable.values("stage").distinct())
+
+        return qs
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -864,6 +875,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                  'responses',
                  'stage_data'
                  )
+        print(qs.values("stage__id").distinct())
 
         return qs
 
