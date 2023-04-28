@@ -875,7 +875,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                  'responses',
                  'stage_data'
                  )
-        print(qs.values("stage__id").distinct())
 
         return qs
 
