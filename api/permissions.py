@@ -111,7 +111,7 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     def __init__(self):
         self.statements += [{
-            "action": ["get_graph"],
+            "action": ["get_graph", "individuals"],
             "principal": "authenticated",
             "effect": "allow"
 
@@ -145,7 +145,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list"],
+            "action": ["list", "selectable_stages"],
             "principal": "authenticated",
             "effect": "allow",
         },
