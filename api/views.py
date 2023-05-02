@@ -649,8 +649,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Task.objects.all().select_related('stage')
-        if self.action in ['list', 'csv', 'user_activity',
-                           'user_activity_csv', 'search_by_responses']:
+        if self.action in ["list", "csv", "user_activity",
+                           "user_activity_csv", "search_by_responses",
+                           "user_selectable"]:
             return TaskAccessPolicy.scope_queryset(
                 self.request, qs
             )
