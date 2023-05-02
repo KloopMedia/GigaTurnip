@@ -471,7 +471,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     @paginate
     @action(detail=False, methods=["GET"])
-    def selectable_stages(self, request):
+    def selectable(self, request):
         tasks = Task.objects.all().select_related('stage')
         tasks = TaskAccessPolicy.scope_queryset(request, tasks)
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,

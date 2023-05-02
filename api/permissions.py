@@ -145,7 +145,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list", "selectable_stages"],
+            "action": ["list", "selectable"],
             "principal": "authenticated",
             "effect": "allow",
         },
