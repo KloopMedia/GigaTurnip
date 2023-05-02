@@ -863,8 +863,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             stage_data=JSONObject(
                 id='stage__id',
                 name="stage__name",
-                chain="stage__chain__campaign",
-                campaign="stage__chain",
+                chain="stage__chain",
+                campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
             )
