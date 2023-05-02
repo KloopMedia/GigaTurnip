@@ -316,9 +316,9 @@ class TaskAccessPolicy(AccessPolicy):
             user=user).values('campaign')
         tasks = request.user.tasks.all()
         tasks |= queryset.filter(stage__chain__campaign__in=user_campaigns)
-        # todo: fix scoping tasks by ranklimits
         tasks |= queryset.filter(
-            id__in=user.ranks.values("ranklimits__stage__tasks")
+            Q(id__in=user.ranks.values("ranklimits__stage__tasks"))
+            & (Q(assignee=user) | Q(assignee__isnull=True) )
         )
 
         return tasks.distinct()
