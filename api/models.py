@@ -650,6 +650,10 @@ class TaskStage(Stage, SchemaProvider):
         default=None,
         help_text="Stage type."
     )
+    is_proactive = models.BooleanField(
+        default=False,
+        help_text="True - stage is proactive, otherwise - active."
+    )
 
     def get_integration(self):
         if hasattr(self, 'integration'):
