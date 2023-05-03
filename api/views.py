@@ -348,6 +348,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     permission_classes = (TaskStageAccessPolicy,)
     filterset_fields = {
+        'is_proactive': ['exact'],
         'chain': ['exact'],
         'chain__campaign': ['exact'],
         'is_creatable': ['exact'],
