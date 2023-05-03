@@ -471,7 +471,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     @paginate
     @action(detail=False, methods=["GET"])
-    def selectable_stages(self, request):
+    def selectable(self, request):
         tasks = Task.objects.all().select_related('stage')
         tasks = TaskAccessPolicy.scope_queryset(request, tasks)
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
@@ -649,8 +649,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Task.objects.all().select_related('stage')
-        if self.action in ['list', 'csv', 'user_activity',
-                           'user_activity_csv', 'search_by_responses']:
+        if self.action in ["list", "csv", "user_activity",
+                           "user_activity_csv", "search_by_responses",
+                           "user_selectable"]:
             return TaskAccessPolicy.scope_queryset(
                 self.request, qs
             )
@@ -862,8 +863,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             stage_data=JSONObject(
                 id='stage__id',
                 name="stage__name",
-                chain="stage__chain__campaign",
-                campaign="stage__chain",
+                chain="stage__chain",
+                campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
             )

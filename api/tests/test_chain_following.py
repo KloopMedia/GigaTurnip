@@ -1278,6 +1278,34 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
 
+    def test_get_tasksstages_selectable(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        self.client = self.prepare_client(second_stage, self.user)
+        task_1 = self.create_initial_task()
+        task_1 = self.complete_task(task_1)
+        task_2 = task_1.out_tasks.all()[0]
+        response = self.get_objects("task-user-selectable")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["id"], task_2.id)
+
+        response = self.get_objects("taskstage-selectable", client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(second_stage.id, response.data["results"][0]["id"])
+
+        response_assign = self.get_objects('task-request-assignment',
+                                           pk=task_2.id)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user.tasks.count(), 2)
+
+        response = self.get_objects("taskstage-selectable", client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0,
+                         "Maybe it is bug, because there is no tasks to assign,"
+                         "but tasks of this stage maybe selectable")
+        # self.assertEqual(second_stage.id, response.data["results"][0]["id"])
+
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
