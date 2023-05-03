@@ -145,7 +145,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list", "selectable_stages"],
+            "action": ["list", "selectable"],
             "principal": "authenticated",
             "effect": "allow",
         },
@@ -311,9 +311,17 @@ class TaskAccessPolicy(AccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
+        user = request.user
         user_campaigns = CampaignManagement.objects.filter(
-            user=request.user).values('campaign')
-        return queryset.filter(stage__chain__campaign__in=user_campaigns)
+            user=user).values('campaign')
+        tasks = request.user.tasks.all()
+        tasks |= queryset.filter(stage__chain__campaign__in=user_campaigns)
+        tasks |= queryset.filter(
+            Q(id__in=user.ranks.values("ranklimits__stage__tasks"))
+            & (Q(assignee=user) | Q(assignee__isnull=True) )
+        )
+
+        return tasks.distinct()
 
     def is_assignee(self, request, view, action):
         task = view.get_object()
