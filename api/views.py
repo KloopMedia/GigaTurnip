@@ -634,6 +634,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         'stage': ['exact'],
         'stage__chain__campaign': ['exact'],
         'stage__chain': ['exact'],
+        'stage__chain__is_individual': ['exact'],
         'stage__chain__name': ['exact'],
         'assignee': ['exact'],
         'assignee__ranks': ['exact'],
