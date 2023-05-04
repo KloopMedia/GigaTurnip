@@ -282,7 +282,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["update", "partial_update", "open_previous"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee and is_not_complete"
+            "condition_expression": "is_assignee and ( is_not_complete or is_task_from_individual_chain )"
         },
         {
             "action": ["uncomplete"],
@@ -330,6 +330,10 @@ class TaskAccessPolicy(AccessPolicy):
     def is_not_complete(self, request, view, action):
         task = view.get_object()
         return task.complete is False
+
+    def is_task_from_individual_chain(self, request, view, action):
+        task = view.get_object()
+        return task.stage.chain.is_individual
 
     def is_complete(self, request, view, action):
         task = view.get_object()

@@ -5675,3 +5675,81 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(
             response_content["results"][0]["notifications_count"],
             0)
+
+    def test_individual_chain_update_task(self):
+        self.chain.is_individual = True
+        self.chain.save()
+
+        self.initial_stage.json_schema = '{"type": "object","properties": {"firstName": {"type": "string"}}}'
+        self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Second Stage",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+        ))
+        second_stage.json_schema = '{"type": "object","properties": {"lastName": {"type": "string"}}}'
+        second_stage.save()
+
+        third_stage = second_stage.add_stage(TaskStage(
+            name="Second Stage",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+        ))
+        third_stage.json_schema = '{"type": "object","properties": {"phoneNumber": {"type": "string"}}}'
+        third_stage.save()
+
+        # Adjust copy name in second stage
+        CopyField.objects.create(
+            copy_by=CopyFieldConstants.CASE,
+            task_stage=second_stage,
+            copy_from_stage=self.initial_stage,
+            fields_to_copy="firstName->firstName")
+        CopyField.objects.create(
+            copy_by=CopyFieldConstants.CASE,
+            task_stage=third_stage,
+            copy_from_stage=second_stage,
+            fields_to_copy="firstName->firstName lastName->lastName")
+
+        response_1 = {"firstName": "Ivan"}
+        task_1 = self.create_task(self.initial_stage)
+        task_1 = self.complete_task(task_1, response_1)
+        self.check_task_completion(task_1, self.initial_stage, response_1)
+
+        task_2 = task_1.out_tasks.first()
+        self.assertFalse(task_2.complete)
+        self.assertFalse(task_2.reopened)
+        self.assertEqual(task_2.responses, {"firstName": "Ivan"})
+
+        # update first task and watch how it is affect
+        task_1 = self.complete_task(task_1, {"firstName": "Mark Bulah"})
+        self.assertIsInstance(task_1, Task)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertEqual(task_1.out_tasks.first().responses,
+                         {"firstName": "Mark Bulah"})
+
+        response_2 = {"firstName": "Mark Bulah", "lastName": "Ivanov"}
+        task_2 = self.complete_task(task_2, response_2)
+        self.assertTrue(task_2.complete)
+        self.assertFalse(task_2.reopened)
+        self.assertEqual(task_2.responses, response_2)
+        self.assertEqual(Task.objects.count(), 3)
+
+        task_3 = task_2.out_tasks.first()
+        self.assertEqual(task_3.responses, {"lastName": "Ivanov", "firstName": "Mark Bulah"})
+        self.assertFalse(task_3.complete)
+        self.assertFalse(task_3.reopened)
+
+        # update second task
+        task_2 = self.complete_task(task_2, {"lastName": "Zubarev"})
+        self.assertIsInstance(task_2, Task)
+        self.assertEqual(task_2.out_tasks.first().responses,
+                         {"firstName": "Mark Bulah", "lastName": "Zubarev"})
+        task_3 = task_2.out_tasks.first()
+        # self.assertEqual(task_3.responses, {"firstName": "Mark", "lastName": "Ivanov"}) todo: it is may be bug
+        response_3 = {"firstName": "Mark Bulah", "lastName": "Zubarev", "phone": 123}
+        task_3 = self.complete_task(task_3, response_3)
+        self.assertIsInstance(task_3, Task)
+        self.assertTrue(task_3.complete)
+        self.assertFalse(task_3.reopened)
+        self.assertEqual(Task.objects.count(), 3)
