@@ -631,6 +631,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     filterset_fields = {
         'case': ['exact'],
+        'reopened': ['exact'],
         'stage': ['exact'],
         'stage__chain__campaign': ['exact'],
         'stage__chain': ['exact'],
