@@ -37,7 +37,8 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy,
+    SMSTaskAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -53,7 +54,8 @@ from api.serializer import (
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
-    LanguageListSerializer, ChainIndividualsSerializer
+    LanguageListSerializer, ChainIndividualsSerializer,
+    SMSTaskCreateSeraializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -1079,6 +1081,19 @@ class TaskViewSet(viewsets.ModelViewSet):
                      'force_complete').annotate().order_by('stage')
         return q
 
+
+class SMSTaskViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    permission_classes = (SMSTaskAccessPolicy, )
+    def get_serializer_class(self):
+        if self.action == "create":
+            return SMSTaskCreateSeraializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, many=False)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(status=status.HTTP_201_CREATED)
 
 #         tasks = self.get_object().tasks.all()
 #         filters_tasks_info = {

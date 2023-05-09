@@ -15,7 +15,7 @@ from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson, TestWebhook, Category, Language, Country
+    TaskAward, DynamicJson, TestWebhook, Category, Language, Country, SMSTask
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -250,6 +250,25 @@ class CaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Case
         fields = '__all__'
+
+
+class SMSTaskCreateSeraializer(serializers.ModelSerializer):
+    sms_text = serializers.CharField(required=True)
+    phone = serializers.CharField(required=True)
+
+    class Meta:
+        model = SMSTask
+        fields = ["sms_text", "phone"]
+
+    def create(self, validated_data):
+        sms_text = validated_data["sms_text"]
+        sms_task = SMSTask.objects.create(
+            sms_text=sms_text,
+            phone=validated_data["phone"],
+            decompressed=SMSTask.text_decompress(sms_text),
+            decreed=SMSTask.text_decreed(sms_text),
+        )
+        return sms_task
 
 
 class TaskListSerializer(serializers.ModelSerializer):

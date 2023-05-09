@@ -1659,6 +1659,14 @@ class SMSTask(BaseDatesModel):
         help_text="Task that have been created based on task."
     )
 
+    @staticmethod
+    def text_decreed(text):
+        return {"text": "decreed"}
+
+    @staticmethod
+    def text_decompress(text):
+        return {"text": "decompressed"}
+
     def __str__(self):
         return "{}: {}".format(self.id, self.phone)
 

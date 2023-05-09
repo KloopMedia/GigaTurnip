@@ -51,6 +51,9 @@ router.register(api_v1 + r'cases',
 router.register(api_v1 + r'tasks',
                 turnip_app.TaskViewSet,
                 basename='task')
+router.register(api_v1 + r'smstasks',
+                turnip_app.SMSTaskViewSet,
+                basename='smstask')
 router.register(api_v1 + r'ranks',
                 turnip_app.RankViewSet,
                 basename='rank')

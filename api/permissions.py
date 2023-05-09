@@ -381,6 +381,20 @@ class TaskAccessPolicy(AccessPolicy):
         return bool(rank_limits)
 
 
+class SMSTaskAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_user_sms_relay" # todo: may be need modification
+        },
+    ]
+
+    def is_user_sms_relay(self, request, view, action):
+        return request.user.sms_relay
+
+
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, queryset):

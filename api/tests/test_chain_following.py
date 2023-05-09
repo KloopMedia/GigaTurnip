@@ -8,7 +8,8 @@ from rest_framework.test import APITestCase, APIClient
 from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
     ErrorConstants, WebhookConstants)
-from api.models import CampaignLinker, ApproveLink, Language, Category, Country
+from api.models import CampaignLinker, ApproveLink, Language, Category, \
+    Country, SMSTask
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
@@ -840,7 +841,7 @@ class GigaTurnipTest(APITestCase):
         }
 
         response = self.client.post(reverse(url), data=conditional)
-        self.assertEqual(response.data['message'], 'Invalid data in 1 index. Please, provide \'type\' field')
+        self.assertEqual(response.data['detail'], 'Invalid data in 1 index. Please, provide \'type\' field')
 
         conditional = {
             'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
@@ -848,7 +849,7 @@ class GigaTurnipTest(APITestCase):
         }
 
         response = self.client.post(reverse(url), data=conditional)
-        self.assertEqual(response.data['message'], 'Invalid data in 1 index. Please, provide valid type')
+        self.assertEqual(response.data['detail'], 'Invalid data in 1 index. Please, provide valid type')
 
         conditional = {
             'name': 'Checker', 'chain': self.chain.id, 'x_pos': 1, 'y_pos': 1,
@@ -877,13 +878,13 @@ class GigaTurnipTest(APITestCase):
         }
         response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'], "Invalid data in 1 index. Please, provide 'type' field")
+        self.assertEqual(response.data['detail'], "Invalid data in 1 index. Please, provide 'type' field")
 
         conditions[0]['type'] = 'number'
         conditional_stage['conditions'] = json.dumps(conditions)
         response = self.client.post(reverse('conditionalstage-list'), data=conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'],
+        self.assertEqual(response.data['detail'],
                          "Invalid data in 1 index. 'Нет' is not of type 'number'")
 
         conditions[0]['value'] = 15
@@ -4101,7 +4102,7 @@ class GigaTurnipTest(APITestCase):
         bad_response = self.complete_task(task, responses)
 
         self.assertEqual(bad_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(bad_response.data['message'], 'User is not in the campaign.')
+        self.assertEqual(bad_response.data['detail'], 'User is not in the campaign.')
 
     def test_assign_by_previous_manual_user_with_rank_of_campaign(self):
         js_schema = {
@@ -4252,7 +4253,7 @@ class GigaTurnipTest(APITestCase):
 
         task = Task.objects.get(id=task.id)
 
-        self.assertEqual(bad_response.data['message'], 'User is not in the campaign.')
+        self.assertEqual(bad_response.data['detail'], 'User is not in the campaign.')
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)
@@ -4306,7 +4307,7 @@ class GigaTurnipTest(APITestCase):
 
         task = Task.objects.get(id=task.id)
 
-        self.assertEqual(bad_response.data['message'], 'User employe@email.com doesn\'t exist.')
+        self.assertEqual(bad_response.data['detail'], 'User employe@email.com doesn\'t exist.')
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)
@@ -5753,3 +5754,22 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task_3.complete)
         self.assertFalse(task_3.reopened)
         self.assertEqual(Task.objects.count(), 3)
+
+    def test_smstask_creation(self):
+        data = {
+            "phone": "799002345",
+            "sms_text": "flasdjflvlkcjl3jkl4j32l243kl"
+        }
+        response = self.client.post(reverse("smstask-list"), data=data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.user.sms_relay = True
+        self.user.save()
+
+        response = self.client.post(reverse("smstask-list"), data=data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(SMSTask.objects.count(), 1)
+
+        response = self.client.post(reverse("smstask-list"), data={"phone": "12"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(SMSTask.objects.count(), 1)
