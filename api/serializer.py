@@ -389,6 +389,7 @@ class TaskResponsesFilterSerializer(PostJSONFilterSerializer):
             'search_stage': item.get('search_stage', None)
         }
 
+
 class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
