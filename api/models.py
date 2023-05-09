@@ -1625,6 +1625,43 @@ class Task(BaseDatesModel, CampaignInterface):
     #     unique_together = ['integrator_task', 'response_group']
 
 
+class SMSTask(BaseDatesModel):
+    sms_text = models.TextField(
+        blank=False,
+        null=False,
+        help_text="Text of the task."
+    )
+
+    phone = models.TextField(
+        blank=False,
+        null=False,
+        help_text="Text of the task."
+    )
+
+    decreed = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Decreed sms_text."
+    )
+
+    decompressed = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Decompressed sms_text."
+    )
+
+    task = models.OneToOneField(
+        "Task",
+        on_delete=models.SET_NULL,
+        related_name="sms_task",
+        blank=True,
+        null=True,
+        help_text="Task that have been created based on task."
+    )
+
+    def __str__(self):
+        return "{}: {}".format(self.id, self.phone)
+
 # class IntegrationStatus(BaseDatesModel):
 #     integrated_task = models.ForeignKey(
 #         Task,
