@@ -743,7 +743,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             data['id'] = instance.id
             next_direct_task = None
             complete = serializer.validated_data.get("complete", False)
-            if complete and not utils.can_complete(instance, request.user):
+            if (complete and not instance.stage.chain.is_individual) \
+                    and not utils.can_complete(instance, request.user):
                 err_message = {
                     "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
                     "id": instance.id
