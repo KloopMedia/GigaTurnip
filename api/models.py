@@ -58,6 +58,10 @@ class CustomUser(AbstractUser, BaseDatesModel):
         default=False,
         help_text="Is user deleted."
     )
+    sms_relay = models.BooleanField(
+        default=False,
+        help_text="Allow this user to relay tasks via sms."
+    )
 
     def __str__(self):
         if self.login_via_sms:
@@ -269,6 +273,11 @@ class Campaign(BaseModel, CampaignInterface):
     sms_login_allow = models.BooleanField(
         default=False,
         help_text='User that logged in via sms can enter in the campaign'
+    )
+
+    sms_relay = models.BooleanField(
+        default=False,
+        help_text="Allow campaign to relay tasks via SMS."
     )
 
     logo = models.TextField(
