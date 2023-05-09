@@ -1471,7 +1471,7 @@ class Task(BaseDatesModel, CampaignInterface):
         pass
 
     def set_complete(self, responses=None, force=False, complete=True):
-        if self.complete:
+        if self.complete and not self.stage.chain.is_individual:
             raise Task.AlreadyCompleted
 
         with transaction.atomic():
@@ -1481,7 +1481,7 @@ class Task(BaseDatesModel, CampaignInterface):
                 raise Task.CompletionInProgress
             # task = Task.objects.select_for_update().filter(id=self.id)[0]
             # task.complete = True
-            if task.complete:
+            if task.complete and not self.stage.chain.is_individual:
                 raise Task.AlreadyCompleted
 
             if responses:
