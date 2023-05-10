@@ -4060,6 +4060,107 @@ class GigaTurnipTest(APITestCase):
         for i in info_about_graph:
             self.assertIn(i, response.data)
 
+    def test_chain_individuals_by_highest_rank(self):
+        self.chain.is_individual = True
+        self.chain.save()
+
+        middle_chain = Chain.objects.create(
+            name="Middle chain",
+            campaign=self.campaign,
+            is_individual=True
+        )
+        middle_stage = TaskStage.objects.create(
+            name="Middle chain stage",
+            x_pos=1,
+            y_pos=1,
+            chain=middle_chain,
+            is_creatable=True
+        )
+        middle_rank = Rank.objects.create(
+            name="Middle rank",
+            track=self.default_track,
+            priority=1
+        )
+        RankLimit.objects.create(
+            rank=middle_rank,
+            stage=middle_stage,
+            is_creation_open=True
+        )
+
+        highest_chain = Chain.objects.create(
+            name="Highest chain",
+            campaign=self.campaign,
+            is_individual=True
+        )
+        highest_stage = TaskStage.objects.create(
+            name="Highest chain stage",
+            x_pos=1,
+            y_pos=1,
+            chain=highest_chain,
+            is_creatable=True
+        )
+        highest_rank = Rank.objects.create(
+            name="Highest rank",
+            track=self.default_track,
+            priority=2
+        )
+        RankLimit.objects.create(
+            rank=highest_rank,
+            stage=highest_stage,
+            is_creation_open=True
+        )
+
+        RankRecord.objects.create(rank=middle_rank, user=self.user)
+        RankRecord.objects.create(rank=highest_rank, user=self.user)
+
+        highest_ranks_qs = self.user.get_highest_ranks_by_track()
+        self.assertEqual(highest_ranks_qs.count(), 1)
+        self.assertEqual(
+            highest_ranks_qs.first()["max_rank_id"],
+            highest_rank.id
+        )
+
+        params = {"by_highest_ranks": "true"}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([highest_stage.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+        response = self.get_objects("chain-individuals")
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 3)
+        chains = [self.chain.id, middle_chain.id, highest_chain.id]
+        self.assertEqual(chains, [i["id"] for i in content["results"]])
+
+
+        response = self.get_objects("chain-individuals", params=params)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        chains = [highest_chain.id]
+        self.assertEqual(chains, [i["id"] for i in content["results"]])
+
+        new_track = Track.objects.create(
+            campaign=self.campaign,
+            default_rank=middle_rank
+        )
+        new_track.save()
+
+        highest_rank.track = new_track
+        highest_rank.save()
+
+        highest_ranks = self.user.get_highest_ranks_by_track().values_list(
+            "max_rank_id", flat=True)
+        self.assertIn(highest_rank.id, highest_ranks)
+        self.assertIn(middle_rank.id, highest_ranks)
+
+        response = self.get_objects("chain-individuals", params=params)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        chains = [middle_chain.id, highest_chain.id]
+        self.assertEqual(chains, [i["id"] for i in content["results"]])
+
     def test_assign_by_previous_manual_user_without_rank(self):
         js_schema = {
             "type": "object",
