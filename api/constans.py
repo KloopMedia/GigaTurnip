@@ -9,6 +9,11 @@ class TaskStageConstants:
     PREVIOUS_MANUAL = 'PA'
 
 
+class TaskStageSchemaSourceConstants:
+    STAGE = 'ST'
+    TASK = 'TA'
+
+
 class ConditionalStageConstants:
     from api.functions_utils import eq, ne, gt, lt, ge, le, contains, not_contains
 
@@ -68,6 +73,12 @@ class CopyFieldConstants:
 class WebhookConstants:
     IN_RESPONSES = 'in'
     CURRENT_TASK_RESPONSES = 'cu'
+    MODIFIER_FIELD = "mf"
+
+
+class WebhookTargetConstants:
+    RESPONSES = "RE"
+    SCHEMA = "SC"
 
 
 class NotificationConstants:
@@ -149,3 +160,6 @@ class JSONFilterConstants:
             }
         }
     }
+
+class ReplaceConstants:
+    USER_ID = "@TURNIP_USER_ID"
