@@ -5634,7 +5634,8 @@ class GigaTurnipTest(APITestCase):
     def test_schema_provider_webhook_creatable_task(self):
         data = {
             "type": "SK",
-            "learner": 1,
+            "system": 1,
+            "learner_external_id": "@TURNIP_USER_ID",
             "test_language": "EN",
             "native_language": "RU",
             "collection": None,
@@ -5671,7 +5672,8 @@ class GigaTurnipTest(APITestCase):
 
         data = {
             "type": "SK",
-            "learner": 1,
+            "system": 1,
+            "learner_external_id": "@TURNIP_USER_ID",
             "test_language": "EN",
             "native_language": "RU",
             "collection": None,
@@ -5711,7 +5713,8 @@ class GigaTurnipTest(APITestCase):
         ))
         data = {
             "type": "SK",
-            "learner": 1,
+            "system": 1,
+            "learner_external_id": "@TURNIP_USER_ID",
             "test_language": "EN",
             "native_language": "RU",
             "collection": None,
