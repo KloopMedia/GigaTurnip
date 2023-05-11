@@ -11,7 +11,8 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, Subquery, OuterRef
+from django.db.models.functions import JSONObject
 from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
@@ -81,6 +82,15 @@ class CustomUser(AbstractUser, BaseDatesModel):
         if hasattr(self, 'admin_preference'):
             return self.admin_preference
         return None
+
+    def get_highest_ranks_by_track(self):
+        highest_ranks = self.ranks.values("track").annotate(
+            max_rank_id=Subquery(
+                Rank.objects.filter(track=OuterRef("track")).order_by(
+                    "-priority").values("id")[:1])
+        ).distinct().values("max_rank_id")
+
+        return highest_ranks
 
 
 class UserDelete(BaseDatesModel):
@@ -444,7 +454,9 @@ class Chain(BaseModel, CampaignInterface):
         related_name="chains",
         help_text="Campaign id"
     )
-
+    is_individual = models.BooleanField(
+        default=False,
+    )
     def get_campaign(self) -> Campaign:
         return self.campaign
 
@@ -625,6 +637,22 @@ class TaskStage(Stage, SchemaProvider):
         null=True,
         blank=True,
         help_text=""  # todo: add help text for card ui schema
+    )
+    STAGE_TYPES = (
+        ("PR", "Proactive"),
+        ("RE", "Reactive")
+    )
+    stage_type = models.CharField(
+        choices=STAGE_TYPES,
+        max_length=2,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Stage type."
+    )
+    is_proactive = models.BooleanField(
+        default=False,
+        help_text="True - stage is proactive, otherwise - active."
     )
 
     SCHEMA_SOURCE_CHOICES = [
@@ -1339,6 +1367,11 @@ class Quiz(BaseDatesModel):
     )
     SCORE = 'meta_quiz_score'
     INCORRECT_QUESTIONS = 'meta_quiz_incorrect_questions'
+    provide_answers = models.BooleanField(
+        default=False,
+        help_text="If set as true then with questions title users will "
+                  "see correct answers."
+    )
 
     def is_ready(self):
         return bool(self.correct_responses_task)
@@ -1367,7 +1400,11 @@ class Quiz(BaseDatesModel):
             if str(responses.get(key)) == str(answer):
                 correct += 1
             else:
-                incorrect_questions.append(questions.get(key).get('title'))
+                title = questions.get(key).get('title')
+                if self.provide_answers:
+                    incorrect_questions.append(f"{title}: {answer}")
+                else:
+                    incorrect_questions.append(title)
 
         len_correct_answers = len(correct_answers)
         unnecessary_keys = [Quiz.SCORE, Quiz.INCORRECT_QUESTIONS]
@@ -1511,7 +1548,7 @@ class Task(BaseDatesModel, CampaignInterface):
         pass
 
     def set_complete(self, responses=None, force=False, complete=True):
-        if self.complete:
+        if self.complete and not self.stage.chain.is_individual:
             raise Task.AlreadyCompleted
 
         with transaction.atomic():
@@ -1521,7 +1558,7 @@ class Task(BaseDatesModel, CampaignInterface):
                 raise Task.CompletionInProgress
             # task = Task.objects.select_for_update().filter(id=self.id)[0]
             # task.complete = True
-            if task.complete:
+            if task.complete and not self.stage.chain.is_individual:
                 raise Task.AlreadyCompleted
 
             if responses:
@@ -1705,6 +1742,12 @@ class Rank(BaseModel, CampaignInterface):
         blank=True,
         help_text="Text or url to the SVG"
     )
+    priority = models.PositiveIntegerField(
+        default=0,
+        blank=False,
+        null=False,
+        help_text="Priority of the rank in the system."
+    )
 
     def get_campaign(self):
         return self.track.campaign
@@ -1770,6 +1813,7 @@ class RankLimit(BaseDatesModel, CampaignInterface):
     rank = models.ForeignKey(
         Rank,
         on_delete=models.CASCADE,
+        related_name="ranklimits",
         help_text="Rank id"
     )
     stage = models.ForeignKey(

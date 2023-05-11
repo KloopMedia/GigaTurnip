@@ -111,7 +111,7 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     def __init__(self):
         self.statements += [{
-            "action": ["get_graph"],
+            "action": ["get_graph", "individuals"],
             "principal": "authenticated",
             "effect": "allow"
 
@@ -145,7 +145,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list"],
+            "action": ["list", "selectable"],
             "principal": "authenticated",
             "effect": "allow",
         },
@@ -200,17 +200,16 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
+
         stages_by_ranks = RankLimit.objects.filter(
-            rank_id__in=request.user.ranks.values_list('id', flat=True)
+            rank__in=request.user.ranks.values("id")
         ).values_list('stage', flat=True).distinct()
-        stages_by_tasks = request.user.tasks.values_list('stage', flat=True).distinct()
 
         stages = queryset.filter(Q(chain__campaign__campaign_managements__user=request.user) |
-                                 Q(id__in=stages_by_tasks) |
                                  Q(id__in=stages_by_ranks))
 
         stages |= queryset.filter(id__in=stages.values_list('displayed_prev_stages', flat=True).distinct())
-        return stages.distinct()
+        return queryset.distinct()
 
     def is_stage_user_creatable(self, request, view, action) -> bool:
         queryset = TaskStage.objects.filter(id=view.get_object().id)
@@ -283,7 +282,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["update", "partial_update", "open_previous"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee and is_not_complete"
+            "condition_expression": "is_assignee and ( is_not_complete or is_task_from_individual_chain )"
         },
         {
             "action": ["uncomplete"],
@@ -312,9 +311,17 @@ class TaskAccessPolicy(AccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
+        user = request.user
         user_campaigns = CampaignManagement.objects.filter(
-            user=request.user).values('campaign')
-        return queryset.filter(stage__chain__campaign__in=user_campaigns)
+            user=user).values('campaign')
+        tasks = request.user.tasks.all()
+        tasks |= queryset.filter(stage__chain__campaign__in=user_campaigns)
+        tasks |= queryset.filter(
+            Q(id__in=user.ranks.values("ranklimits__stage__tasks"))
+            & (Q(assignee=user) | Q(assignee__isnull=True) )
+        )
+
+        return tasks.distinct()
 
     def is_assignee(self, request, view, action):
         task = view.get_object()
@@ -323,6 +330,10 @@ class TaskAccessPolicy(AccessPolicy):
     def is_not_complete(self, request, view, action):
         task = view.get_object()
         return task.complete is False
+
+    def is_task_from_individual_chain(self, request, view, action):
+        task = view.get_object()
+        return task.stage.chain.is_individual
 
     def is_complete(self, request, view, action):
         task = view.get_object()
@@ -578,13 +589,9 @@ class UserStatisticAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, qs):
-        admin_preference = request.user.get_admin_preference()
-        if not admin_preference:
-            return qs.none()
-
         # get users that have any rank of admin preference campaign
         result = qs.filter(
-            ranks__in=admin_preference.campaign.tracks.values('ranks')
+            ranks__in=request.user.managed_campaigns.values("tracks__ranks")
         ).distinct()
 
         return result

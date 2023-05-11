@@ -53,7 +53,7 @@ from api.serializer import (
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
-    LanguageListSerializer
+    LanguageListSerializer, ChainIndividualsSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -267,14 +267,22 @@ class ChainViewSet(viewsets.ModelViewSet):
     Partial update chain data.
     """
 
-    filterset_fields = ['campaign', ]
     serializer_class = ChainSerializer
     permission_classes = (ChainAccessPolicy,)
+    filterset_fields = {
+        "id": ["exact"],
+        "campaign": ["exact"]
+    }
 
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
             self.request, Chain.objects.all()
         )
+
+    def get_serializer_class(self):
+        if self.action == "individuals":
+            return ChainIndividualsSerializer
+        return ChainSerializer
 
     @action(detail=True)
     def get_graph(self, request, pk=None):
@@ -284,6 +292,51 @@ class ChainViewSet(viewsets.ModelViewSet):
             out_stages=ArrayAgg('out_stages', distinct=True)
         )
         return Response(graph)
+
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def individuals(self, request):
+        qs = self.filter_queryset(self.get_queryset())\
+            .filter(is_individual=True)
+        user = request.user
+
+        # filter by highest user ranks
+        if request.query_params.get("by_highest_ranks"):
+            ranks = request.user.get_highest_ranks_by_track()
+            qs = qs.filter(
+                id__in=RankLimit.objects.filter(rank__in=ranks).values(
+                    "stage__chain")
+            )
+
+        cases = Task.objects.filter(
+            assignee=user,
+            stage__chain__in=qs)\
+            .values("case").distinct()
+
+        qs = qs.values("id", "name").annotate(
+            data=ArraySubquery(
+                TaskStage.objects.filter(chain=OuterRef("id")).annotate(
+                    all_out_stages=ArrayAgg("out_stages", distinct=True),
+                    all_in_stages=ArrayAgg("in_stages", distinct=True),
+                    total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
+                    complete_count=Count("tasks",
+                                               filter=Q(tasks__case__in=cases,
+                                                        tasks__complete=True))
+                ).values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        assign_type="assign_user_by",
+                        out_stages="all_out_stages",
+                        in_stages="all_in_stages",
+                        total_count="total_count",
+                        complete_count="complete_count"
+                    )
+                )
+            )
+        )
+
+        return qs
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
@@ -306,6 +359,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     permission_classes = (TaskStageAccessPolicy,)
     filterset_fields = {
+        'is_proactive': ['exact'],
         'chain': ['exact'],
         'chain__campaign': ['exact'],
         'is_creatable': ['exact'],
@@ -354,8 +408,18 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def user_relevant(self, request):
+        # return stages where user can create new task
         stages = self.filter_queryset(self.get_queryset())
-        stages = utils.filter_for_user_creatable_stages(stages, request)
+
+        # filter by highest user ranks
+        ranks = request.user.ranks.all()
+        if request.query_params.get("by_highest_ranks"):
+            ranks = request.user.get_highest_ranks_by_track()
+        ranks = ranks.prefetch_related("ranklimits").filter(
+            ranklimits__is_creation_open=True
+        )
+
+        stages = utils.filter_for_user_creatable_stages(stages, request, ranks)
         return stages
 
     @paginate
@@ -420,6 +484,17 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def selectable(self, request):
+        tasks = Task.objects.all().select_related('stage')
+        tasks = TaskAccessPolicy.scope_queryset(request, tasks)
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
+                                                                  request)
+        qs = self.filter_queryset(self.get_queryset())
+        qs = qs.filter(id__in=tasks_selectable.values("stage").distinct())
+
+        return qs
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -570,9 +645,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     filterset_fields = {
         'case': ['exact'],
+        'reopened': ['exact'],
         'stage': ['exact'],
         'stage__chain__campaign': ['exact'],
         'stage__chain': ['exact'],
+        'stage__chain__is_individual': ['exact'],
         'stage__chain__name': ['exact'],
         'assignee': ['exact'],
         'assignee__ranks': ['exact'],
@@ -589,8 +666,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Task.objects.all().select_related('stage')
-        if self.action in ['list', 'csv', 'user_activity',
-                           'user_activity_csv', 'search_by_responses']:
+        if self.action in ["list", "csv", "user_activity",
+                           "user_activity_csv", "search_by_responses",
+                           "user_selectable"]:
             return TaskAccessPolicy.scope_queryset(
                 self.request, qs
             )
@@ -620,8 +698,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             stage_data=JSONObject(
                 id='stage__id',
                 name="stage__name",
-                chain="stage__chain__campaign",
-                campaign="stage__chain",
+                chain="stage__chain",
+                campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
             )
@@ -679,7 +757,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             data['id'] = instance.id
             next_direct_task = None
             complete = serializer.validated_data.get("complete", False)
-            if complete and not utils.can_complete(instance, request.user):
+            if (complete and not instance.stage.chain.is_individual) \
+                    and not utils.can_complete(instance, request.user):
                 err_message = {
                     "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
                     "id": instance.id
@@ -753,8 +832,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             stage_data=JSONObject(
                 id='stage__id',
                 name="stage__name",
-                chain="stage__chain__campaign",
-                campaign="stage__chain",
+                chain="stage__chain",
+                campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
             )
@@ -802,8 +881,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             stage_data=JSONObject(
                 id='stage__id',
                 name="stage__name",
-                chain="stage__chain__campaign",
-                campaign="stage__chain",
+                chain="stage__chain",
+                campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
             )
@@ -1420,9 +1499,6 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
 class UserStatisticViewSet(GenericViewSet):
     permission_classes = (UserStatisticAccessPolicy,)
 
-    def get_serializer_class(self):
-        pass
-
     def get_queryset(self):
         return UserStatisticAccessPolicy.scope_queryset(
             self.request, CustomUser.objects.values('id')
@@ -1450,10 +1526,7 @@ class UserStatisticViewSet(GenericViewSet):
         Returns list of all users that have joined to the system during some period.
         In query params provide start and end dates for filter by period.
         Example: ?start=2020-01-16&end=2021-01-16
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
+
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
@@ -1472,10 +1545,6 @@ class UserStatisticViewSet(GenericViewSet):
         To filter by some period use filters start and end.
         Example: ?start=2020-01-16&end=2021-01-16
 
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
@@ -1488,7 +1557,7 @@ class UserStatisticViewSet(GenericViewSet):
 
         tasks_of_campaign = Task.objects.select_related(
             "stage__chain__campaign").filter(
-            stage__chain__campaign=admin_preference.campaign,
+            stage__chain__campaign__in=request.user.managed_campaigns.values("id"),
             **date_range_filter,
             assignee_id=OuterRef("id"),
         )

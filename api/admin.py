@@ -1,9 +1,12 @@
+import binascii
+import os
 from abc import ABC
 
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count
+from rest_framework.authtoken.models import Token
 
 from .asyncstuff import process_completed_task
 from .models import (
@@ -201,6 +204,25 @@ class CustomUserAdmin(UserAdmin):
 class CampaignAdmin(admin.ModelAdmin):
     search_fields = ("id", "name", )
     autocomplete_fields = ("default_track", "categories", "language", )
+
+
+class TokenAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("user", )
+    exclude = ("key",)
+    list_display = ("key", "user")
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_key(cls):
+        return binascii.hexlify(os.urandom(20)).decode()
+
+
+    def __str__(self):
+        return self.key
 
 
 class ChainAdmin(admin.ModelAdmin):
@@ -775,7 +797,11 @@ class PreviousManualAdmin(admin.ModelAdmin):
 
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
-    search_fields = ("title", )
+    search_fields = (
+        "title",
+        "target_user__email",
+        "target_user__phone_number",
+    )
     list_display = ("title", "campaign", "rank", "target_user", "importance", )
     autocomplete_fields = ("campaign", "rank", "target_user")
     readonly_fields = ("sender_task", "receiver_task", "trigger_go",)
@@ -931,6 +957,7 @@ class TestWebhookAdmin(admin.ModelAdmin):
     autocomplete_fields = ('expected_task', 'sent_task')
 
 
+admin.site.register(Token, TokenAdmin)
 admin.site.register(Language, LanguageAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(CustomUser, CustomUserAdmin)

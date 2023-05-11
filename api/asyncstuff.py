@@ -77,7 +77,6 @@ def process_completed_task(task):
     if is_reopened:
         return task
     del is_reopened
-
     # if quiz_evaluated_task:
     #     quiz_evaluated_task = evaluate_quiz(quiz_evaluated_task, task)
     #     if quiz_evaluated_task:
@@ -86,7 +85,7 @@ def process_completed_task(task):
     #         del quiz_evaluated_task
 
     next_direct_task = task.get_direct_next()
-    if next_direct_task is not None:
+    if next_direct_task is not None and not task.stage.chain.is_individual:
         return get_next_direct_task(next_direct_task, task)
 
     process_on_chain(current_stage, task)
@@ -163,8 +162,13 @@ def process_webhook(stage, in_task, data=None):
     response = send_webhook_request(stage, in_task)
     data["responses"] = response
     data["complete"] = True
-    new_task = Task.objects.create(**data)
-    new_task.in_tasks.set([in_task])
+    new_task = in_task.out_tasks.filter(stage=stage).first()
+    if stage.chain.is_individual and new_task:
+        # implement logic
+        new_task = None
+    else:
+        new_task = Task.objects.create(**data)
+        new_task.in_tasks.set([in_task])
     return new_task
 
 
@@ -193,8 +197,14 @@ def process_stage_assign(stage, data, in_task, user):
                 .filter(stage=stage.assign_user_from_stage) \
                 .filter(case=in_task.case)
             data["assignee"] = assignee_task[0].assignee
-    new_task = Task.objects.create(**data)
-    new_task.in_tasks.add(in_task)
+    new_task = in_task.out_tasks.filter(stage=stage).first()
+    if stage.chain.is_individual and new_task:
+        # implement new logic task creation
+        # Task.objects.filter(id=new_task.id).update(**data)
+        pass
+    else:
+        new_task = Task.objects.create(**data)
+        new_task.in_tasks.add(in_task)
     return new_task
 
 
@@ -399,7 +409,7 @@ def assign_by_previous_manual(stage, new_task, in_task):
         new_task.delete()
         raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_DOESNT_EXIST % ('User', value))
 
-    if not user.ranks.filter(ranklimit__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
+    if not user.ranks.filter(ranklimits__in=RankLimit.objects.filter(stage__chain__campaign_id=stage.get_campaign())):
         reopen_task(task_with_email)
         new_task.delete()
         raise CustomApiException(status.HTTP_400_BAD_REQUEST, ErrorConstants.ENTITY_IS_NOT_IN_CAMPAIGN % 'User')

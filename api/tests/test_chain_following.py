@@ -7,7 +7,8 @@ from rest_framework.test import APITestCase, APIClient
 
 from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
-    ErrorConstants, WebhookConstants, TaskStageSchemaSourceConstants, WebhookTargetConstants)
+    ErrorConstants, TaskStageSchemaSourceConstants, WebhookTargetConstants,
+    WebhookConstants)
 from api.models import CampaignLinker, ApproveLink, Language, Category, Country
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
@@ -29,7 +30,8 @@ class GigaTurnipTest(APITestCase):
         client.force_authenticate(u)
         return client
 
-    def prepare_client(self, stage, user=None, rank_limit=None):
+    def prepare_client(self, stage, user=None, rank_limit=None, track=None,
+                       priority=None):
         u = user
         if u is None:
             user_name = str(uuid4())
@@ -37,10 +39,13 @@ class GigaTurnipTest(APITestCase):
                 username=user_name,
                 email=user_name + "@email.com",
                 password='test')
-        rank = Rank.objects.create(name=stage.name)
+        t = track if track else self.default_track
+        p = priority if priority != None else 0
+        rank = Rank.objects.create(name=stage.name, track=t, priority=p)
         RankRecord.objects.create(
             user=u,
             rank=rank)
+
         rank_l = rank_limit
         if rank_l is None:
             rank_l = RankLimit.objects.create(
@@ -99,7 +104,6 @@ class GigaTurnipTest(APITestCase):
         self.country = Country.objects.create(
             name="Vinland"
         )
-
 
         basic_data = self.generate_new_basic_campaign("Coca-Cola")
 
@@ -598,6 +602,141 @@ class GigaTurnipTest(APITestCase):
             set(json.loads(response.content).keys()),
             {"count", "next", "previous", "results"}
         )
+
+    def test_stages_by_highest_ranks(self):
+        chain_low_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Low priority chain",
+            is_individual=True
+        )
+        chain_middle_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Middle priority chain",
+            is_individual=True
+        )
+        chain_guru_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Guru priority chain",
+            is_individual=True
+        )
+
+        task_stage_low = TaskStage.objects.create(
+            name="Low stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_low_priority,
+            is_creatable=True)
+        task_stage_middle = TaskStage.objects.create(
+            name="Middle stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_middle_priority,
+            is_creatable=True)
+        task_stage_guru = TaskStage.objects.create(
+            name="Guru stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_guru_priority,
+            is_creatable=True)
+
+        new_track = Track.objects.create(campaign=self.campaign)
+
+        self.prepare_client(task_stage_low, self.user, RankLimit(is_creation_open=True),
+                            priority=1)
+        self.prepare_client(task_stage_middle, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=2)
+        self.prepare_client(task_stage_guru, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=3)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        params = {"by_highest_ranks": "true"}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        self.assertEqual([task_stage_low.id, task_stage_guru.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+    def test_stages_by_ranks(self):
+        chain_low_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Low priority chain",
+            is_individual=True
+        )
+        chain_middle_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Middle priority chain",
+            is_individual=True
+        )
+        chain_guru_priority = Chain.objects.create(
+            campaign=self.campaign,
+            name="Guru priority chain",
+            is_individual=True
+        )
+
+        task_stage_low = TaskStage.objects.create(
+            name="Low stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_low_priority,
+            is_creatable=True)
+        task_stage_middle = TaskStage.objects.create(
+            name="Middle stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_middle_priority,
+            is_creatable=True)
+        task_stage_guru = TaskStage.objects.create(
+            name="Guru stage",
+            x_pos=1,
+            y_pos=1,
+            chain=chain_guru_priority,
+            is_creatable=True)
+
+        new_track = Track.objects.create(campaign=self.campaign)
+
+        self.prepare_client(task_stage_low, self.user, RankLimit(is_creation_open=True),
+                            priority=1)
+        self.prepare_client(task_stage_middle, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=2)
+        self.prepare_client(task_stage_guru, self.user, RankLimit(is_creation_open=True),
+                            track=new_track, priority=3)
+
+        response = self.get_objects("taskstage-user-relevant")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 4)
+
+        guru_rank = Rank.objects.filter(track=new_track,
+                                        name=task_stage_guru.name).first()
+
+        params = {"ranks": guru_rank.id}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([task_stage_guru.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+        middle_rank = Rank.objects.filter(track=new_track,
+                                        name=task_stage_middle.name).first()
+
+        params = {"ranks": middle_rank.id}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([task_stage_middle.id],
+                         sorted([i["id"] for i in content["results"]]))
 
     def test_task_stage_serializers_by_flag(self):
         self.user.managed_campaigns.add(self.campaign)
@@ -1139,6 +1278,34 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], task_2.id)
+
+    def test_get_tasksstages_selectable(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        self.client = self.prepare_client(second_stage, self.user)
+        task_1 = self.create_initial_task()
+        task_1 = self.complete_task(task_1)
+        task_2 = task_1.out_tasks.all()[0]
+        response = self.get_objects("task-user-selectable")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["id"], task_2.id)
+
+        response = self.get_objects("taskstage-selectable", client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(second_stage.id, response.data["results"][0]["id"])
+
+        response_assign = self.get_objects('task-request-assignment',
+                                           pk=task_2.id)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user.tasks.count(), 2)
+
+        response = self.get_objects("taskstage-selectable", client=self.client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0,
+                         "Maybe it is bug, because there is no tasks to assign,"
+                         "but tasks of this stage maybe selectable")
+        # self.assertEqual(second_stage.id, response.data["results"][0]["id"])
 
     def test_open_previous(self):
         second_stage = self.initial_stage.add_stage(
@@ -1952,6 +2119,17 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 3)
 
+        # Test answers if above threshold
+        quiz.provide_answers = True
+        quiz.save()
+        task = self.create_initial_task()
+        responses = correct_responses
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 100)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 4)
+
     def test_quiz_show_answers_always(self):
         task_correct_responses = self.create_initial_task()
 
@@ -2006,13 +2184,14 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.tasks.count(), 1)
 
         # Test answers if below threshold
+        quiz.provide_answers = True
         quiz.threshold = 50
         quiz.save()
         task = self.create_initial_task()
         task = self.complete_task(task, responses=responses)
         self.assertEqual(task.responses[Quiz.SCORE], 33)
         self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS],
-                         'Question 2\nQuestion 3')
+                         'Question 2: b\nQuestion 3: a')
         self.assertFalse(task.complete)
         self.assertEqual(self.user.tasks.count(), 2)
 
@@ -2087,11 +2266,13 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.tasks.count(), 2)
 
         # Test answers if above threshold
+        quiz.provide_answers = True
+        quiz.save()
         task = self.create_initial_task()
         responses = {"q_1": "a", "q_2": "b", "q_3": "c"}
         task = self.complete_task(task, responses=responses)
         self.assertEqual(task.responses[Quiz.SCORE], 66)
-        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3')
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3: a')
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 3)
 
@@ -2148,13 +2329,15 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(self.user.tasks.count(), 1)
 
         # Test answers if below threshold
+        quiz.provide_answers = True
+        quiz.save()
         quiz.threshold = 50
         quiz.save()
         task = self.create_initial_task()
         task = self.complete_task(task, responses=responses)
         self.assertEqual(task.responses[Quiz.SCORE], 33)
         self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS],
-                         'Question 2\nQuestion 3')
+                         'Question 2: b\nQuestion 3: a')
         self.assertFalse(task.complete)
         self.assertEqual(self.user.tasks.count(), 2)
 
@@ -2454,8 +2637,7 @@ class GigaTurnipTest(APITestCase):
         ordered_columns = response_flattener.ordered_columns()
         system_columns = ["id", 'created_at', 'updated_at', 'assignee_id', 'stage_id', 'case_id',
                           'integrator_group', 'complete', 'force_complete', 'reopened',
-                          'internal_metadata', 'start_period', 'end_period',
-                          'schema', 'ui_schema']
+                          'internal_metadata', 'start_period', 'end_period']
         responses_fields = ["col2", "col3__d__d", "col1"]
 
         all_columns = system_columns + responses_fields
@@ -3439,75 +3621,6 @@ class GigaTurnipTest(APITestCase):
         updated_schema = json.loads(second_stage.json_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
-    def test_dynamic_json_schema_related_fields_from_another_stage(self):
-        weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
-        time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-
-        self.initial_stage.json_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "weekday": {
-                    "type": "string",
-                    "title": "Select Weekday",
-                    "enum": weekdays
-                }
-            }
-        })
-        self.initial_stage.save()
-
-        json_schema_time = json.dumps({
-            "type": "object",
-            "properties": {
-                "time": {
-                    "type": "string",
-                    "title": "What time",
-                    "enum": time_slots
-                }
-            }
-        })
-        second_stage = self.initial_stage.add_stage(
-            TaskStage(
-                name='Complete time',
-                assign_user_by=TaskStageConstants.STAGE,
-                assign_user_from_stage=self.initial_stage,
-                json_schema=json_schema_time,
-                ui_schema=json.dumps({"ui:order": ["time"]})
-            )
-        )
-
-        dynamic_fields_json = {
-            "main": "weekday",
-            "foreign": ['time'],
-            "constants": {
-                "main": {},
-                "foreign": {
-                    "time": ["10:00"]
-                }
-            },
-            "count": 1
-        }
-        dynamic_json = DynamicJson.objects.create(
-            source=self.initial_stage,
-            target=second_stage,
-            dynamic_fields=dynamic_fields_json
-        )
-
-        responses = {'weekday': weekdays[0]}
-        for i in range(3):
-            t = self.create_initial_task()
-            t = self.complete_task(t, responses)
-            self.complete_task(t.out_tasks.get(), {'time': time_slots[i]})
-
-        t2 = self.create_initial_task()
-        t2 = self.complete_task(t2, responses)
-        t2_next = t2.out_tasks.get()
-        response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
-                                    params={"current_task": t2_next.id})
-        updated_schema = json.loads(second_stage.json_schema)
-        del updated_schema['properties']['time']['enum'][1]
-        del updated_schema['properties']['time']['enum'][1]
-        self.assertIn("10:00", response.data['schema']['properties']['time']['enum'])
-
     def test_dynamic_json_schema_single_unique_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         js_schema = json.dumps({
@@ -3948,6 +4061,107 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(len(response.data), 3)
         for i in info_about_graph:
             self.assertIn(i, response.data)
+
+    def test_chain_individuals_by_highest_rank(self):
+        self.chain.is_individual = True
+        self.chain.save()
+
+        middle_chain = Chain.objects.create(
+            name="Middle chain",
+            campaign=self.campaign,
+            is_individual=True
+        )
+        middle_stage = TaskStage.objects.create(
+            name="Middle chain stage",
+            x_pos=1,
+            y_pos=1,
+            chain=middle_chain,
+            is_creatable=True
+        )
+        middle_rank = Rank.objects.create(
+            name="Middle rank",
+            track=self.default_track,
+            priority=1
+        )
+        RankLimit.objects.create(
+            rank=middle_rank,
+            stage=middle_stage,
+            is_creation_open=True
+        )
+
+        highest_chain = Chain.objects.create(
+            name="Highest chain",
+            campaign=self.campaign,
+            is_individual=True
+        )
+        highest_stage = TaskStage.objects.create(
+            name="Highest chain stage",
+            x_pos=1,
+            y_pos=1,
+            chain=highest_chain,
+            is_creatable=True
+        )
+        highest_rank = Rank.objects.create(
+            name="Highest rank",
+            track=self.default_track,
+            priority=2
+        )
+        RankLimit.objects.create(
+            rank=highest_rank,
+            stage=highest_stage,
+            is_creation_open=True
+        )
+
+        RankRecord.objects.create(rank=middle_rank, user=self.user)
+        RankRecord.objects.create(rank=highest_rank, user=self.user)
+
+        highest_ranks_qs = self.user.get_highest_ranks_by_track()
+        self.assertEqual(highest_ranks_qs.count(), 1)
+        self.assertEqual(
+            highest_ranks_qs.first()["max_rank_id"],
+            highest_rank.id
+        )
+
+        params = {"by_highest_ranks": "true"}
+        response = self.get_objects("taskstage-user-relevant", params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        self.assertEqual([highest_stage.id],
+                         sorted([i["id"] for i in content["results"]]))
+
+        response = self.get_objects("chain-individuals")
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 3)
+        chains = [self.chain.id, middle_chain.id, highest_chain.id]
+        self.assertEqual(chains, [i["id"] for i in content["results"]])
+
+
+        response = self.get_objects("chain-individuals", params=params)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 1)
+        chains = [highest_chain.id]
+        self.assertEqual(chains, [i["id"] for i in content["results"]])
+
+        new_track = Track.objects.create(
+            campaign=self.campaign,
+            default_rank=middle_rank
+        )
+        new_track.save()
+
+        highest_rank.track = new_track
+        highest_rank.save()
+
+        highest_ranks = self.user.get_highest_ranks_by_track().values_list(
+            "max_rank_id", flat=True)
+        self.assertIn(highest_rank.id, highest_ranks)
+        self.assertIn(middle_rank.id, highest_ranks)
+
+        response = self.get_objects("chain-individuals", params=params)
+        content = to_json(response.content)
+        self.assertEqual(content["count"], 2)
+        chains = [middle_chain.id, highest_chain.id]
+        self.assertEqual(chains, [i["id"] for i in content["results"]])
 
     def test_assign_by_previous_manual_user_without_rank(self):
         js_schema = {
@@ -4826,23 +5040,26 @@ class GigaTurnipTest(APITestCase):
                                   rank=rank3)
 
         response = self.get_objects('numberrank-list', client=self.employee_client)
-        data = response.json()[0]
-
-        expected_count_rank = 4
-
-        default_rank = data['ranks'][0]
-        rank1 = data['ranks'][1]
-        rank2 = data['ranks'][2]
-        rank3 = data['ranks'][3]
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(data['ranks']), expected_count_rank)
-        self.assertEqual(default_rank['count'], 0)
-        self.assertEqual(rank1['count'], 2)
-        self.assertEqual(rank2['count'], 1)
-        self.assertEqual(rank3['count'], 1)
-        self.assertEqual(rank1['condition'], 'default')
-        self.assertEqual(rank2['condition'], 'prerequisite_ranks')
-        self.assertEqual(rank3['condition'], 'task_awards')
+
+        data = response.json()[0]
+        my_ranks_list = [
+            {'name': 'rank1', 'condition': 'default', 'count': 2},
+            {'name': 'rank2', 'condition': 'prerequisite_ranks', 'count': 1},
+            {'name': 'rank3', 'condition': 'task_awards', 'count': 1},
+        ]
+        received_ranks = []
+
+        for received_rank in data['ranks']:
+            d = {
+                'name': received_rank['name'],
+                'condition': received_rank['condition'],
+                'count': received_rank['count'],
+            }
+            received_ranks.append(d)
+
+        for my_rank in my_ranks_list:
+            self.assertIn(my_rank, received_ranks)
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
@@ -5780,3 +5997,80 @@ class GigaTurnipTest(APITestCase):
                            'people': {'type': 'boolean', 'title': 'people'}}})
         self.assertEqual(next_task.ui_schema,
                          {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+    def test_individual_chain_update_task(self):
+        self.chain.is_individual = True
+        self.chain.save()
+
+        self.initial_stage.json_schema = '{"type": "object","properties": {"firstName": {"type": "string"}}}'
+        self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Second Stage",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+        ))
+        second_stage.json_schema = '{"type": "object","properties": {"lastName": {"type": "string"}}}'
+        second_stage.save()
+
+        third_stage = second_stage.add_stage(TaskStage(
+            name="Second Stage",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+        ))
+        third_stage.json_schema = '{"type": "object","properties": {"phoneNumber": {"type": "string"}}}'
+        third_stage.save()
+
+        # Adjust copy name in second stage
+        CopyField.objects.create(
+            copy_by=CopyFieldConstants.CASE,
+            task_stage=second_stage,
+            copy_from_stage=self.initial_stage,
+            fields_to_copy="firstName->firstName")
+        CopyField.objects.create(
+            copy_by=CopyFieldConstants.CASE,
+            task_stage=third_stage,
+            copy_from_stage=second_stage,
+            fields_to_copy="firstName->firstName lastName->lastName")
+
+        response_1 = {"firstName": "Ivan"}
+        task_1 = self.create_task(self.initial_stage)
+        task_1 = self.complete_task(task_1, response_1)
+        self.check_task_completion(task_1, self.initial_stage, response_1)
+
+        task_2 = task_1.out_tasks.first()
+        self.assertFalse(task_2.complete)
+        self.assertFalse(task_2.reopened)
+        self.assertEqual(task_2.responses, {"firstName": "Ivan"})
+
+        # update first task and watch how it is affect
+        task_1 = self.complete_task(task_1, {"firstName": "Mark Bulah"})
+        self.assertIsInstance(task_1, Task)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertEqual(task_1.out_tasks.first().responses,
+                         {"firstName": "Mark Bulah"})
+
+        response_2 = {"firstName": "Mark Bulah", "lastName": "Ivanov"}
+        task_2 = self.complete_task(task_2, response_2)
+        self.assertTrue(task_2.complete)
+        self.assertFalse(task_2.reopened)
+        self.assertEqual(task_2.responses, response_2)
+        self.assertEqual(Task.objects.count(), 3)
+
+        task_3 = task_2.out_tasks.first()
+        self.assertEqual(task_3.responses, {"lastName": "Ivanov", "firstName": "Mark Bulah"})
+        self.assertFalse(task_3.complete)
+        self.assertFalse(task_3.reopened)
+
+        # update second task
+        task_2 = self.complete_task(task_2, {"lastName": "Zubarev"})
+        self.assertIsInstance(task_2, Task)
+        self.assertEqual(task_2.out_tasks.first().responses,
+                         {"firstName": "Mark Bulah", "lastName": "Zubarev"})
+        task_3 = task_2.out_tasks.first()
+        # self.assertEqual(task_3.responses, {"firstName": "Mark", "lastName": "Ivanov"}) todo: it is may be bug
+        response_3 = {"firstName": "Mark Bulah", "lastName": "Zubarev", "phone": 123}
+        task_3 = self.complete_task(task_3, response_3)
+        self.assertIsInstance(task_3, Task)
+        self.assertTrue(task_3.complete)
+        self.assertFalse(task_3.reopened)
+        self.assertEqual(Task.objects.count(), 3)

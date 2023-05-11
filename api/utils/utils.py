@@ -2,7 +2,7 @@ import json
 from functools import wraps
 from json import JSONDecodeError
 
-from django.db.models import QuerySet, Count, Q
+from django.db.models import QuerySet, Count, Q, OuterRef
 from rest_framework.response import Response
 
 from api.api_exceptions import CustomApiException
@@ -21,29 +21,49 @@ def is_user_campaign_manager(user, campaign_id):
     return bool(campaigns)
 
 
-def filter_for_user_creatable_stages(queryset, request):
-    stages = queryset \
-        .filter(is_creatable=True) \
-        .filter(ranks__users=request.user.id) \
-        .filter(ranklimits__is_creation_open=True) \
-        .distinct()
-    filtered_stages = TaskStage.objects.none()
-    for stage in stages:
-        tasks = Task.objects.filter(assignee=request.user.id) \
-            .filter(stage=stage).distinct()
-        total = len(tasks)
-        incomplete = len(tasks.filter(complete=False))
-        ranklimits = RankLimit.objects.filter(stage=stage) \
-            .filter(rank__rankrecord__user__id=request.user.id)
-        for ranklimit in ranklimits:
-            if ((ranklimit.open_limit > incomplete and ranklimit.total_limit > total) or
-                    (ranklimit.open_limit == 0 and ranklimit.total_limit > total) or
-                    (ranklimit.open_limit > incomplete and ranklimit.total_limit == 0) or
-                    (ranklimit.open_limit == 0 and ranklimit.total_limit == 0)
-            ):
-                filtered_stages |= TaskStage.objects.filter(pk=stage.pk)
+def filter_for_user_creatable_stages(queryset, request, ranks=None):
 
-    return filtered_stages.distinct()
+    r = ranks
+    if not r:
+        r = request.user.ranks.all()
+
+    all_rank_limits = RankLimit.objects.filter(
+        rank__in=r,
+        is_creation_open=True,
+        stage__in=queryset
+    ).distinct().select_related("stage")
+
+    stages = queryset.filter(
+        is_creatable=True,
+        ranklimits__in=all_rank_limits
+    ).distinct()
+
+    tasks_user_by_stages = stages.values("id").annotate(
+        total=Count("tasks", filter=Q(tasks__assignee=request.user)),
+        incomplete=Count("tasks", filter=Q(tasks__assignee=request.user)
+                                         & Q(tasks__complete=False)),
+    )
+
+    filtered_stages = set()
+    for stage_info in tasks_user_by_stages.iterator():
+        total = stage_info["total"]
+        incomplete = stage_info["incomplete"]
+        rank_limits = all_rank_limits.filter(
+            stage=stage_info["id"],
+            rank__rankrecord__user=request.user
+        )
+
+        for rank_limit in rank_limits:
+            if ((rank_limit.open_limit > incomplete and rank_limit.total_limit > total) or
+                    (rank_limit.open_limit == 0 and rank_limit.total_limit > total) or
+                    (rank_limit.open_limit > incomplete and rank_limit.total_limit == 0) or
+                    (rank_limit.open_limit == 0 and rank_limit.total_limit == 0)
+            ):
+                filtered_stages.add(stage_info["id"])
+
+    return TaskStage.objects.filter(is_creatable=True) \
+        .filter(id__in=filtered_stages) \
+        .select_related("chain", "assign_user_from_stage")
 
 
 def filter_for_user_selectable_tasks(queryset, request):
