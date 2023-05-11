@@ -1,15 +1,23 @@
-FROM python:3.9-slim
+# base image
+FROM python:3.10
+# setup environment variable
+ENV DockerHOME=/home/app/webapp
 
+# set work directory
+RUN mkdir -p $DockerHOME
+
+# where your code lives
+WORKDIR $DockerHOME
+
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-RUN set -xe \
-    && apt update \
-    && apt upgrade
+RUN apt-get update -y --no-install-recommends
 
-RUN pip install -U pipenv
+RUN pip install pipenv
 
-WORKDIR /app
-COPY ./Pipfile /app/Pipfile
-COPY ./Pipfile.lock /app/Pipfile.lock
+COPY ./Pipfile $DockerHOME/Pipfile
+COPY ./Pipfile.lock $DockerHOME/Pipfile.lock
 RUN pipenv install --system --deploy --ignore-pipfile
-COPY . /app
+COPY . $DockerHOME

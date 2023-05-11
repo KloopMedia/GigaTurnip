@@ -437,6 +437,9 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task = Task(stage=stage, assignee=request.user, case=case)
         for copy_field in stage.copy_fields.all():
             task.responses = copy_field.copy_response(task)
+        webhook = stage.get_webhook()
+        if webhook and webhook.is_triggered:
+            webhook.trigger(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 

@@ -17,10 +17,10 @@ from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
 from api.constans import (
-    WebhookConstants
+    WebhookConstants, WebhookTargetConstants, ReplaceConstants
 )
 from api.constans import TaskStageConstants, CopyFieldConstants, \
-    AutoNotificationConstants, ErrorConstants
+    AutoNotificationConstants, ErrorConstants, TaskStageSchemaSourceConstants
 
 
 class BaseDatesModel(models.Model):
@@ -655,6 +655,16 @@ class TaskStage(Stage, SchemaProvider):
         help_text="True - stage is proactive, otherwise - active."
     )
 
+    SCHEMA_SOURCE_CHOICES = [
+        (TaskStageSchemaSourceConstants.STAGE, 'Stage'),
+        (TaskStageSchemaSourceConstants.TASK, 'Task'),
+    ]
+    schema_source = models.CharField(
+        max_length=2,
+        choices=SCHEMA_SOURCE_CHOICES,
+        default=TaskStageSchemaSourceConstants.STAGE,
+        help_text="Flag indicating from where Task should get its schema.")
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
@@ -895,8 +905,19 @@ class Webhook(BaseDatesModel):
         null=True,
         blank=True,
         help_text=(
-            "JSON response field name to extract data from. Ignored if "
-            "webhook_address field is empty."
+            "JSON response field name to extract data from. If target is"
+            "Schema, this field is used to access JSON schema. Field is "
+            "ignored if webhook_address field is empty."
+        )
+    )
+
+    ui_schema_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON response field name to get UI JSON schema from when target is"
+            " Schema. Ignored when target is not Schema or webhook_address"
+            " is empty."
         )
     )
 
@@ -908,7 +929,8 @@ class Webhook(BaseDatesModel):
     )
     WHICH_RESPONSES_CHOICES = [
         (WebhookConstants.IN_RESPONSES, 'In responses'),
-        (WebhookConstants.CURRENT_TASK_RESPONSES, 'Current task responses')
+        (WebhookConstants.CURRENT_TASK_RESPONSES, 'Current task responses'),
+        (WebhookConstants.MODIFIER_FIELD, "Data field from this modifier")
     ]
     which_responses = models.CharField(
         max_length=2,
@@ -917,32 +939,63 @@ class Webhook(BaseDatesModel):
         help_text="Where to copy fields from"
     )
 
+    TARGET_CHOICES = [
+        (WebhookTargetConstants.RESPONSES, "Current task responses"),
+        (WebhookTargetConstants.SCHEMA, "Current task schema")
+    ]
+
+    target = models.CharField(
+        max_length=2,
+        choices=TARGET_CHOICES,
+        default=WebhookTargetConstants.RESPONSES,
+        help_text="Where response from webhook will be saved."
+    )
+
+    data = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Data that will be sent to webhook if such option is chosen."
+    )
+
     def trigger(self, task):
-        data = self.get_responses(task)
+        if self.which_responses == WebhookConstants.MODIFIER_FIELD:
+            data = self.process_data(task)
+        else:
+            data = self.get_responses(task)
 
         response = requests.post(self.url, json=data, headers=self.headers)
-        if response:
-            try:
-                if self.response_field:
-                    data = response.json()[self.response_field]
-                else:
-                    data = response.json()
-                if task.responses:
-                    task.responses.update(data)
-                else:
-                    task.responses = data
-                task.save()
-                return True, task, response, ""
-            except JSONDecodeError:
-                return False, task, response, "JSONDecodeError"
-        else:
+
+        if not response:
             task.generate_error(
                 type(KeyError),
                 "Response: {0}. Webhook: {1}".format(response.status_code, self.pk),
                 tb_info=traceback.format_exc(),
                 data=f"{data}\nStage: {task.stage}"
             )
-        return False, task, response, "See response status code"
+            return False, task, response, "See response status code"
+
+        try:
+            if self.response_field:
+                data = response.json()[self.response_field]
+            else:
+                data = response.json()
+            if self.target == WebhookTargetConstants.SCHEMA:
+                task.schema = data
+                task.ui_schema = (
+                    {} if self.ui_schema_field is None
+                    else response.json()[self.ui_schema_field]
+                )
+            else:
+                if task.responses:
+                    task.responses.update(data)  # TODO Add error related to updating
+                else:
+                    task.responses = data
+            task.save()
+            return True, task, response, ""
+        except JSONDecodeError:
+            return False, task, response, "JSONDecodeError"
+
 
     def post(self, data):
         response = requests.post(self.url, json=data, headers=self.headers)
@@ -952,6 +1005,18 @@ class Webhook(BaseDatesModel):
         if self.which_responses == WebhookConstants.IN_RESPONSES:
             return list(task.in_tasks.values_list('responses', flat=True))
         return task.responses
+
+    def process_data(self, task):
+        replace_dict = {}
+        replace_dict[ReplaceConstants.USER_ID] = task.assignee.pk
+        return self.top_level_replace(self.data, replace_dict)
+
+    def top_level_replace(self, data, replace_dict):
+        for key in data:
+            new_value = replace_dict.get(data[key])
+            if new_value is not None:
+                data[key] = new_value
+        return data
 
 
 class TestWebhook(BaseDatesModel):
@@ -1451,6 +1516,18 @@ class Task(BaseDatesModel, CampaignInterface):
         blank=True,
         null=True,
         help_text='the time until which this task is available'
+    )
+    schema = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="JSON schema for responses that will supersede schema from Stage."
+    )
+    ui_schema = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="JSON ui schema for responses that will supersede ui schema from Stage."
     )
 
     class Meta:

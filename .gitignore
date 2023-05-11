@@ -19,6 +19,7 @@ __pycache__/
 
 =======
 ./.env
+.env
 __pycache__
 *.egg-info
 

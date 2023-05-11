@@ -100,6 +100,18 @@ else:
         }
     }
 
+if os.getenv("LOCAL_DOCKER_DB", None) == "yes":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "postgres",
+            "USER": "postgres",
+            "PASSWORD": "postgres",
+            "HOST": "db",  # set in docker-compose.yml
+            "PORT": 5432,  # default postgres port
+        }
+    }
+
 if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
     DATABASES = {"default": ast.literal_eval(os.getenv('DB'))}
 
@@ -176,7 +188,7 @@ REST_FRAMEWORK = {
 
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-        # 'renderers.browsable_api_form.BrowsableAPIRendererWithoutForms',
+        'renderers.browsable_api_form.BrowsableAPIRenderer',
 
     ]
 }
