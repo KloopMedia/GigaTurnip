@@ -296,9 +296,20 @@ class ChainViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
-        qs = self.filter_queryset(self.get_queryset())
+        qs = self.filter_queryset(self.get_queryset())\
+            .filter(is_individual=True)
+        user = request.user
+
+        # filter by highest user ranks
+        if request.query_params.get("by_highest_ranks"):
+            ranks = request.user.get_highest_ranks_by_track()
+            qs = qs.filter(
+                id__in=RankLimit.objects.filter(rank__in=ranks).values(
+                    "stage__chain")
+            )
+
         cases = Task.objects.filter(
-            assignee=request.user,
+            assignee=user,
             stage__chain__in=qs)\
             .values("case").distinct()
 
