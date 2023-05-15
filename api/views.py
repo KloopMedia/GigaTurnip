@@ -60,7 +60,7 @@ from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter, \
-    CategoryInFilter
+    CategoryInFilter, CampaignFilter
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
@@ -1546,19 +1546,23 @@ class UserStatisticViewSet(GenericViewSet):
         To filter by some period use filters start and end.
         Example: ?start=2020-01-16&end=2021-01-16
 
+        To filter by campaign id use "campaign" query param and provide id:
+        ?campaign=123
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
 
         qs_users = self.filter_queryset(self.get_queryset())
 
-        user_campaigns = request.user.managed_campaigns.all()
-
+        managed_campaigns = request.user.managed_campaigns.all()
+        user_campaigns = self.get_campaigns_by_query_params(request,
+                                                            managed_campaigns)
         campaign_info = user_campaigns.values("id", "name").annotate(
             count=Subquery(
                 Task.objects.filter(
                     stage__chain__campaign_id=OuterRef("id"),
                     assignee__isnull=False,
+                    assignee__in=qs_users,
                     **date_range_filter
                 ).values("stage__chain__campaign").annotate(
                     count=Count("assignee", distinct=True)
@@ -1603,3 +1607,10 @@ class UserStatisticViewSet(GenericViewSet):
             return {less_key: end}
         elif not start and not end:
             return {}
+
+    # return managed campaign with filter
+    def get_campaigns_by_query_params(self, request, campaigns):
+        campaign_filter = request.query_params.get("campaign", None)
+        if campaign_filter and campaign_filter.isdigit():
+            campaigns = campaigns.filter(id=int(campaign_filter))
+        return campaigns
