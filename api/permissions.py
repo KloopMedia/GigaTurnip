@@ -382,11 +382,40 @@ class TaskAccessPolicy(AccessPolicy):
 
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list", "retrieve", "grouped_by_track"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
+
+        },
+        {
+            "action": ["partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        }
+    ]
+
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(
+        qs = queryset.filter(
             track__campaign__campaign_managements__user=request.user
         )
+        qs |= request.user.ranks.all()
+        return qs.distinct()
 
 
 class RankLimitAccessPolicy(ManagersOnlyAccessPolicy):

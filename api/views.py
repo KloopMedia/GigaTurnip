@@ -54,7 +54,8 @@ from api.serializer import (
     TaskStageFullRankReadSerializer, TaskUserActivitySerializer,
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
-    LanguageListSerializer, ChainIndividualsSerializer
+    LanguageListSerializer, ChainIndividualsSerializer,
+    RankGroupedByTrackSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -1125,8 +1126,12 @@ class RankViewSet(viewsets.ModelViewSet):
     Partial update rank data.
     """
 
-    serializer_class = RankSerializer
     permission_classes = (RankAccessPolicy,)
+
+    def get_serializer_class(self):
+        if self.action == "grouped_by_track":
+            return RankGroupedByTrackSerializer
+        return RankSerializer
 
     def get_queryset(self):
         return RankAccessPolicy.scope_queryset(
@@ -1141,6 +1146,22 @@ class RankViewSet(viewsets.ModelViewSet):
         )
 
         return qs
+
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def grouped_by_track(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        grouped = Track.objects.filter(id__in=qs.values("track").distinct()) \
+            .annotate(
+            all_ranks=ArraySubquery(
+                qs.filter(track_id=OuterRef("id")).values(
+                    data=JSONObject(id="id", name="name")
+                )
+            )
+        )
+
+        return grouped
 
 
 class RankRecordViewSet(viewsets.ModelViewSet):
