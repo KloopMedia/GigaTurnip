@@ -8,7 +8,8 @@ import re
 import requests
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import (
-    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,
+    Func
 )
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
@@ -1549,30 +1550,42 @@ class UserStatisticViewSet(GenericViewSet):
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
 
-        qs = self.get_queryset()
+        qs_users = self.filter_queryset(self.get_queryset())
 
-        admin_preference = request.user.get_admin_preference()
-        if not admin_preference:
-            return qs.none()
-
-        tasks_of_campaign = Task.objects.select_related(
-            "stage__chain__campaign").filter(
-            stage__chain__campaign__in=request.user.managed_campaigns.values("id"),
-            **date_range_filter,
-            assignee_id=OuterRef("id"),
+        user_campaigns = request.user.managed_campaigns.all()
+        campaign_tasks = Task.objects.filter(
+            stage__chain__campaign__in=user_campaigns,
+            **date_range_filter
         )
 
-        qs = qs.filter(
-            **date_range_filter
-        ).annotate(
-            tasks_count=Subquery(
-                tasks_of_campaign.values("assignee_id").annotate(
-                    tasks_count=Count("id")
-                ).values("tasks_count")
-            )
-        ).filter(tasks_count__gt=0)
+        # users_info = qs_users.values("id", "email").annotate(
+        #     tasks=ArraySubquery(
+        #         campaign_tasks.filter(assignee_id=OuterRef("id")).values(
+        #             "stage__chain__campaign").annotate(
+        #             count=Count("id"),
+        #             complete_count=Count("id", filter=Q(complete=True))
+        #         ).values(
+        #             data=JSONObject(campaign_id="stage__chain__campaign_id",
+        #                             campaign_name="stage__chain__campaign__name",
+        #                             count="count",
+        #                             complete_count="complete_count")
+        #         )
+        #     )
+        # )
 
-        return qs.values("id", "email", "tasks_count")
+        campaign_info = user_campaigns.values("id", "name").annotate(
+            count=Subquery(
+                Task.objects.filter(
+                    stage__chain__campaign_id=OuterRef("id"),
+                    assignee__isnull=False,
+                    **date_range_filter
+                ).values("stage__chain__campaign").annotate(
+                    count=Count("assignee", distinct=True)
+                ).values("count")
+            )
+        )
+
+        return campaign_info
 
     date_format = "%Y-%m-%d"  # "2013-11-30"
     query_params = ['start', 'end']

@@ -664,9 +664,9 @@ class NumberRankSerializer(serializers.Serializer):
 
 
 class UserStatisticSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-    tasks_count = serializers.IntegerField(read_only=True)
+    id = serializers.IntegerField(read_only=True, help_text="Campaign id.")
+    name = serializers.CharField(read_only=True, help_text="Campaign title.")
+    count = serializers.IntegerField(read_only=True, help_text="Count of users.")
 
 
 class CategoryListSerializer(serializers.ModelSerializer):
