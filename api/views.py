@@ -8,7 +8,8 @@ import re
 import requests
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import (
-    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,
+    Func
 )
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
@@ -59,7 +60,7 @@ from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter, \
-    CategoryInFilter
+    CategoryInFilter, CampaignFilter
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
@@ -1545,34 +1546,31 @@ class UserStatisticViewSet(GenericViewSet):
         To filter by some period use filters start and end.
         Example: ?start=2020-01-16&end=2021-01-16
 
+        To filter by campaign id use "campaign" query param and provide id:
+        ?campaign=123
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
 
-        qs = self.get_queryset()
+        qs_users = self.filter_queryset(self.get_queryset())
 
-        admin_preference = request.user.get_admin_preference()
-        if not admin_preference:
-            return qs.none()
-
-        tasks_of_campaign = Task.objects.select_related(
-            "stage__chain__campaign").filter(
-            stage__chain__campaign__in=request.user.managed_campaigns.values("id"),
-            **date_range_filter,
-            assignee_id=OuterRef("id"),
+        managed_campaigns = request.user.managed_campaigns.all()
+        user_campaigns = self.get_campaigns_by_query_params(request,
+                                                            managed_campaigns)
+        campaign_info = user_campaigns.values("id", "name").annotate(
+            count=Subquery(
+                Task.objects.filter(
+                    stage__chain__campaign_id=OuterRef("id"),
+                    assignee__isnull=False,
+                    assignee__in=qs_users,
+                    **date_range_filter
+                ).values("stage__chain__campaign").annotate(
+                    count=Count("assignee", distinct=True)
+                ).values("count")
+            )
         )
 
-        qs = qs.filter(
-            **date_range_filter
-        ).annotate(
-            tasks_count=Subquery(
-                tasks_of_campaign.values("assignee_id").annotate(
-                    tasks_count=Count("id")
-                ).values("tasks_count")
-            )
-        ).filter(tasks_count__gt=0)
-
-        return qs.values("id", "email", "tasks_count")
+        return campaign_info
 
     date_format = "%Y-%m-%d"  # "2013-11-30"
     query_params = ['start', 'end']
@@ -1609,3 +1607,10 @@ class UserStatisticViewSet(GenericViewSet):
             return {less_key: end}
         elif not start and not end:
             return {}
+
+    # return managed campaign with filter
+    def get_campaigns_by_query_params(self, request, campaigns):
+        campaign_filter = request.query_params.get("campaign", None)
+        if campaign_filter and campaign_filter.isdigit():
+            campaigns = campaigns.filter(id=int(campaign_filter))
+        return campaigns
