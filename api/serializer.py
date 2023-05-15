@@ -536,6 +536,14 @@ class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
                                           "to this track")
 
 
+class RankGroupedByTrackSerializer(serializers.ModelSerializer):
+    all_ranks = serializers.ListSerializer(child=serializers.JSONField())
+
+    class Meta:
+        model = Track
+        fields = ["id", "name", "all_ranks"]
+
+
 class TaskStageFullRankReadSerializer(TaskStageReadSerializer):
     ranks = RankSerializer(many=True)
 
