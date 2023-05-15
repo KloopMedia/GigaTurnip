@@ -60,7 +60,7 @@ from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter, \
-    CategoryInFilter, CampaignFilter
+    CategoryInFilter
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
