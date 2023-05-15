@@ -1553,25 +1553,6 @@ class UserStatisticViewSet(GenericViewSet):
         qs_users = self.filter_queryset(self.get_queryset())
 
         user_campaigns = request.user.managed_campaigns.all()
-        campaign_tasks = Task.objects.filter(
-            stage__chain__campaign__in=user_campaigns,
-            **date_range_filter
-        )
-
-        # users_info = qs_users.values("id", "email").annotate(
-        #     tasks=ArraySubquery(
-        #         campaign_tasks.filter(assignee_id=OuterRef("id")).values(
-        #             "stage__chain__campaign").annotate(
-        #             count=Count("id"),
-        #             complete_count=Count("id", filter=Q(complete=True))
-        #         ).values(
-        #             data=JSONObject(campaign_id="stage__chain__campaign_id",
-        #                             campaign_name="stage__chain__campaign__name",
-        #                             count="count",
-        #                             complete_count="complete_count")
-        #         )
-        #     )
-        # )
 
         campaign_info = user_campaigns.values("id", "name").annotate(
             count=Subquery(
