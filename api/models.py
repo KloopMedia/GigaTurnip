@@ -646,8 +646,8 @@ class TaskStage(Stage, SchemaProvider):
         choices=STAGE_TYPES,
         max_length=2,
         blank=True,
+        default="AC",
         null=True,
-        default=None,
         help_text="Stage type."
     )
 
