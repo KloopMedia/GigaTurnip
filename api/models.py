@@ -640,7 +640,7 @@ class TaskStage(Stage, SchemaProvider):
     )
     STAGE_TYPES = (
         ("PR", "Proactive"),
-        ("RE", "Reactive")
+        ("AC", "Active")
     )
     stage_type = models.CharField(
         choices=STAGE_TYPES,
@@ -649,10 +649,6 @@ class TaskStage(Stage, SchemaProvider):
         null=True,
         default=None,
         help_text="Stage type."
-    )
-    is_proactive = models.BooleanField(
-        default=False,
-        help_text="True - stage is proactive, otherwise - active."
     )
 
     SCHEMA_SOURCE_CHOICES = [

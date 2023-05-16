@@ -207,7 +207,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign',
+                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign', 'stage_type',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params', 'dynamic_jsons_source', 'dynamic_jsons_target',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
@@ -224,7 +224,7 @@ class TaskStageSerializer(serializers.ModelSerializer,
                  ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params',
+                  'webhook_payload_field', 'webhook_params', 'stage_type',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
     def validate_chain(self, value):
@@ -242,7 +242,7 @@ class TaskStagePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
         fields = ['id', 'name', 'description', 'json_schema', 'ui_schema', 'external_metadata',
-                  'library', 'rich_text', 'created_at', 'updated_at']
+                  'stage_type', 'library', 'rich_text', 'created_at', 'updated_at']
         read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
                             'library', 'rich_text', 'created_at', 'updated_at']
 
@@ -536,6 +536,14 @@ class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
                                           "to this track")
 
 
+class RankGroupedByTrackSerializer(serializers.ModelSerializer):
+    all_ranks = serializers.ListSerializer(child=serializers.JSONField())
+
+    class Meta:
+        model = Track
+        fields = ["id", "name", "all_ranks"]
+
+
 class TaskStageFullRankReadSerializer(TaskStageReadSerializer):
     ranks = RankSerializer(many=True)
 
@@ -664,9 +672,9 @@ class NumberRankSerializer(serializers.Serializer):
 
 
 class UserStatisticSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-    tasks_count = serializers.IntegerField(read_only=True)
+    id = serializers.IntegerField(read_only=True, help_text="Campaign id.")
+    name = serializers.CharField(read_only=True, help_text="Campaign title.")
+    count = serializers.IntegerField(read_only=True, help_text="Count of users.")
 
 
 class CategoryListSerializer(serializers.ModelSerializer):
