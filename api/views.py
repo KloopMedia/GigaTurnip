@@ -273,7 +273,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     permission_classes = (ChainAccessPolicy,)
     filterset_fields = {
         "id": ["exact"],
-        "campaign": ["exact"]
+        "campaign": ["exact"],
+        "is_individual": ["exact"]
     }
 
     def get_queryset(self):
