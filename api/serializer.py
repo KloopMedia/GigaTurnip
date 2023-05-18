@@ -320,10 +320,10 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'complete']
 
     def to_representation(self, instance):
-        """Replace stage schema with schema from task stage is so configured."""
+        """Replace stage schema with schema from task stage if so configured."""
         if instance.stage.schema_source == TaskStageSchemaSourceConstants.TASK:
-            instance.stage.json_schema = instance.schema
-            instance.stage.ui_schema = instance.ui_schema
+            instance.stage.json_schema = json.dumps(instance.schema)
+            instance.stage.ui_schema = json.dumps(instance.ui_schema)
         return super().to_representation(instance)
 
 
