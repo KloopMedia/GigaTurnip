@@ -306,6 +306,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["public"],
             "principal": "*",
             "effect": "allow",
+            "condition_expression": "is_stage_public"
         }
     ]
 
@@ -326,6 +327,9 @@ class TaskAccessPolicy(AccessPolicy):
     def is_assignee(self, request, view, action):
         task = view.get_object()
         return request.user == task.assignee
+
+    def is_stage_public(self, request, view, action):
+        return view.get_object().stage.is_public
 
     def is_not_complete(self, request, view, action):
         task = view.get_object()

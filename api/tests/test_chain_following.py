@@ -231,6 +231,33 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
+    def test_public_task(self):
+        self.initial_stage.is_public = True
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"answer": "My answer"})
+        self.assertTrue(task.complete)
+
+        response = self.get_objects("task-public", pk=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["responses"], task.responses)
+        self.assertEqual(response.data["stage"]["id"], self.initial_stage.id)
+        self.assertIn("json_schema", response.data["stage"].keys())
+        self.assertIn("ui_schema", response.data["stage"].keys())
+
     def test_list_languages(self):
         Language.objects.create(
             code="ru",
@@ -587,13 +614,20 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
 
-    def test_TaskStageViewSet_public_paginate(self):
-        response = self.get_objects('taskstage-public')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            set(json.loads(response.content).keys()),
-            {"count", "next", "previous", "results"}
+    def test_public_stages(self):
+        new_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Publich stage",
+                json_schema=self.initial_stage.json_schema,
+                ui_schema=self.initial_stage.ui_schema,
+                is_public=True,
             )
+        )
+        client = APIClient()
+        response = self.get_objects("taskstage-public", client=client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], new_stage.id)
 
     def test_TaskStageViewSet_user_relevant_paginate(self):
         response = self.get_objects('taskstage-user-relevant')
@@ -2275,6 +2309,19 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3: a')
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 3)
+
+        # Test answers if threshold equals 0
+        quiz.provide_answers = True
+        quiz.threshold = 0
+        quiz.save()
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "b", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 66)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3: a')
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 4)
+
 
     def test_quiz_show_answers_on_fail(self):
         task_correct_responses = self.create_initial_task()
