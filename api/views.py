@@ -55,7 +55,7 @@ from api.serializer import (
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
     LanguageListSerializer, ChainIndividualsSerializer,
-    RankGroupedByTrackSerializer
+    RankGroupedByTrackSerializer, TaskPublicSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -687,8 +687,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        elif self.action == 'public':
-            return TaskListSerializer
         elif self.action == 'user_activity':
             return TaskUserActivitySerializer
         else:
@@ -899,24 +897,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                  )
 
         return qs
-
-    @paginate
-    @action(detail=False)
-    def public(self, request):
-        tasks = self.filter_queryset(self.get_queryset())
-        tasks = tasks.values('id',
-                             'complete',
-                             'force_complete',
-                             'reopened',
-                             'stage__publisher__is_public',
-                             'stage__name',
-                             'stage__description')
-        is_public = tasks.filter(stage__is_public=True)
-        is_public_publisher = tasks.filter(complete=True).filter(
-            stage__publisher__is_public=True
-        )
-        tasks = list(chain(is_public, is_public_publisher))
-        return tasks
 
     @paginate
     @action(detail=False)

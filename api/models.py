@@ -1378,7 +1378,7 @@ class Quiz(BaseDatesModel):
             return score, incorrect_questions
         if self.show_answer == Quiz.ShowAnswers.NEVER:
             return score, []
-        if self.threshold:
+        if self.threshold is not None:
             if ((self.show_answer == Quiz.ShowAnswers.ON_FAIL
                  and score <= self.threshold)
                     or (self.show_answer == Quiz.ShowAnswers.ON_PASS
