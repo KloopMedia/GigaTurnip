@@ -2276,6 +2276,19 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 3)
 
+        # Test answers if threshold equals 0
+        quiz.provide_answers = True
+        quiz.threshold = 0
+        quiz.save()
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "b", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 66)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3: a')
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 3)
+
+
     def test_quiz_show_answers_on_fail(self):
         task_correct_responses = self.create_initial_task()
 
