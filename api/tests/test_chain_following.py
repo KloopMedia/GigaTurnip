@@ -231,6 +231,33 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
+    def test_public_task(self):
+        self.initial_stage.is_public = True
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"answer": "My answer"})
+        self.assertTrue(task.complete)
+
+        response = self.get_objects("task-public", pk=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["responses"], task.responses)
+        self.assertEqual(response.data["stage"]["id"], self.initial_stage.id)
+        self.assertIn("json_schema", response.data["stage"].keys())
+        self.assertIn("ui_schema", response.data["stage"].keys())
+
     def test_list_languages(self):
         Language.objects.create(
             code="ru",
