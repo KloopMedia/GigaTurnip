@@ -251,7 +251,7 @@ class GigaTurnipTest(APITestCase):
         task = self.complete_task(task, {"answer": "My answer"})
         self.assertTrue(task.complete)
 
-        response = self.get_objects("task-public", pk=task.id)
+        response = self.get_objects("task-detail", pk=task.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["responses"], task.responses)
         self.assertEqual(response.data["stage"]["id"], self.initial_stage.id)

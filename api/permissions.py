@@ -250,9 +250,9 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
-            "principal": "authenticated",
+            "principal": "*",
             "effect": "allow",
-            "condition_expression": "is_assignee or "
+            "condition_expression": "is_assignee or is_stage_public "
                                     "is_manager or "
                                     "can_user_request_assignment"
         },
@@ -301,12 +301,6 @@ class TaskAccessPolicy(AccessPolicy):
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee and is_not_complete and is_webhook"
-        },
-        {
-            "action": ["public"],
-            "principal": "*",
-            "effect": "allow",
-            "condition_expression": "is_stage_public"
         }
     ]
 

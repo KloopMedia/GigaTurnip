@@ -687,8 +687,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        elif self.action == 'public':
-            return TaskPublicSerializer
         elif self.action == 'user_activity':
             return TaskUserActivitySerializer
         else:
@@ -899,12 +897,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                  )
 
         return qs
-
-    @action(detail=True, methods=["GET"])
-    def public(self, request, pk=None):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
 
     @paginate
     @action(detail=False)
