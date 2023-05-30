@@ -67,7 +67,7 @@ from .utils.django_expressions import ArraySubquery
 
 
 class CategoryViewSet(mixins.ListModelMixin, GenericViewSet):
-    permission_classes = (CategoryAccessPolicy, )
+    permission_classes = (CategoryAccessPolicy,)
 
     def get_queryset(self):
         return CategoryAccessPolicy.scope_queryset(
@@ -86,7 +86,7 @@ class CategoryViewSet(mixins.ListModelMixin, GenericViewSet):
 
 
 class CountryViewSet(mixins.ListModelMixin, GenericViewSet):
-    permission_classes = (CountryAccessPolicy, )
+    permission_classes = (CountryAccessPolicy,)
 
     def get_queryset(self):
         return CountryAccessPolicy.scope_queryset(
@@ -105,7 +105,7 @@ class CountryViewSet(mixins.ListModelMixin, GenericViewSet):
 
 
 class LanguageViewSet(mixins.ListModelMixin, GenericViewSet):
-    permission_classes = (LanguageAccessPolicy, )
+    permission_classes = (LanguageAccessPolicy,)
 
     def get_queryset(self):
         return LanguageAccessPolicy.scope_queryset(
@@ -156,7 +156,7 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         now_minus_5 = datetime.now() - timedelta(minutes=5)
         obj = UserDelete.objects.filter(
-            pk=pk, user =request.user,
+            pk=pk, user=request.user,
             created_at__gt=now_minus_5
         )
         serializer = UserDeleteSerializer(data=request.data)
@@ -171,7 +171,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 else:
                     return Response(
                         {
-                         "message": "Something went wrong"},
+                            "message": "Something went wrong"},
                         status=status.HTTP_409_CONFLICT
                     )
             return Response(
@@ -299,7 +299,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
-        qs = self.filter_queryset(self.get_queryset())\
+        qs = self.filter_queryset(self.get_queryset()) \
             .filter(is_individual=True)
         user = request.user
 
@@ -313,7 +313,7 @@ class ChainViewSet(viewsets.ModelViewSet):
 
         cases = Task.objects.filter(
             assignee=user,
-            stage__chain__in=qs)\
+            stage__chain__in=qs) \
             .values("case").distinct()
 
         qs = qs.values("id", "name").annotate(
@@ -321,10 +321,11 @@ class ChainViewSet(viewsets.ModelViewSet):
                 TaskStage.objects.filter(chain=OuterRef("id")).annotate(
                     all_out_stages=ArrayAgg("out_stages", distinct=True),
                     all_in_stages=ArrayAgg("in_stages", distinct=True),
-                    total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
+                    total_count=Count("tasks",
+                                      filter=Q(tasks__case__in=cases)),
                     complete_count=Count("tasks",
-                                               filter=Q(tasks__case__in=cases,
-                                                        tasks__complete=True))
+                                         filter=Q(tasks__case__in=cases,
+                                                  tasks__complete=True))
                 ).values(
                     info=JSONObject(
                         id="id",
@@ -478,7 +479,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
                 kwargs['case'] = task.case.id if task.case else None
             except Task.DoesNotExist:
                 raise CustomApiException(status.HTTP_400_BAD_REQUEST,
-                                         ErrorConstants.ENTITY_DOESNT_EXIST % ('Task', task_id))
+                                         ErrorConstants.ENTITY_DOESNT_EXIST % (
+                                         'Task', task_id))
 
         if task_stage.json_schema:
             schema = process_updating_schema_answers(**kwargs)
@@ -498,6 +500,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         qs = qs.filter(id__in=tasks_selectable.values("stage").distinct())
 
         return qs
+
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -549,7 +552,7 @@ class CaseViewSet(viewsets.ModelViewSet):
     }
 
     @action(detail=True)
-    def info_by_case(self, request, pk=None): # todo: through serializer
+    def info_by_case(self, request, pk=None):  # todo: through serializer
         tasks = self.get_object().tasks.all()
         filters_tasks_info = {
             "complete": ArrayAgg('complete'),
@@ -660,7 +663,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         'created_at': ['lte', 'gte', 'lt', 'gt'],
         'updated_at': ['lte', 'gte', 'lt', 'gt']
     }
-    search_fields = ('responses', )
+    search_fields = ('responses',)
     filter_backends = [
         DjangoFilterBackend,
         ResponsesContainsFilter,
@@ -764,7 +767,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                     "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
                     "id": instance.id
                 }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
+                raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                         err_message)
             try:
                 task = instance.set_complete(
                     responses=serializer.validated_data.get("responses", {}),
@@ -779,14 +783,16 @@ class TaskViewSet(viewsets.ModelViewSet):
                         "id": instance.id
                     }
                 }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
+                raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                         err_message)
             except Task.AlreadyCompleted:
                 err_message = {
                     "detail": {
                         "message": ErrorConstants.TASK_ALREADY_COMPLETED,
                         "id": instance.id}
                 }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
+                raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                         err_message)
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset,
                 # we need to forcibly invalidate the prefetch
@@ -867,7 +873,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         )
 
         tasks = queryset
-        if request.query_params.get('responses_contains') or request.method == "POST":
+        if request.query_params.get(
+                'responses_contains') or request.method == "POST":
             tasks = Task.objects.filter(
                 id__in=Subquery(
                     queryset.filter(
@@ -875,7 +882,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                     ).values('out_tasks')
                 )
             )
-        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
+                                                                  request)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
 
         qs = by_datetime.annotate(
@@ -902,7 +910,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
-            .select_related('stage',) \
+            .select_related('stage', ) \
             .prefetch_related('stage__ranks', 'stage__in_stages',
                               'stage__out_stages')
         groups = tasks.values('stage').annotate(
@@ -948,8 +956,10 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         if request.query_params.get("csv", None):
             fieldnames = ["stage", "stage__name", "chain_id", "chain",
-                          "case", "assignee", "email", "rank_ids", "rank_names",
-                          "complete_true", "complete_false", "force_complete_false",
+                          "case", "assignee", "email", "rank_ids",
+                          "rank_names",
+                          "complete_true", "complete_false",
+                          "force_complete_false",
                           "force_complete_true", "count_tasks", ]
 
             writer = csv.DictWriter(response, fieldnames=fieldnames)
@@ -1007,25 +1017,30 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if in_tasks:
                     in_tasks.update(assignee=None)
             return Response({'status': 'assignment released'})
-        raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'release this')
+        raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                 ErrorConstants.IMPOSSIBLE_ACTION % 'release this')
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):
         task = self.get_object()
         try:
             task.set_not_complete()
-            return Response({'status': 'Assignment uncompleted', 'id': task.id})
+            return Response(
+                {'status': 'Assignment uncompleted', 'id': task.id})
         except Task.ImpossibleToUncomplete:
-            raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'uncomplete this')
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     ErrorConstants.IMPOSSIBLE_ACTION % 'uncomplete this')
 
     @action(detail=True, methods=['post', 'get'])
     def open_previous(self, request, pk=None):
         task = self.get_object()
         try:
             (prev_task, task) = task.open_previous()
-            return Response({'status': 'Previous task opened.', 'id': prev_task.id})
+            return Response(
+                {'status': 'Previous task opened.', 'id': prev_task.id})
         except Task.ImpossibleToOpenPrevious:
-            return CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'open previous')
+            return CustomApiException(status.HTTP_403_FORBIDDEN,
+                                      ErrorConstants.IMPOSSIBLE_ACTION % 'open previous')
 
     # @action(detail=True, methods=['post', 'get'])
     # def open_next(self, request, pk=None):
@@ -1050,7 +1065,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         webhook = task.stage.get_webhook()
         if webhook:
-            is_altered, altered_task, response, error_description = webhook.trigger(task)
+            is_altered, altered_task, response, error_description = webhook.trigger(
+                task)
             if is_altered:
                 return Response({"status": "Responses overwritten",
                                  "responses": altered_task.responses})
@@ -1120,7 +1136,7 @@ class RankViewSet(viewsets.ModelViewSet):
         )
 
     @paginate
-    def list(self,request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(self.get_queryset())
         qs = qs.select_related('track').prefetch_related(
             'prerequisite_ranks', 'stages'
@@ -1369,7 +1385,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=True)
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request.user)
-        return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @paginate
     @action(detail=False)
@@ -1486,9 +1503,11 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         test_webhook = TestWebhook.objects.get(pk=pk)
         expected_task = test_webhook.expected_task
         sent_task = test_webhook.sent_task
-        webhook = Webhook.objects.filter(task_stage=expected_task.stage.pk).get()
+        webhook = Webhook.objects.filter(
+            task_stage=expected_task.stage.pk).get()
         if webhook:
-            response = requests.post(webhook.url, json=sent_task.responses, headers={}).json()
+            response = requests.post(webhook.url, json=sent_task.responses,
+                                     headers={}).json()
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if response == expected_task.responses:
@@ -1514,12 +1533,16 @@ class UserStatisticViewSet(GenericViewSet):
     def total_count(self, request, *args, **kwargs):
         """
         Returns total count of users in one campaign.
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
+        To exclude managers from calculation add filter ?exclude_managers=true.
         """
+        managed_campaigns = request.user.managed_campaigns.all()
+        user_campaigns = self.get_campaigns_by_query_params(request,
+                                                            managed_campaigns)
+
         qs = self.get_queryset()
+        qs = self.filter_managers(request, CampaignManagement.objects.filter(
+            campaign__in=user_campaigns).values("user"), qs)
+
         return Response({"total": qs.values('id').count()})
 
     @paginate
@@ -1624,3 +1647,9 @@ class UserStatisticViewSet(GenericViewSet):
         if campaign_filter and campaign_filter.isdigit():
             campaigns = campaigns.filter(id=int(campaign_filter))
         return campaigns
+
+    def filter_managers(self, request, managers, qs):
+        exclude_managers = request.query_params.get("exclude_managers", None)
+        if exclude_managers == "true":
+            return qs.exclude(id__in=managers)
+        return qs
