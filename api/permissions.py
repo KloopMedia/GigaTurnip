@@ -292,9 +292,11 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["list_displayed_previous"],
-            "principal": "authenticated",
+            "principal": "*",
             "effect": "allow",
-            "condition_expression": "is_assignee or is_manager or (is_selection_open and is_listing_allowed)"
+            "condition_expression": "is_stage_public "
+                                    "or (is_assignee or is_manager "
+                                    "or (is_selection_open and is_listing_allowed))"
         },
         {
             "action": ["trigger_webhook", ],
