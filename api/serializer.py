@@ -253,6 +253,19 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class TaskPublicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'responses',
+            'stage',
+            'created_at'
+        ]
+
+
 class TaskListSerializer(serializers.ModelSerializer):
     stage = serializers.SerializerMethodField()
 
