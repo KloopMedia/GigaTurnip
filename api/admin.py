@@ -10,13 +10,13 @@ from rest_framework.authtoken.models import Token
 
 from .asyncstuff import process_completed_task
 from .models import (
-    Campaign, Chain, TaskStage, ConditionalStage, Case, Task,  CustomUser,
+    Campaign, Chain, TaskStage, ConditionalStage, Case, Task, CustomUser,
     Rank, RankLimit, RankRecord, CampaignManagement, Track, Log,
     Notification, NotificationStatus, AdminPreference, Stage, Integration,
     Webhook, CopyField, StagePublisher, Quiz, ResponseFlattener, TaskAward,
     DynamicJson, PreviousManual, AutoNotification, ConditionalLimit,
     DatetimeSort, ErrorItem, TestWebhook, CampaignLinker, ApproveLink,
-    Language, Category
+    Language, Category, Country
 )
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -202,8 +202,12 @@ class CustomUserAdmin(UserAdmin):
 
 
 class CampaignAdmin(admin.ModelAdmin):
-    search_fields = ("id", "name", )
-    autocomplete_fields = ("default_track", "categories", "language", )
+    search_fields = ("id", "name")
+    autocomplete_fields = (
+        "default_track",
+        "categories",
+        "language",
+        "countries")
 
 
 class TokenAdmin(admin.ModelAdmin):
@@ -542,6 +546,13 @@ class LanguageAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "id")
     search_fields = ("name", "code")
 
+
+class CountryAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")
+    search_fields = ("id", "name")
+
+    class Meta:
+        verbose_name = "Countries"
 
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", )
@@ -958,6 +969,7 @@ class TestWebhookAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Token, TokenAdmin)
+admin.site.register(Country, CountryAdmin)
 admin.site.register(Language, LanguageAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(CustomUser, CustomUserAdmin)

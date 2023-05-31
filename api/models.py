@@ -220,6 +220,8 @@ class Country(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name_plural = "Countries"
 
 def validate_language_code(val):
     if len(val) == 2 and val.isalpha():
