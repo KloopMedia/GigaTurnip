@@ -241,16 +241,14 @@ class CampaignViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def list_user_campaigns(self, request):
-        campaigns = utils.filter_for_user_campaigns(self.get_queryset(),
-                                                    request)
-        return campaigns
+        qs = self.filter_queryset(self.get_queryset())
+        return utils.filter_for_user_campaigns(qs, request)
 
     @paginate
     @action(detail=False)
     def list_user_selectable(self, request):
-        campaigns = utils \
-            .filter_for_user_selectable_campaigns(self.get_queryset(), request)
-        return campaigns
+        qs = self.filter_queryset(self.get_queryset())
+        return utils.filter_for_user_selectable_campaigns(qs, request)
 
 
 class ChainViewSet(viewsets.ModelViewSet):
