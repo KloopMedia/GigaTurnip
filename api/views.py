@@ -1553,6 +1553,7 @@ class UserStatisticViewSet(GenericViewSet):
         In query params provide start and end dates for filter by period.
         Example: ?start=2020-01-16&end=2021-01-16
 
+        To exclude managers from calculation add filter ?exclude_managers=true.
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                key="tracks__ranks__users__created_at")
