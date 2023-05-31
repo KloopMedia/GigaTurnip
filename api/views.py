@@ -1583,7 +1583,6 @@ class UserStatisticViewSet(GenericViewSet):
         ?campaign=123
 
         To exclude managers from calculation add filter ?exclude_managers=true.
-
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
@@ -1593,18 +1592,20 @@ class UserStatisticViewSet(GenericViewSet):
         managed_campaigns = request.user.managed_campaigns.all()
         user_campaigns = self.get_campaigns_by_query_params(request,
                                                             managed_campaigns)
-        managers = CampaignManagement.objects.none()
+        managers_by_campaign = CampaignManagement.objects.none()
         if request.query_params.get("exclude_managers", None) == "true":
             managers = CampaignManagement.objects.filter(
-            campaign__in=user_campaigns)
+                campaign__in=user_campaigns)
+            managers_by_campaign = managers.filter(
+                campaign_id=OuterRef(OuterRef(OuterRef("id"))))
 
         campaign_info = user_campaigns.values("id", "name").annotate(
             count=Subquery(
                 Task.objects.filter(
                     stage__chain__campaign_id=OuterRef("id"),
                     assignee__isnull=False,
-                    assignee__in=qs_users.exclude(id__in=managers.filter(
-                        campaign_id=OuterRef("id")).values("user")),
+                    assignee__in=qs_users.exclude(
+                        id__in=managers_by_campaign.values("user")),
                     **date_range_filter
                 ).values("stage__chain__campaign").annotate(
                     count=Count("assignee", distinct=True)
