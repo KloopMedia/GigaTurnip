@@ -1556,15 +1556,21 @@ class UserStatisticViewSet(GenericViewSet):
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                key="tracks__ranks__users__created_at")
-
-
+        filters = [
+            Q(**date_range_filter),
+        ]
 
         managed_campaigns = request.user.managed_campaigns.all()
         user_campaigns = self.get_campaigns_by_query_params(request,
                                                             managed_campaigns)
+        if request.query_params.get("exclude_managers", None) == "true":
+            managers = CampaignManagement.objects.filter(
+                campaign__in=user_campaigns)
+            filters.append(~Q(tracks__ranks__users__in=managers.values("user")))
+
         user_campaigns = user_campaigns.values("id", "name").annotate(
             count=Count("tracks__ranks__users",
-                        filter=Q(**date_range_filter),
+                        filter=Q(*filters),
                         distinct=True)
         )
 
