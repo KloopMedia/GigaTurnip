@@ -6254,3 +6254,68 @@ class GigaTurnipTest(APITestCase):
 
         response = self.get_objects('task-trigger-webhook',  pk=next_task.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_task_translation_schema(self):
+        schema = {
+            "title": "Schema for english people",
+            "description": "Description",
+            "type": "object",
+            "properties": {
+                "firstName": {
+                    "title": "Provide your name",
+                    "type": "string"
+                },
+                "lastName": {
+                    "title": "Provide your last name",
+                    "type": "string"
+                },
+                "surname": {
+                    "title": "Provide your surname(optional).",
+                    "type": "string"
+                }
+            },
+            "required": ["firstName", "lastName"]
+        }
+        self.initial_stage.json_schema =  json.dumps(schema)
+        self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Second ts.",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+            json_schema=self.initial_stage.json_schema
+        ))
+
+        # verification stage
+        rank_verifier = Rank.objects.create(name='verifier rank')
+        RankRecord.objects.create(rank=rank_verifier, user=self.employee)
+
+        verifier_stage = second_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.RANK,
+            json_schema=self.initial_stage.json_schema
+        ))
+        # conditional stage
+        conditional_stage = verifier_stage.add_stage(ConditionalStage(
+                name='Checker',
+                conditions=[
+                    {"type": "string", "field": "firstName", "value": "",
+                     "condition": "!="}
+                ]
+        ))
+
+        # final user stage
+        third_stage = conditional_stage.add_stage(TaskStage(
+            name="Third ts.",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=second_stage,
+            json_schema=self.initial_stage.json_schema
+        ))
+
+        response = self.get_objects("taskstage-available-stages")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Stage.objects.count(), 5)
+        self.assertEqual(response.data["count"], 3)
+        all_stage = [self.initial_stage.id, second_stage.id, third_stage.id]
+        response_stages = [i["id"] for i in response.data["results"]]
+        self.assertEqual(all_stage, response_stages)
