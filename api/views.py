@@ -499,6 +499,33 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
         return qs
 
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def available_stages(self, request, *args, **kwargs):
+        """
+        Return all available stages that user  can pass in the future.
+        """
+        qs = self.filter_queryset(self.get_queryset())
+
+        stages_by_ranks = RankLimit.objects.filter(
+            rank__in=request.user.ranks.values("id")
+        ).values_list('stage', flat=True).distinct()
+
+        qs = qs.filter(id__in=stages_by_ranks)
+
+        used = set()
+        to_parse = set(qs)
+
+        while to_parse:
+            current = to_parse.pop()
+
+            new = current.assign_user_to_stages.exclude(id__in=used)
+            qs |= new
+
+            used.add(current.id)
+            to_parse.update(new.exclude(id__in=used))
+
+        return qs.distinct()
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
