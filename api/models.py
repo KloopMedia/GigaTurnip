@@ -862,6 +862,48 @@ class TranslateKey(models.Model):
     class Meta:
         unique_together = ("campaign", "key")
 
+
+class Translation(models.Model):
+    key = models.ForeignKey(
+        "TranslateKey",
+        related_name="translations",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="All translations for the key."
+    )
+    language = models.ForeignKey(
+        "Language",
+        on_delete=models.CASCADE,
+        related_name="translations",
+        null=True,
+        blank=True,
+        help_text="All translations for the key."
+    )
+    text = models.TextField(
+        help_text="Translations."
+    )
+
+    @classmethod
+    def create_from_list(cls, language, keys, texts):
+
+        exists = set(
+            cls.objects.filter(language=language, key_id__in=keys).values_list(
+                "key_id", flat=True)
+        )
+
+        data_to_create = [cls(language=language, key_id=keys[i], text=texts[i])
+                          for i in range(len(keys)) if keys[i] not in exists]
+
+        return cls.objects.bulk_create(data_to_create)
+
+    def __str__(self):
+        return f"{self.key.key}: {self.language}"
+
+    class Meta:
+        unique_together = ("key", "language")
+
+
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
         TaskStage,
