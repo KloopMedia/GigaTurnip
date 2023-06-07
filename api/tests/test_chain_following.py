@@ -9,7 +9,8 @@ from api.constans import (
     TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
     ErrorConstants, TaskStageSchemaSourceConstants, WebhookTargetConstants,
     WebhookConstants)
-from api.models import CampaignLinker, ApproveLink, Language, Category, Country
+from api.models import CampaignLinker, ApproveLink, Language, Category, \
+    Country, Translation, TranslateKey
 from api.models import CustomUser, TaskStage, Campaign, Chain, \
     ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
     Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
@@ -6078,3 +6079,57 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task_3.complete)
         self.assertFalse(task_3.reopened)
         self.assertEqual(Task.objects.count(), 3)
+
+    def test_create_translate_keys_from_stage(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "answer2": {
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "answer3": {
+                    "title": "Question 3",
+                    "type": "string"
+                },
+                "answer4": {
+                    "title": "Question 4",
+                    "type": "string"
+                }
+            },
+            "required": ["answer","answer2","answer3","answer4"]
+        }
+        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.save()
+
+        result = TranslateKey.generate_keys_from_stage(self.initial_stage)
+        self.assertEqual(len(result), 4)
+        self.assertEqual(
+            TranslateKey.objects.filter(campaign=self.campaign).count(), 4)
+
+        result2 = TranslateKey.generate_keys_from_stage(self.initial_stage)
+        self.assertEqual(len(result2), 0)
+        self.assertEqual(
+            TranslateKey.objects.filter(campaign=self.campaign).count(), 4)
+
+        local_lang = Language.objects.create(
+            name="Russia",
+            code="ru"
+        )
+        translations = {
+            "Question 1": "Вопрос 1",
+            "Question 2": "Вопрос 2",
+            "Question 3": "Вопрос 3",
+            "Question 4": "Вопрос 4"
+        }
+        translated = [(i.id, translations.get(i.text)) for i in result]
+        translated_values = Translation.create_from_list(local_lang, translated)
+        self.assertEqual(Translation.objects.count(), 4)
+
+        translated_values = Translation.create_from_list(local_lang, translated)
+        self.assertEqual(Translation.objects.count(), 4)
+

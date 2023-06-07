@@ -899,7 +899,7 @@ class TranslateKey(models.Model):
     @classmethod
     def generate_keys_from_stage(cls, stage: TaskStage):
         texts = cls.create_keys_from_dict(json.loads(stage.get_json_schema()))
-        return cls.create_from_list(stage.get_campaign(), texts)
+        return cls.create_from_list(stage.get_campaign(), texts.values())
 
     def __str__(self):
         return f"{self.campaign}: {self.key}"
@@ -930,15 +930,21 @@ class Translation(models.Model):
     )
 
     @classmethod
-    def create_from_list(cls, language, keys, texts):
+    def create_from_list(cls, language, pairs):
+        """
 
+        :param language: Language
+        :param pairs: list((id of TranslateKey, text), ...)
+        :return: list of Translation
+        """
         exists = set(
-            cls.objects.filter(language=language, key_id__in=keys).values_list(
-                "key_id", flat=True)
+            cls.objects
+            .filter(language=language, key_id__in=[i[0] for i in pairs])
+            .values_list("key_id", flat=True)
         )
 
-        data_to_create = [cls(language=language, key_id=keys[i], text=texts[i])
-                          for i in range(len(keys)) if keys[i] not in exists]
+        data_to_create = [cls(language=language, key_id=i[0], text=i[0])
+                          for i in pairs if i[0] not in exists]
 
         return cls.objects.bulk_create(data_to_create)
 
