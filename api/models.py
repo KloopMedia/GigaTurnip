@@ -842,6 +842,46 @@ class TranslateKey(models.Model):
         help_text="Text to translation."
     )
 
+    FIELDS_TO_COLLECT = ["title", "description", "enumNames"]
+
+    @staticmethod
+    def extract_titles(storage, val, path):
+        storage[path] = val
+
+    @staticmethod
+    def extract_enums(storage, val, path):
+        for i, enum in enumerate(val):
+            storage[f"{path}__{i}"] = enum
+
+    @classmethod
+    def extract_fields_to_translate(cls, data, storage, path=None):
+        p = path if path else ""
+        if isinstance(data, dict):
+            for i in range(len(cls.FIELDS_TO_COLLECT)):
+                key = cls.FIELDS_TO_COLLECT[i]
+                val = data.get(key)
+                if isinstance(val, (str, list)):
+                    full_path = f"{p}__{key}" if p else key
+                    if key == "enumNames":
+                        cls.extract_enums(storage, val, full_path)
+                    else:
+                        cls.extract_titles(storage, val, full_path)
+            for k, v in data.items():
+                full_path = f"{p}__{k}" if p else k
+                cls.extract_fields_to_translate(v, storage, full_path)
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                if not isinstance(i, (dict, list)):
+                    break
+                full_path = f"{p}__{i}" if p else i
+                cls.extract_enums(storage, item, full_path)
+
+    @classmethod
+    def create_keys_from_dict(cls, schema):
+        paths_to_text = dict()
+        cls.extract_fields_to_translate(schema, paths_to_text)
+        return paths_to_text
+
     @classmethod
     def create_from_list(cls, campaign, texts):
         keys = [hashlib.sha256(t.encode()).hexdigest() for t in texts]
@@ -855,6 +895,11 @@ class TranslateKey(models.Model):
                           in set(zip(keys, texts)) if k not in exists]
 
         return cls.objects.bulk_create(data_to_create)
+
+    @classmethod
+    def generate_keys_from_stage(cls, stage: TaskStage):
+        texts = cls.create_keys_from_dict(json.loads(stage.get_json_schema()))
+        return cls.create_from_list(stage.get_campaign(), texts)
 
     def __str__(self):
         return f"{self.campaign}: {self.key}"
