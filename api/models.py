@@ -3,8 +3,9 @@ import json, os, sys, traceback
 import string, random, re
 from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
-
+import hashlib
 import requests
+
 from django.apps import apps
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
@@ -820,6 +821,46 @@ class TaskStage(Stage, SchemaProvider):
             return '{}'
         return self.ui_schema
 
+
+class TranslateKey(models.Model):
+    campaign = models.ForeignKey(
+        "Campaign",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+        help_text="Campaign that translate text."
+    )
+    key = models.CharField(
+        max_length=64,
+        null=False,
+        blank=False,
+        help_text="Hash text for text."
+    )
+    text = models.TextField(
+        blank=False,
+        null=False,
+        help_text="Text to translation."
+    )
+
+    @classmethod
+    def create_from_list(cls, campaign, texts):
+        keys = [hashlib.sha256(t.encode()).hexdigest() for t in texts]
+        exists = set(
+            cls.objects.filter(
+                campaign=campaign, key__in=keys
+            ).values_list("key", flat=True)
+        )
+
+        data_to_create = [cls(campaign=campaign, key=k, text=v) for k, v
+                          in set(zip(keys, texts)) if k not in exists]
+
+        return cls.objects.bulk_create(data_to_create)
+
+    def __str__(self):
+        return f"{self.campaign}: {self.key}"
+
+    class Meta:
+        unique_together = ("campaign", "key")
 
 class Integration(BaseDatesModel):
     task_stage = models.OneToOneField(
