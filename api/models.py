@@ -884,7 +884,7 @@ class TranslateKey(models.Model):
         """
         Generate array of dictionaries.
 
-        :param fields: dictionary
+        :param fields: schema
         :return:
         """
         result = []
@@ -916,10 +916,10 @@ class TranslateKey(models.Model):
     @classmethod
     def get_keys_from_schema(cls, schema: dict) -> dict[str, str]:
         """
-        Generate dictionary with a texts of the fields FIELDS_TO_COLLECT.
+        Generate schema with a texts of the fields FIELDS_TO_COLLECT.
 
         :param schema: schema of the TaskStage
-        :return: dictionary where key is a hashed hexdigset of the value, value is a text
+        :return: schema where key is a hashed hexdigset of the value, value is a text
         """
         paths_to_text = dict()
         cls.extract_fields_to_translate(schema, paths_to_text)
@@ -928,7 +928,7 @@ class TranslateKey(models.Model):
     @classmethod
     def create_from_list(cls, campaign: Campaign, texts: dict) -> QuerySet:
         """
-        Create many instances in the database in one query based on dictionary.
+        Create many instances in the database in one query based on schema.
 
         :param campaign: Campaign that want to translate texts.
         :param texts: Key is a hashed code, value - is a text
@@ -949,6 +949,47 @@ class TranslateKey(models.Model):
     def generate_keys_from_stage(cls, stage: TaskStage):
         texts = cls.get_keys_from_schema(json.loads(stage.get_json_schema()))
         return cls.create_from_list(stage.get_campaign(), texts)
+
+    @classmethod
+    def substitute_values(cls, schema: dict,
+                          translations):
+        """
+        Method substitute schema values of FIELDS_TO_COLLECT fields with 'translations' values in order to translate schema on traget language.
+
+        :param schema: Schema where method will substitute values
+        :param translations: Translation QuerySet - available translations.
+        :return:
+        """
+        if isinstance(schema, dict):
+            for k, v in schema.items():
+                if k in cls.FIELDS_TO_COLLECT and isinstance(v, str):
+                    translation = translations.filter(
+                        key__key=hashlib.sha256(v.encode()).hexdigest()
+                    ).first()
+                    schema[k] = translation.text if translation else v
+                elif isinstance(v, dict):
+                    cls.substitute_values(v, translations)
+
+    @classmethod
+    def get_translated_schema_by_stage(cls, stage: TaskStage,
+                                                   lang_code: str) -> dict:
+        """
+        This method gets json schema of the stage and creates new based on the language.
+
+        :param stage: TaskStage which schema must be used as source schema
+        :param lang: Language code
+        :return: translated schema
+        """
+
+        schema = json.loads(stage.get_json_schema())
+        all_fields = cls.get_keys_from_schema(schema)
+        translations = Translation.objects.filter(
+            key__key__in=list(all_fields.keys()),
+            language__code=lang_code
+        )
+
+        cls.substitute_values(schema, translations)
+        return schema
 
     def __str__(self):
         return f"{self.campaign}: {self.key}"

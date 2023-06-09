@@ -16,7 +16,8 @@ from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson, TestWebhook, Category, Language, Country
+    TaskAward, DynamicJson, TestWebhook, Category, Language, Country, \
+    TranslateKey
 from api.permissions import ManagersOnlyAccessPolicy
 
 base_model_fields = ['id', 'name', 'description']
@@ -215,6 +216,17 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
     def get_campaign(self, obj):
         return obj.get_campaign().id
 
+    def to_representation(self, instance):
+        request = self.context.get("request")
+        if request:
+            lang = Language.objects.filter(
+                code=request.query_params.get("lang")
+            ).first()
+            if lang:
+                json_schema = TranslateKey.get_translated_schema_by_stage(
+                    instance, lang.code)
+                instance.json_schema = json.dumps(json_schema)
+        return super().to_representation(instance)
 
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):
