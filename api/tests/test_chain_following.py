@@ -1,3 +1,4 @@
+import hashlib
 import json
 from uuid import uuid4
 
@@ -5780,6 +5781,7 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(
             response_content["results"][0]["notifications_count"],
             0)
+
     def test_task_own_schema(self):
         stage_schema = {
             "type": "object",
@@ -6002,6 +6004,7 @@ class GigaTurnipTest(APITestCase):
                            'people': {'type': 'boolean', 'title': 'people'}}})
         self.assertEqual(next_task.ui_schema,
                          {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+
     def test_individual_chain_update_task(self):
         self.chain.is_individual = True
         self.chain.save()
@@ -6132,4 +6135,105 @@ class GigaTurnipTest(APITestCase):
 
         translated_values = Translation.create_from_list(local_lang, translated)
         self.assertEqual(Translation.objects.count(), 4)
+
+
+    def test_translation_key_create_keys_from_schema(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "answer2": {
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "answer3": {
+                    "title": "Question 3",
+                    "type": "string"
+                },
+                "answer4": {
+                    "title": "Question 4",
+                    "type": "string"
+                }
+            },
+            "required": ["answer", "answer2", "answer3", "answer4"]
+        }
+        result_answer = {
+            '02ecd63e4f1632ff673d8ebfb0709c5e520a2a64a77644369eab86c5c833a796': 'Question 1',
+            '6f6cb2379d5b20df39599b65ae7501a6f4c565e7913217e30b492f871872eabd': 'Question 2',
+            '0382a3d975fd041572a308838480b07e9a789989dbfb34d12152f93c03644225': 'Question 3',
+            '2b71f00b126e10636fbb133ecc57bd6df85ba5c08cd8534bc8cfe1467e903a06': 'Question 4'
+        }
+        self.assertEqual(result_answer,
+                         TranslateKey.create_keys_from_dict(schema))
+
+    def test_translation_create_from_dict_of_texts(self):
+        local_lang = Language.objects.create(
+            name="Russian",
+            code="ru"
+        )
+        texts = ["Artur", "Karim", "Rinat", "Xakim", "Atai", "Atai"]
+        texts = {hashlib.sha256(i.encode()).hexdigest(): i for i in texts}
+        objs = TranslateKey.create_from_list(self.campaign, texts)
+        self.assertEqual(len(objs), 5)
+
+        texts = ["Artur", "Atai", "Atai", "Artem"]
+        texts = {hashlib.sha256(i.encode()).hexdigest(): i for i in texts}
+        objs = TranslateKey.create_from_list(self.campaign, texts)
+        self.assertEqual(len(objs), 1)
+
+
+        translations = {
+            "Artur": "Артур",
+            "Karim": "Карим",
+            "Rinat": "Ринат",
+            "Xakim": "Хаким",
+            "Atai": "Атай",
+            "Artem": "Артем"
+        }
+        self.assertEqual(TranslateKey.objects.count(), len(translations.keys()))
+
+        for i in TranslateKey.objects.filter(campaign=self.campaign):
+            Translation.objects.create(key=i, language=local_lang, text=translations.get(i.text))
+
+        self.assertEqual(Translation.objects.count(),
+                         TranslateKey.objects.count())
+
+    def test_translate_key_generate_translation_schema(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "answer2": {
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "answer3": {
+                    "title": "Question 3",
+                    "type": "string"
+                },
+                "answer4": {
+                    "title": "Question 4",
+                    "type": "string"
+                }
+            },
+            "required": ["answer", "answer2", "answer3", "answer4"]
+        }
+        result_schema = {'title': 'JSON SCHEMA TRANSLATE', 'type': 'object',
+                         'properties': {
+                             '02ecd63e4f1632ff673d8ebfb0709c5e520a2a64a77644369eab86c5c833a796': {
+                                 'title': 'Question 1', 'type': 'string'},
+                             '6f6cb2379d5b20df39599b65ae7501a6f4c565e7913217e30b492f871872eabd': {
+                                 'title': 'Question 2', 'type': 'string'},
+                             '0382a3d975fd041572a308838480b07e9a789989dbfb34d12152f93c03644225': {
+                                 'title': 'Question 3', 'type': 'string'},
+                             '2b71f00b126e10636fbb133ecc57bd6df85ba5c08cd8534bc8cfe1467e903a06': {
+                                 'title': 'Question 4', 'type': 'string'}}}
+        self.assertEqual(result_schema,
+                         TranslateKey.generate_schema_to_translate(schema))
 
