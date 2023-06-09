@@ -4,6 +4,9 @@ import string, random, re
 from abc import ABCMeta, abstractmethod, ABC
 from json import JSONDecodeError
 import hashlib
+from typing import Dict, Any
+
+import django.db.models
 import requests
 
 from django.apps import apps
@@ -12,7 +15,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models, transaction, OperationalError
-from django.db.models import UniqueConstraint, Q, Subquery, OuterRef
+from django.db.models import UniqueConstraint, Q, Subquery, OuterRef, QuerySet
 from django.db.models.functions import JSONObject
 from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
@@ -845,13 +848,13 @@ class TranslateKey(models.Model):
     FIELDS_TO_COLLECT = ["title", "description", "enumNames"]
 
     @staticmethod
-    def extract_titles(storage, val, path):
-        storage[path] = val
+    def extract_titles(storage, val):
+        storage[hashlib.sha256(val.encode()).hexdigest()] = val
 
     @staticmethod
-    def extract_enums(storage, val, path):
-        for i, enum in enumerate(val):
-            storage[f"{path}__{i}"] = enum
+    def extract_enums(storage, val):
+        for enum in val:
+            storage[hashlib.sha256(val.encode()).hexdigest()] = enum
 
     @classmethod
     def extract_fields_to_translate(cls, data, storage, path=None):
@@ -863,9 +866,9 @@ class TranslateKey(models.Model):
                 if isinstance(val, (str, list)):
                     full_path = f"{p}__{key}" if p else key
                     if key == "enumNames":
-                        cls.extract_enums(storage, val, full_path)
+                        cls.extract_enums(storage, val)
                     else:
-                        cls.extract_titles(storage, val, full_path)
+                        cls.extract_titles(storage, val)
             for k, v in data.items():
                 full_path = f"{p}__{k}" if p else k
                 cls.extract_fields_to_translate(v, storage, full_path)
@@ -874,32 +877,78 @@ class TranslateKey(models.Model):
                 if not isinstance(i, (dict, list)):
                     break
                 full_path = f"{p}__{i}" if p else i
-                cls.extract_enums(storage, item, full_path)
+                cls.extract_enums(storage, item)
+
+    @staticmethod
+    def generate_fields(fields: dict):
+        """
+        Generate array of dictionaries.
+
+        :param fields: dictionary
+        :return:
+        """
+        result = []
+        for k, v in fields.items():
+            result.append({k: {
+                "title": v,
+                "type": "string"
+            }})
+        return result
 
     @classmethod
-    def create_keys_from_dict(cls, schema):
+    def generate_schema_to_translate(cls, schema: dict) -> dict[str, str]:
+        """
+        Method generates new schema with fields from schema that must be translated.
+
+        :param schema: source scheme which fields must be renamed
+        :return:
+        """
+        translated_schema: dict[str, str | dict[Any, Any]] = {
+            "title": "JSON SCHEMA TRANSLATE",
+            "type": "object",
+            "properties": {}
+
+        }
+        for item in cls.generate_fields(cls.create_keys_from_dict(schema)):
+            translated_schema["properties"].update(item)
+        return translated_schema
+
+    @classmethod
+    def create_keys_from_dict(cls, schema: dict) -> dict[str, str]:
+        """
+        Generate dictionary with a texts of the fields FIELDS_TO_COLLECT.
+
+        :param schema: schema of the TaskStage
+        :return: dictionary where key is a hashed hexdigset of the value, value is a text
+        """
         paths_to_text = dict()
         cls.extract_fields_to_translate(schema, paths_to_text)
         return paths_to_text
 
     @classmethod
-    def create_from_list(cls, campaign, texts):
-        keys = [hashlib.sha256(t.encode()).hexdigest() for t in texts]
+    def create_from_list(cls, campaign: Campaign, texts: dict) -> QuerySet:
+        """
+        Create many instances in the database in one query based on dictionary.
+
+        :param campaign: Campaign that want to translate texts.
+        :param texts: Key is a hashed code, value - is a text
+        :return: Queryset of TranslateKey
+        """
         exists = set(
             cls.objects.filter(
-                campaign=campaign, key__in=keys
+                campaign=campaign, key__in=list(texts.keys())
             ).values_list("key", flat=True)
         )
 
         data_to_create = [cls(campaign=campaign, key=k, text=v) for k, v
-                          in set(zip(keys, texts)) if k not in exists]
+                          in texts.items() if k not in exists]
 
         return cls.objects.bulk_create(data_to_create)
 
     @classmethod
     def generate_keys_from_stage(cls, stage: TaskStage):
         texts = cls.create_keys_from_dict(json.loads(stage.get_json_schema()))
-        return cls.create_from_list(stage.get_campaign(), texts.values())
+        return cls.create_from_list(stage.get_campaign(), texts)
 
     def __str__(self):
         return f"{self.campaign}: {self.key}"
