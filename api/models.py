@@ -909,12 +909,12 @@ class TranslateKey(models.Model):
             "properties": {}
 
         }
-        for item in cls.generate_fields(cls.create_keys_from_dict(schema)):
+        for item in cls.generate_fields(cls.get_keys_from_schema(schema)):
             translated_schema["properties"].update(item)
         return translated_schema
 
     @classmethod
-    def create_keys_from_dict(cls, schema: dict) -> dict[str, str]:
+    def get_keys_from_schema(cls, schema: dict) -> dict[str, str]:
         """
         Generate dictionary with a texts of the fields FIELDS_TO_COLLECT.
 
@@ -947,7 +947,7 @@ class TranslateKey(models.Model):
 
     @classmethod
     def generate_keys_from_stage(cls, stage: TaskStage):
-        texts = cls.create_keys_from_dict(json.loads(stage.get_json_schema()))
+        texts = cls.get_keys_from_schema(json.loads(stage.get_json_schema()))
         return cls.create_from_list(stage.get_campaign(), texts)
 
     def __str__(self):

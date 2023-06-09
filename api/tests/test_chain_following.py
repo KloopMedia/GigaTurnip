@@ -6167,7 +6167,7 @@ class GigaTurnipTest(APITestCase):
             '2b71f00b126e10636fbb133ecc57bd6df85ba5c08cd8534bc8cfe1467e903a06': 'Question 4'
         }
         self.assertEqual(result_answer,
-                         TranslateKey.create_keys_from_dict(schema))
+                         TranslateKey.get_keys_from_schema(schema))
 
     def test_translation_create_from_dict_of_texts(self):
         local_lang = Language.objects.create(
