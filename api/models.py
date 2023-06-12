@@ -19,6 +19,7 @@ from django.db.models import UniqueConstraint, Q, Subquery, OuterRef, QuerySet
 from django.db.models.functions import JSONObject
 from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
+from rest_framework.request import Request
 
 from api.constans import (
     WebhookConstants, WebhookTargetConstants, ReplaceConstants
@@ -992,7 +993,14 @@ class TranslateKey(models.Model):
         return schema
 
     @classmethod
-    def to_representation(cls, instance, request):
+    def to_representation(cls, instance: TaskStage, request: Request):
+        """
+        Change instance json schema based on accept language.
+
+        :param instance: TaskStage instance
+        :param request: Request to get language query param
+        :return: instance with substituted language
+        """
         lang = Language.objects.filter(
             code=request.query_params.get("lang")
         ).first()
