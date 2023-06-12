@@ -6136,7 +6136,6 @@ class GigaTurnipTest(APITestCase):
         translated_values = Translation.create_from_list(local_lang, translated)
         self.assertEqual(Translation.objects.count(), 4)
 
-
     def test_translation_key_create_keys_from_schema(self):
         schema = {
             "type": "object",
