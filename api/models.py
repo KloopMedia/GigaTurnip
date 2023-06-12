@@ -972,12 +972,12 @@ class TranslateKey(models.Model):
 
     @classmethod
     def get_translated_schema_by_stage(cls, stage: TaskStage,
-                                                   lang_code: str) -> dict:
+                                            lang_code: str) -> dict:
         """
         This method gets json schema of the stage and creates new based on the language.
 
         :param stage: TaskStage which schema must be used as source schema
-        :param lang: Language code
+        :param lang_code: Language code
         :return: translated schema
         """
 
