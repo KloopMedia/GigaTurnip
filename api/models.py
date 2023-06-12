@@ -993,7 +993,8 @@ class TranslateKey(models.Model):
         return schema
 
     @classmethod
-    def to_representation(cls, instance: TaskStage, request: Request):
+    def to_representation(cls, instance: TaskStage,
+                          request: Request) -> TaskStage:
         """
         Change instance json schema based on accept language.
 
