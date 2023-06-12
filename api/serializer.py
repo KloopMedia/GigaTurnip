@@ -261,6 +261,19 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class TaskPublicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'responses',
+            'stage',
+            'created_at'
+        ]
+
+
 class TaskListSerializer(serializers.ModelSerializer):
     stage = serializers.SerializerMethodField()
 
@@ -328,7 +341,7 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'complete']
 
     def to_representation(self, instance):
-        """Replace stage schema with schema from task stage is so configured."""
+        """Replace stage schema with schema from task stage if so configured."""
         if instance.stage.schema_source == TaskStageSchemaSourceConstants.TASK:
             instance.stage.json_schema = instance.schema
             instance.stage.ui_schema = instance.ui_schema

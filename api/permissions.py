@@ -145,7 +145,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list", "selectable"],
+            "action": ["list", "selectable", "available_stages"],
             "principal": "authenticated",
             "effect": "allow",
         },
@@ -250,9 +250,9 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
-            "principal": "authenticated",
+            "principal": "*",
             "effect": "allow",
-            "condition_expression": "is_assignee or "
+            "condition_expression": "is_assignee or is_stage_public "
                                     "is_manager or "
                                     "can_user_request_assignment"
         },
@@ -292,20 +292,17 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["list_displayed_previous"],
-            "principal": "authenticated",
+            "principal": "*",
             "effect": "allow",
-            "condition_expression": "is_assignee or is_manager or (is_selection_open and is_listing_allowed)"
+            "condition_expression": "is_stage_public "
+                                    "or (is_assignee or is_manager "
+                                    "or (is_selection_open and is_listing_allowed))"
         },
         {
             "action": ["trigger_webhook", ],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee and is_not_complete and is_webhook"
-        },
-        {
-            "action": ["public"],
-            "principal": "*",
-            "effect": "allow",
         }
     ]
 
@@ -326,6 +323,9 @@ class TaskAccessPolicy(AccessPolicy):
     def is_assignee(self, request, view, action):
         task = view.get_object()
         return request.user == task.assignee
+
+    def is_stage_public(self, request, view, action):
+        return view.get_object().stage.is_public
 
     def is_not_complete(self, request, view, action):
         task = view.get_object()

@@ -26,6 +26,7 @@ from api.constans import (
 )
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, ErrorConstants, TaskStageSchemaSourceConstants
+from api.utils.injector import text_inject
 
 
 class BaseDatesModel(models.Model):
@@ -224,6 +225,8 @@ class Country(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name_plural = "Countries"
 
 def validate_language_code(val):
     if len(val) == 2 and val.isalpha():
@@ -1124,7 +1127,7 @@ class Webhook(BaseDatesModel):
         related_name="webhook",
         help_text="Parent TaskStage")
 
-    url = models.URLField(
+    url = models.CharField(
         max_length=1000,
         help_text=(
             "Webhook URL address. If not empty, field indicates that "
@@ -1143,6 +1146,12 @@ class Webhook(BaseDatesModel):
         )
     )
 
+    target_responses = models.BooleanField(
+        default=True,
+        blank=False,
+        help_text="Indicates that response from webhook should be copied into Task's responses"
+    )
+
     response_field = models.TextField(
         null=True,
         blank=True,
@@ -1153,6 +1162,28 @@ class Webhook(BaseDatesModel):
         )
     )
 
+    target_schema = models.BooleanField(
+        default=False,
+        blank=False,
+        help_text="Indicates that response from webhook should be copied into Task's JSON schema"
+    )
+
+    schema_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON response field name to extract data from. If target is"
+            "Schema, this field is used to access JSON schema. Field is "
+            "ignored if webhook_address field is empty."
+        )
+    )
+
+    target_ui_schema = models.BooleanField(
+        default=False,
+        blank=False,
+        help_text="Indicates that response from webhook should be copied into Task's UI schema"
+    )
+
     ui_schema_field = models.TextField(
         null=True,
         blank=True,
@@ -1161,6 +1192,23 @@ class Webhook(BaseDatesModel):
             " Schema. Ignored when target is not Schema or webhook_address"
             " is empty."
         )
+    )
+
+    internal_meta_field = models.TextField(
+        null=True,
+        blank=True,
+        help_text=(
+            "JSON response field name to extract data from. If target is"
+            "Schema, this field is used to access JSON schema. Field is "
+            "ignored if webhook_address field is empty."
+        )
+    )
+
+    target_internal_metadata = models.BooleanField(
+        default=False,
+        blank=False,
+        help_text=("Indicates that response from webhook should be copied "
+                   "into Task's internal metadata")
     )
 
     is_triggered = models.BooleanField(
@@ -1181,17 +1229,17 @@ class Webhook(BaseDatesModel):
         help_text="Where to copy fields from"
     )
 
-    TARGET_CHOICES = [
-        (WebhookTargetConstants.RESPONSES, "Current task responses"),
-        (WebhookTargetConstants.SCHEMA, "Current task schema")
-    ]
+    # TARGET_CHOICES = [
+    #     (WebhookTargetConstants.RESPONSES, "Current task responses"),
+    #     (WebhookTargetConstants.SCHEMA, "Current task schema")
+    # ]
 
-    target = models.CharField(
-        max_length=2,
-        choices=TARGET_CHOICES,
-        default=WebhookTargetConstants.RESPONSES,
-        help_text="Where response from webhook will be saved."
-    )
+    # target = models.CharField(
+    #     max_length=2,
+    #     choices=TARGET_CHOICES,
+    #     default=WebhookTargetConstants.RESPONSES,
+    #     help_text="Where response from webhook will be saved."
+    # )
 
     data = models.JSONField(
         null=True,
@@ -1206,7 +1254,11 @@ class Webhook(BaseDatesModel):
         else:
             data = self.get_responses(task)
 
-        response = requests.post(self.url, json=data, headers=self.headers)
+        response = requests.post(
+            self._get_url(task),
+            json=data,
+            headers=self.headers
+        )
 
         if not response:
             task.generate_error(
@@ -1217,27 +1269,61 @@ class Webhook(BaseDatesModel):
             )
             return False, task, response, "See response status code"
 
+        # try:
+        #     if self.response_field:
+        #         data = response.json()[self.response_field]
+        #     else:
+        #         data = response.json()
+        # except JSONDecodeError:
+        #     return False, task, response, "JSONDecodeError"
+
         try:
-            if self.response_field:
-                data = response.json()[self.response_field]
-            else:
-                data = response.json()
-            if self.target == WebhookTargetConstants.SCHEMA:
-                task.schema = data
-                task.ui_schema = (
-                    {} if self.ui_schema_field is None
-                    else response.json()[self.ui_schema_field]
-                )
-            else:
+            if self.target_responses:
                 if task.responses:
-                    task.responses.update(data)  # TODO Add error related to updating
+                    task.responses.update(self._extract_data(response, self.response_field))
                 else:
-                    task.responses = data
-            task.save()
-            return True, task, response, ""
+                    task.responses = self._extract_data(response, self.response_field)
+            if self.target_schema:
+                if task.schema:
+                    task.schema.update(self._extract_data(response, self.schema_field))
+                else:
+                    task.schema = self._extract_data(response, self.schema_field)
+            if self.target_ui_schema:
+                if task.ui_schema:
+                    task.ui_schema.update(self._extract_data(response, self.ui_schema_field))
+                else:
+                    task.ui_schema = self._extract_data(response, self.ui_schema_field)
+            if self.target_internal_metadata:
+                if task.internal_metadata:
+                    task.internal_metadata.update(self._extract_data(response, self.internal_meta_field))
+                else:
+                    task.internal_metadata = self._extract_data(response, self.internal_meta_field)
         except JSONDecodeError:
             return False, task, response, "JSONDecodeError"
 
+        # if self.target == WebhookTargetConstants.SCHEMA:
+        #     task.schema = data
+        #     task.ui_schema = (
+        #         {} if self.ui_schema_field is None
+        #         else response.json()[self.ui_schema_field]
+        #     )
+        # else:
+        #     if task.responses:
+        #         task.responses.update(data)  # TODO Add error related to updating
+        #     else:
+        #         task.responses = data
+        task.save()
+        return True, task, response, ""
+
+    @staticmethod
+    def _extract_data(response, field):
+        if field:
+            data = response.json()[field]
+        else:
+            data = response.json()
+        if not isinstance(data, dict):
+            data = {field: data}
+        return data
 
     def post(self, data):
         response = requests.post(self.url, json=data, headers=self.headers)
@@ -1259,6 +1345,9 @@ class Webhook(BaseDatesModel):
             if new_value is not None:
                 data[key] = new_value
         return data
+
+    def _get_url(self, task):
+        return text_inject(self.url, task)
 
 
 class TestWebhook(BaseDatesModel):
@@ -1624,7 +1713,7 @@ class Quiz(BaseDatesModel):
             return score, incorrect_questions
         if self.show_answer == Quiz.ShowAnswers.NEVER:
             return score, []
-        if self.threshold:
+        if self.threshold is not None:
             if ((self.show_answer == Quiz.ShowAnswers.ON_FAIL
                  and score <= self.threshold)
                     or (self.show_answer == Quiz.ShowAnswers.ON_PASS

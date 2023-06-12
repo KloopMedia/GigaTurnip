@@ -233,6 +233,33 @@ class GigaTurnipTest(APITestCase):
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
+    def test_public_task(self):
+        self.initial_stage.is_public = True
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "answer"
+            ]
+        })
+        self.initial_stage.save()
+
+        task = self.create_initial_task()
+        task = self.complete_task(task, {"answer": "My answer"})
+        self.assertTrue(task.complete)
+
+        response = self.get_objects("task-detail", pk=task.id)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["responses"], task.responses)
+        self.assertEqual(response.data["stage"]["id"], self.initial_stage.id)
+        self.assertIn("json_schema", response.data["stage"].keys())
+        self.assertIn("ui_schema", response.data["stage"].keys())
+
     def test_list_languages(self):
         Language.objects.create(
             code="ru",
@@ -589,13 +616,20 @@ class GigaTurnipTest(APITestCase):
         task = self.create_initial_task()
         self.check_task_manual_creation(task, self.initial_stage)
 
-    def test_TaskStageViewSet_public_paginate(self):
-        response = self.get_objects('taskstage-public')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            set(json.loads(response.content).keys()),
-            {"count", "next", "previous", "results"}
+    def test_public_stages(self):
+        new_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Publich stage",
+                json_schema=self.initial_stage.json_schema,
+                ui_schema=self.initial_stage.ui_schema,
+                is_public=True,
             )
+        )
+        client = APIClient()
+        response = self.get_objects("taskstage-public", client=client)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], new_stage.id)
 
     def test_TaskStageViewSet_user_relevant_paginate(self):
         response = self.get_objects('taskstage-user-relevant')
@@ -2277,6 +2311,19 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3: a')
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 3)
+
+        # Test answers if threshold equals 0
+        quiz.provide_answers = True
+        quiz.threshold = 0
+        quiz.save()
+        task = self.create_initial_task()
+        responses = {"q_1": "a", "q_2": "b", "q_3": "c"}
+        task = self.complete_task(task, responses=responses)
+        self.assertEqual(task.responses[Quiz.SCORE], 66)
+        self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], 'Question 3: a')
+        self.assertTrue(task.complete)
+        self.assertEqual(self.user.tasks.count(), 4)
+
 
     def test_quiz_show_answers_on_fail(self):
         task_correct_responses = self.create_initial_task()
@@ -5807,16 +5854,16 @@ class GigaTurnipTest(APITestCase):
         self.initial_stage.save()
 
         task = self.create_initial_task()
-        task.schema = json.dumps(task_schema)
-        task.ui_schema = json.dumps(task_ui_schema)
+        task.schema = task_schema
+        task.ui_schema = task_ui_schema
         task.save()
 
         response = self.get_objects("task-detail", pk=task.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["stage"]["json_schema"],
-                         json.dumps(task_schema))
-        self.assertEqual(response.data["stage"]["ui_schema"],
-                         json.dumps(task_ui_schema))
+        self.assertEqual(json.loads(response.data["stage"]["json_schema"]),
+                         task_schema)
+        self.assertEqual(json.loads(response.data["stage"]["ui_schema"]),
+                         task_ui_schema)
 
     def test_task_stage_schema(self):
         stage_schema = {
@@ -5853,7 +5900,7 @@ class GigaTurnipTest(APITestCase):
                          json.dumps(stage_ui_schema))
 
     def test_schema_provider_webhook_creatable_task(self):
-        return # todo: test with long timeout
+        # return # todo: test with long timeout
         data = {
             "type": "SK",
             "system": 1,
@@ -5871,9 +5918,11 @@ class GigaTurnipTest(APITestCase):
         Webhook.objects.create(
             task_stage=self.initial_stage,
             headers=headers,
-            response_field="questions",
+            schema_field="questions",
             ui_schema_field="uischema",
-            target=WebhookTargetConstants.SCHEMA,
+            target_responses=False,
+            target_schema=True,
+            target_ui_schema=True,
             data=data,
             url='http://172.17.0.1:8001/api/v1/answersheet/',
             is_triggered=True,
@@ -5882,11 +5931,11 @@ class GigaTurnipTest(APITestCase):
 
         task = self.create_initial_task()
 
-        self.assertEqual(task.schema, {'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'}, 'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'}, 'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'}, 'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'}, 'human': {'type': 'boolean', 'title': 'human'}, 'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(task.schema, {'type': 'object', 'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'}, 'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'}, 'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'}, 'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'}, 'human': {'type': 'boolean', 'title': 'human'}, 'people': {'type': 'boolean', 'title': 'people'}}})
         self.assertEqual(task.ui_schema, {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
 
     def test_schema_provider_webhook_second_task(self):
-        return # todo: test with long timeout
+        # return # todo: test with long timeout
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.STAGE,
@@ -5910,9 +5959,11 @@ class GigaTurnipTest(APITestCase):
         Webhook.objects.create(
             task_stage=second_stage,
             headers=headers,
-            response_field="questions",
+            schema_field="questions",
             ui_schema_field="uischema",
-            target=WebhookTargetConstants.SCHEMA,
+            target_responses=False,
+            target_schema=True,
+            target_ui_schema=True,
             data=data,
             url='http://172.17.0.1:8001/api/v1/answersheet/',
             is_triggered=True,
@@ -5925,11 +5976,11 @@ class GigaTurnipTest(APITestCase):
         task = Task.objects.get(id=task.id)
         next_task = task.out_tasks.get()
 
-        self.assertEqual(next_task.schema, {'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'}, 'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'}, 'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'}, 'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'}, 'human': {'type': 'boolean', 'title': 'human'}, 'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(next_task.schema, {'type': 'object', 'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'}, 'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'}, 'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'}, 'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'}, 'human': {'type': 'boolean', 'title': 'human'}, 'people': {'type': 'boolean', 'title': 'people'}}})
         self.assertEqual(next_task.ui_schema, {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
 
     def test_schema_provider_webhook_manual_trigger(self):
-        return # todo: test with long timeout
+        # return # todo: test with long timeout
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.STAGE,
@@ -5952,9 +6003,13 @@ class GigaTurnipTest(APITestCase):
         Webhook.objects.create(
             task_stage=self.initial_stage,
             headers=headers,
-            response_field="questions",
+            schema_field="questions",
             ui_schema_field="uischema",
-            target=WebhookTargetConstants.SCHEMA,
+            internal_meta_field="stack_size",
+            target_responses=False,
+            target_schema=True,
+            target_ui_schema=True,
+            target_internal_metadata=True,
             data=data,
             url='http://172.17.0.1:8001/api/v1/answersheet/',
             is_triggered=False,
@@ -5963,9 +6018,11 @@ class GigaTurnipTest(APITestCase):
         Webhook.objects.create(
             task_stage=second_stage,
             headers=headers,
-            response_field="questions",
+            schema_field="questions",
             ui_schema_field="uischema",
-            target=WebhookTargetConstants.SCHEMA,
+            target_responses=False,
+            target_schema=True,
+            target_ui_schema=True,
             data=data,
             url='http://172.17.0.1:8001/api/v1/answersheet/',
             is_triggered=False,
@@ -5979,6 +6036,7 @@ class GigaTurnipTest(APITestCase):
         self.get_objects('task-trigger-webhook', pk=task.pk)
         task = Task.objects.get(id=task.id)
         self.assertEqual(task.schema, {
+            'type': 'object',
             'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'},
                            'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'},
                            'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'},
@@ -5987,6 +6045,7 @@ class GigaTurnipTest(APITestCase):
                            'people': {'type': 'boolean', 'title': 'people'}}})
         self.assertEqual(task.ui_schema,
                          {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+        self.assertEqual(task.internal_metadata["stack_size"], data["stack_size"])
 
         task = self.complete_task(task)
 
@@ -5996,6 +6055,7 @@ class GigaTurnipTest(APITestCase):
         self.get_objects('task-trigger-webhook', pk=next_task.pk)
         next_task = Task.objects.get(id=next_task.id)
         self.assertEqual(next_task.schema, {
+            'type': 'object',
             'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'},
                            'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'},
                            'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'},
@@ -6082,6 +6142,120 @@ class GigaTurnipTest(APITestCase):
         self.assertTrue(task_3.complete)
         self.assertFalse(task_3.reopened)
         self.assertEqual(Task.objects.count(), 3)
+
+    def test_schema_provider_webhook_manual_trigger(self):
+        # return # todo: test with long timeout
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+        data = {
+            "type": "SK",
+            "system": 1,
+            "learner_external_id": "@TURNIP_USER_ID",
+            "test_language": "EN",
+            "native_language": "RU",
+            "collection": None,
+            "regenerate_stack": False,
+            "clear_excluded": False,
+            "review": False,
+            "stack_size": 10
+        }
+        headers = {"Authorization": "Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"}
+
+        Webhook.objects.create(
+            task_stage=self.initial_stage,
+            headers=headers,
+            schema_field="questions",
+            ui_schema_field="uischema",
+            internal_meta_field="stack_size",
+            target_responses=False,
+            target_schema=True,
+            target_ui_schema=True,
+            target_internal_metadata=True,
+            data=data,
+            url='http://172.17.0.1:8001/api/v1/answersheet/',
+            is_triggered=False,
+            which_responses=WebhookConstants.MODIFIER_FIELD,
+        )
+        Webhook.objects.create(
+            task_stage=second_stage,
+            headers=headers,
+            schema_field="questions",
+            ui_schema_field="uischema",
+            target_responses=False,
+            target_schema=True,
+            target_ui_schema=True,
+            data=data,
+            url='http://172.17.0.1:8001/api/v1/answersheet/',
+            is_triggered=False,
+            which_responses=WebhookConstants.MODIFIER_FIELD,
+        )
+
+        task = self.create_initial_task()
+
+        self.assertIsNone(task.schema)
+        self.assertIsNone(task.ui_schema)
+        self.get_objects('task-trigger-webhook', pk=task.pk)
+        task = Task.objects.get(id=task.id)
+        self.assertEqual(task.schema, {
+            'type': 'object',
+            'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'},
+                           'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'},
+                           'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'},
+                           'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'},
+                           'human': {'type': 'boolean', 'title': 'human'},
+                           'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(task.ui_schema,
+                         {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+        self.assertEqual(task.internal_metadata["stack_size"], data["stack_size"])
+
+        task = self.complete_task(task)
+
+        next_task = task.out_tasks.get()
+        self.assertIsNone(next_task.schema)
+        self.assertIsNone(next_task.ui_schema)
+        self.get_objects('task-trigger-webhook', pk=next_task.pk)
+        next_task = Task.objects.get(id=next_task.id)
+        self.assertEqual(next_task.schema, {
+            'type': 'object',
+            'properties': {'go': {'type': 'boolean', 'title': 'go'}, 'car': {'type': 'boolean', 'title': 'car'},
+                           'sun': {'type': 'boolean', 'title': 'sun'}, 'rain': {'type': 'boolean', 'title': 'rain'},
+                           'road': {'type': 'boolean', 'title': 'road'}, 'snow': {'type': 'boolean', 'title': 'snow'},
+                           'wind': {'type': 'boolean', 'title': 'wind'}, 'house': {'type': 'boolean', 'title': 'house'},
+                           'human': {'type': 'boolean', 'title': 'human'},
+                           'people': {'type': 'boolean', 'title': 'people'}}})
+        self.assertEqual(next_task.ui_schema,
+                         {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow', 'wind']})
+
+    def test_webhook_url_injection(self):
+        task = self.create_initial_task()
+        task.internal_metadata = {"url_part": "echo_function"}
+
+        task.save()
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+        ))
+        Webhook.objects.create(
+            task_stage=second_stage,
+            url=(
+                'https://us-central1-journal-bb5e3.cloudfunctions.net/'
+                '[@TURNIP_INTERNAL_META={"stage": "in_task", "field": "url_part"}]'
+            ),
+            is_triggered=False,
+            which_responses=WebhookConstants.IN_RESPONSES,
+        )
+
+        self.complete_task(task)
+
+        next_task = task.out_tasks.get()
+
+        response = self.get_objects('task-trigger-webhook',  pk=next_task.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_translate_keys_from_stage(self):
         schema = {
@@ -6367,3 +6541,67 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(to_json(response.data["stage"]["json_schema"]),
                          translated_schema)
 
+    def test_task_translation_schema(self):
+        schema = {
+            "title": "Schema for english people",
+            "description": "Description",
+            "type": "object",
+            "properties": {
+                "firstName": {
+                    "title": "Provide your name",
+                    "type": "string"
+                },
+                "lastName": {
+                    "title": "Provide your last name",
+                    "type": "string"
+                },
+                "surname": {
+                    "title": "Provide your surname(optional).",
+                    "type": "string"
+                }
+            },
+            "required": ["firstName", "lastName"]
+        }
+        self.initial_stage.json_schema =  json.dumps(schema)
+        self.initial_stage.save()
+
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="Second ts.",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage,
+            json_schema=self.initial_stage.json_schema
+        ))
+
+        # verification stage
+        rank_verifier = Rank.objects.create(name='verifier rank')
+        RankRecord.objects.create(rank=rank_verifier, user=self.employee)
+
+        verifier_stage = second_stage.add_stage(TaskStage(
+            name="Get on verification",
+            assign_user_by=TaskStageConstants.RANK,
+            json_schema=self.initial_stage.json_schema
+        ))
+        # conditional stage
+        conditional_stage = verifier_stage.add_stage(ConditionalStage(
+                name='Checker',
+                conditions=[
+                    {"type": "string", "field": "firstName", "value": "",
+                     "condition": "!="}
+                ]
+        ))
+
+        # final user stage
+        third_stage = conditional_stage.add_stage(TaskStage(
+            name="Third ts.",
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=second_stage,
+            json_schema=self.initial_stage.json_schema
+        ))
+
+        response = self.get_objects("taskstage-available-stages")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Stage.objects.count(), 5)
+        self.assertEqual(response.data["count"], 3)
+        all_stage = [self.initial_stage.id, second_stage.id, third_stage.id]
+        response_stages = [i["id"] for i in response.data["results"]]
+        self.assertEqual(all_stage, response_stages)
