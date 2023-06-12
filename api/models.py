@@ -991,6 +991,19 @@ class TranslateKey(models.Model):
         cls.substitute_values(schema, translations)
         return schema
 
+    @classmethod
+    def to_representation(cls, instance, request):
+        lang = Language.objects.filter(
+            code=request.query_params.get("lang")
+        ).first()
+        if lang:
+            json_schema = cls.get_translated_schema_by_stage(
+                instance, lang.code)
+            instance.json_schema = json.dumps(json_schema)
+
+        return instance
+
+
     def __str__(self):
         return f"{self.campaign}: {self.key}"
 

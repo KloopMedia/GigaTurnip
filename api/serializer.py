@@ -220,13 +220,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         request = self.context.get("request")
         if request:
-            lang = Language.objects.filter(
-                code=request.query_params.get("lang")
-            ).first()
-            if lang:
-                json_schema = TranslateKey.get_translated_schema_by_stage(
-                    instance, lang.code)
-                instance.json_schema = json.dumps(json_schema)
+            instance = TranslateKey.to_representation(instance, request)
         return super().to_representation(instance)
 
 
