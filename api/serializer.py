@@ -20,6 +20,7 @@ from api.models import Campaign, Chain, TaskStage, \
     TranslateKey
 from api.permissions import ManagersOnlyAccessPolicy
 
+
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
 schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_ui_schema', 'library']
@@ -228,6 +229,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
                 instance.json_schema = json.dumps(json_schema)
         return super().to_representation(instance)
 
+
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):
     class Meta:
@@ -408,6 +410,7 @@ class TaskResponsesFilterSerializer(PostJSONFilterSerializer):
             'stage': item.get('stage', None),
             'search_stage': item.get('search_stage', None)
         }
+
 
 class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:
