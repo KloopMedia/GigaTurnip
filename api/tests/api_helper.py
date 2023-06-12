@@ -1,31 +1,16 @@
-import hashlib
 import json
 from uuid import uuid4
 
-from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase, APIClient
 
-from api.constans import (
-    TaskStageConstants, CopyFieldConstants, AutoNotificationConstants,
-    ErrorConstants, TaskStageSchemaSourceConstants, WebhookTargetConstants,
-    WebhookConstants)
-from api.models import CampaignLinker, ApproveLink, Language, Category, \
-    Country, TranslateKey, Translation
-from api.models import CustomUser, TaskStage, Campaign, Chain, \
-    ConditionalStage, Stage, Rank, RankRecord, RankLimit, \
-    Task, CopyField, Integration, Quiz, ResponseFlattener, Log, \
-    AdminPreference, Track, TaskAward, Notification, \
-    DynamicJson, PreviousManual, Webhook, AutoNotification, NotificationStatus, \
-    ConditionalLimit, DatetimeSort, \
-    ErrorGroup, ErrorItem, CampaignManagement
-
+from api.models import Rank, RankRecord, CustomUser, RankLimit, Campaign, \
+    Track, Chain, Language, Category, Country, TaskStage, Task
 
 def to_json(string):
     return json.loads(string)
 
-
-class GigaTurnipTest(APITestCase):
+class GigaTurnipTestHelper(APITestCase):
 
     def create_client(self, u):
         client = APIClient()
@@ -134,7 +119,7 @@ class GigaTurnipTest(APITestCase):
             self.user,
             RankLimit(is_creation_open=True))
 
-    def get_objects(self, endpoint, params=None, client=None, pk=None, headers=None):
+    def get_objects(self, endpoint, params=None, client=None, pk=None):
         c = client
         if c is None:
             c = self.client
@@ -142,11 +127,10 @@ class GigaTurnipTest(APITestCase):
             url = reverse(endpoint, kwargs={"pk": pk})
         else:
             url = reverse(endpoint)
-        h = headers if headers else {}
         if params:
-            return c.get(url, data=params, **h)
+            return c.get(url, data=params)
         else:
-            return c.get(url, **h)
+            return c.get(url)
 
     def create_task(self, stage, client=None):
         c = client
@@ -233,132 +217,3 @@ class GigaTurnipTest(APITestCase):
         if responses is not None:
             self.assertEqual(task.responses, responses)
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
-
-    def test_error_creating_for_managers(self):
-        self.initial_stage.json_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "answer": {
-                    "title": "Question 1",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "answer"
-            ]
-        })
-        second_stage = self.initial_stage.add_stage(
-            TaskStage(
-                name="Stage with webhook",
-                json_schema=self.initial_stage.json_schema,
-            )
-        )
-        Webhook.objects.create(
-            task_stage=second_stage,
-            url="https://us-central1-journal-bb5e3.cloudfunctions.net/exercise_translate_word",
-            is_triggered=True,
-        )
-        task = self.create_initial_task()
-        task = self.complete_task(task, {"answer": "hello world"})
-        self.assertEqual(ErrorGroup.objects.count(), 1)
-        self.assertEqual(ErrorItem.objects.count(), 1)
-
-        task = self.create_initial_task()
-        task = self.complete_task(task, {"answer": "hello world"})
-        self.assertEqual(ErrorGroup.objects.count(), 1)
-        self.assertEqual(ErrorItem.objects.count(), 2)
-
-        err_campaigns = Campaign.objects.filter(name=ErrorConstants.ERROR_CAMPAIGN)
-        self.assertEqual(err_campaigns.count(), 1)
-        self.assertEqual(err_campaigns[0].chains.count(), 1)
-        err_tasks = Task.objects.filter(stage__chain__campaign=err_campaigns[0])
-        self.assertEqual(err_tasks.count(), 2)
-
-    def test_last_task_notification_errors_creation(self):
-        js_schema = {
-            "type": "object",
-            "properties": {
-                'answer': {
-                    "type": "string",
-                }
-            }
-        }
-        self.initial_stage.json_schema = json.dumps(js_schema)
-        self.initial_stage.save()
-
-        rank_verifier = Rank.objects.create(name='verifier rank')
-        RankRecord.objects.create(rank=rank_verifier, user=self.employee)
-
-        second_stage = self.initial_stage.add_stage(TaskStage(
-            name="Get on verification",
-            assign_user_by=TaskStageConstants.RANK,
-            json_schema=json.dumps(js_schema)
-        ))
-        RankLimit.objects.create(rank=rank_verifier, stage=second_stage)
-        third_stage = second_stage.add_stage(TaskStage(
-            name="Some routine stage",
-            assign_user_by=TaskStageConstants.STAGE,
-            assign_user_from_stage=second_stage,
-            json_schema=json.dumps(js_schema)
-        ))
-        four_stage = third_stage.add_stage(TaskStage(
-            name="Finish stage",
-            assign_user_by=TaskStageConstants.STAGE,
-            assign_user_from_stage=third_stage,
-            json_schema=json.dumps(js_schema)
-        ))
-
-        notif_1 = Notification.objects.create(
-            title='It is your first step along the path to the goal.',
-            text='',
-            campaign=self.campaign,
-        )
-        notif_2 = Notification.objects.create(
-            title='Verifier get your task and complete it already.',
-            text='You almost finish your chan',
-            campaign=self.campaign,
-        )
-        notif_3 = Notification.objects.create(
-            title='Documents in the process',
-            text='',
-            campaign=self.campaign,
-        )
-        notif_4 = Notification.objects.create(
-            title='You have finished your chain!',
-            text='',
-            campaign=self.campaign,
-        )
-
-        AutoNotification.objects.create(
-            trigger_stage=self.initial_stage,
-            recipient_stage=self.initial_stage,
-            notification=notif_1,
-            go=AutoNotificationConstants.FORWARD,
-        )
-        AutoNotification.objects.create(
-            trigger_stage=second_stage,
-            recipient_stage=self.initial_stage,
-            notification=notif_2,
-            go=AutoNotificationConstants.FORWARD,
-        )
-        AutoNotification.objects.create(
-            trigger_stage=self.initial_stage,
-            recipient_stage=third_stage,
-            notification=notif_3,
-            go=AutoNotificationConstants.FORWARD,
-        )
-        AutoNotification.objects.create(
-            recipient_stage=four_stage,
-            trigger_stage=self.initial_stage,
-            notification=notif_4,
-            go=AutoNotificationConstants.LAST_ONE,
-        )
-
-        task = self.create_initial_task()
-        task = self.complete_task(
-            task, {"answer": "Hello World!My name is Artur"}
-        )
-
-        self.assertEqual(ErrorItem.objects.count(), 1)
-        self.assertEqual(ErrorItem.objects.get().campaign, self.campaign)
-
