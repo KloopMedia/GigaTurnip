@@ -332,6 +332,10 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
         if instance.stage.schema_source == TaskStageSchemaSourceConstants.TASK:
             instance.stage.json_schema = instance.schema
             instance.stage.ui_schema = instance.ui_schema
+        request = self.context.get("request", None)
+        if request:
+            instance.stage = TranslateKey.to_representation(instance.stage,
+                                                            request)
         return super().to_representation(instance)
 
 

@@ -6299,3 +6299,71 @@ class GigaTurnipTest(APITestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(to_json(response.data["results"][0]["json_schema"]),
                          schema)
+
+    def test_serializer_schema_substitution_by_language_through_task(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "title": "Question 1",
+                    "type": "string"
+                },
+                "answer2": {
+                    "title": "Question 2",
+                    "type": "string"
+                },
+                "answer3": {
+                    "title": "Question 3",
+                    "type": "string"
+                },
+                "answer4": {
+                    "title": "Question 4",
+                    "type": "string"
+                }
+            },
+            "required": ["answer", "answer2", "answer3", "answer4"]
+        }
+        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.save()
+        objects = TranslateKey.generate_keys_from_stage(self.initial_stage)
+        self.assertEqual(len(objects), 4)
+
+        translations = {
+            "Question 1": "Вопрос 1",
+            "Question 2": "Вопрос 2",
+            "Question 3": "Вопрос 3",
+            "Question 4": "Вопрос 4"
+        }
+        local_lang = Language.objects.create(
+            name="Russia",
+            code="ru"
+        )
+        [Translation.objects.create(key=i, language=local_lang,
+                                    text=translations[i.text])
+         for i in objects]
+
+        translated = TranslateKey.get_translated_schema_by_stage(
+            self.initial_stage, "ru"
+        )
+        translated_schema = {'type': 'object',
+                             'properties': {'answer': {'title': 'Вопрос 1',
+                                                       'type': 'string'},
+                                            'answer2': {'title': 'Вопрос 2',
+                                                        'type': 'string'},
+                                            'answer3': {'title': 'Вопрос 3',
+                                                        'type': 'string'},
+                                            'answer4': {'title': 'Вопрос 4',
+                                                        'type': 'string'}},
+                             'required': ['answer', 'answer2', 'answer3',
+                                          'answer4']}
+        self.assertEqual(translated_schema, translated)
+
+        # task
+        task = self.create_initial_task()
+
+        params = {"lang": "ru"}
+        response = self.get_objects("task-detail", pk=task.id, params=params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(to_json(response.data["stage"]["json_schema"]),
+                         translated_schema)
+

@@ -1008,7 +1008,7 @@ class TranslateKey(models.Model):
         if lang:
             json_schema = cls.get_translated_schema_by_stage(
                 instance, lang.code)
-            instance.json_schema = json.dumps(json_schema)
+            instance.json_schema = json.dumps(json_schema, ensure_ascii=False)
 
         return instance
 
