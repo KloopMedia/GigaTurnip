@@ -244,7 +244,7 @@ def process_previous_manual_assign(stage, new_task, in_task):
 def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
     if stage.webhook_address or stage.assign_user_by in [TaskStageConstants.AUTO_COMPLETE, TaskStageConstants.INTEGRATOR]:
         task_award = stage.task_stage_verified.all()
-        if not task_award:
+        if not task_award and new_task:
             process_completed_task(new_task)
         if task_award:
             rank_record = task_award[0].connect_user_with_rank(in_task)
