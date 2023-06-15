@@ -165,6 +165,7 @@ class JSONFilterConstants:
 class ReplaceConstants:
     REPLACE_HINT = "@TURNIP_"
     USER_ID = REPLACE_HINT + "USER_ID"
+    RESPONSES = "RESPONSES"
     INTERNAL_META = REPLACE_HINT + "INTERNAL_META"
 
 
@@ -175,3 +176,9 @@ class ReplaceSourceConstants:
 
 class ReplaceOptionsConstants:
     IN_TASK = "in_task"
+
+
+class RequestMethodConstants:
+    POST = "post"
+    PATCH = "patch"
+    PUT = "put"

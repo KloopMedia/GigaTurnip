@@ -17,11 +17,11 @@ from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
 from api.constans import (
-    WebhookConstants, WebhookTargetConstants, ReplaceConstants
+    WebhookConstants, WebhookTargetConstants, ReplaceConstants, RequestMethodConstants
 )
 from api.constans import TaskStageConstants, CopyFieldConstants, \
     AutoNotificationConstants, ErrorConstants, TaskStageSchemaSourceConstants
-from api.utils.injector import text_inject
+from api.utils.injector import inject
 
 
 class BaseDatesModel(models.Model):
@@ -881,6 +881,19 @@ class Webhook(BaseDatesModel):
         related_name="webhook",
         help_text="Parent TaskStage")
 
+    REQUEST_METHOD_CHOICES = [
+        (RequestMethodConstants.POST, 'POST'),
+        (RequestMethodConstants.PATCH, 'PATCH'),
+        (RequestMethodConstants.PUT, 'PUT'),
+    ]
+
+    request_method = models.CharField(
+        max_length=6,
+        choices=REQUEST_METHOD_CHOICES,
+        default=RequestMethodConstants.POST,
+        help_text="HTTP method used to make the webhook request."
+    )
+
     url = models.CharField(
         max_length=1000,
         help_text=(
@@ -1004,15 +1017,18 @@ class Webhook(BaseDatesModel):
 
     def trigger(self, task):
         if self.which_responses == WebhookConstants.MODIFIER_FIELD:
-            data = self.process_data(task)
+            data = inject(self.data, task)
+            print("INJECTED DATA:")
+            print(str(data))
         else:
             data = self.get_responses(task)
 
-        response = requests.post(
-            self._get_url(task),
-            json=data,
-            headers=self.headers
-        )
+        # print("!!!!! URL: " + self._get_url(task))
+        # print("URL DONE")
+
+        response = self.request(inject(self.url, task), data)
+
+        # print("!!!!! RESPONSE: " + str(response.json()))
 
         if not response:
             task.generate_error(
@@ -1075,9 +1091,16 @@ class Webhook(BaseDatesModel):
             data = response.json()[field]
         else:
             data = response.json()
-        if not isinstance(data, dict):
+        if not isinstance(data, dict):  # TODO Looks strange. Check latter.
             data = {field: data}
         return data
+
+    def request(self, url, data):
+        if self.request_method == RequestMethodConstants.PATCH:
+            return requests.patch(url, json=data, headers=self.headers)
+        if self.request_method == RequestMethodConstants.PUT:
+            return requests.put(url, json=data, headers=self.headers)
+        return requests.post(url, json=data, headers=self.headers)
 
     def post(self, data):
         response = requests.post(self.url, json=data, headers=self.headers)
@@ -1088,20 +1111,20 @@ class Webhook(BaseDatesModel):
             return list(task.in_tasks.values_list('responses', flat=True))
         return task.responses
 
-    def process_data(self, task):
-        replace_dict = {}
-        replace_dict[ReplaceConstants.USER_ID] = task.assignee.pk
-        return self.top_level_replace(self.data, replace_dict)
+    # def process_data(self, task):
+    #     replace_dict = {}
+    #     replace_dict[ReplaceConstants.USER_ID] = task.assignee.pk
+    #     return self.top_level_replace(self.data, replace_dict)
+    #
+    # def top_level_replace(self, data, replace_dict):
+    #     for key in data:
+    #         new_value = replace_dict.get(data[key])
+    #         if new_value is not None:
+    #             data[key] = new_value
+    #     return data
 
-    def top_level_replace(self, data, replace_dict):
-        for key in data:
-            new_value = replace_dict.get(data[key])
-            if new_value is not None:
-                data[key] = new_value
-        return data
-
-    def _get_url(self, task):
-        return text_inject(self.url, task)
+    # def _get_url(self, task):
+    #     return inject(self.url, task)
 
 
 class TestWebhook(BaseDatesModel):
