@@ -48,12 +48,9 @@ class TranslationAdapter(BaseDatesModel):
             if st.get("schema") is None:
                 continue
             new_phrases = TranslateKey.get_keys_from_schema(
-                json.loads(st.get("schema")))
+                json.loads(st.get("schema"))
+            )
 
-            # keys_to_delete = [key for key in new_phrases
-            #                   if key in all_keys]
-            # for key in keys_to_delete:
-            #     del new_phrases[key]
             all_keys.update(new_phrases)
             texts_by_stage[st.get("stage_id")] = new_phrases
 
@@ -80,25 +77,18 @@ class TranslationAdapter(BaseDatesModel):
                 all_translations = Translation.objects.filter(
                     key__campaign=stage.get_campaign()
                 ).select_related("language").prefetch_related("key")
-            # print("ALL translations: ", all_translations)
-            # print()
 
             for st, texts in texts_by_stage.items():
-                # print(adapter, st)
-                # print(texts)
                 available_translations = all_translations.filter(
                     language=adapter.target,
                     status=Translation.Status.FREE,
                     key__key__in=list(texts.keys())
                 )
-                # print("Available translations: ", available_translations)
 
                 available_keys = {k: v for k, v in texts.items() if
                                   k in available_translations.values_list(
                                       "key__key", flat=True)
                                   }
-                # print("fjlajlkfjsalf;jkd")
-                # print(available_keys)
                 if available_keys:
                     c = Case.objects.create()
                     tasks_to_create.append(
