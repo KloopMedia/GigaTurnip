@@ -237,3 +237,21 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         ]
         actual_schemas = [i for i in tasks_to_translate.values_list("schema", flat=True)]
         self.assertEqual(expecting_schemas, actual_schemas)
+
+        # repeat actions if no schema didn't change
+        task_trigger = self.create_task(self.initial_stage)
+        task_trigger = self.complete_task(task_trigger,
+                                          {"answer": "Hello world!"})
+        self.assertTrue(task_trigger.complete)
+
+        keys = TranslateKey.objects.filter(campaign=self.campaign)
+        self.assertEqual(keys.count(), 4)
+
+        self.assertEqual(
+            list(keys.values_list("text", flat=True).order_by("text")),
+            sorted(texts)
+        )
+        self.assertEqual(TranslateKey.objects.all().count(), 4)
+        self.assertEqual(Translation.objects.all().count(), 12)
+        tasks_to_translate = chain1_modifier_stage.tasks.all()
+        self.assertEqual(tasks_to_translate.count(), 9)

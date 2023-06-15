@@ -150,7 +150,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             },
             "required": ["answer", "answer2", "answer3", "answer4"]
         }
-        result_schema = {'title': 'JSON SCHEMA TRANSLATE', 'type': 'object',
+        result_schema = {'title': 'Translate this phrases on Russia', 'type': 'object',
                          'properties': {
                              '02ecd63e4f1632ff673d8ebfb0709c5e520a2a64a77644369eab86c5c833a796': {
                                  'title': 'Question 1', 'type': 'string'},
