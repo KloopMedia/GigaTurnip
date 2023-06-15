@@ -358,3 +358,4 @@ class LocalizationTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.data["stage"]["json_schema"]),
                          translated_schema)
+

@@ -4,6 +4,7 @@ import sys
 import traceback
 
 import requests
+from django.apps import apps
 from django.db.models import F, Count
 from django.utils import timezone
 from rest_framework import status
@@ -267,6 +268,9 @@ def create_new_task(stage, in_task, user=None):
         new_task = process_webhook(stage, in_task, data)
     elif stage.get_integration():
         in_task = process_integration(stage, in_task)
+    elif stage.translation_adapters.select_related("source", "target").first():
+        apps.get_model("api.translationadapter") \
+            .generate_translation_tasks(stage)
     else:
         new_task = process_stage_assign(stage, data, in_task, user)
         new_task = trigger_on_copy_input(stage, new_task, in_task)

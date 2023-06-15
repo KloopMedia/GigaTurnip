@@ -79,22 +79,30 @@ class TranslateKey(models.Model):
         return result
 
     @classmethod
-    def generate_schema_to_translate(cls, schema: dict) -> dict[str, str]:
-        """
-        Method generates new schema with fields from schema that must be translated.
-
-        :param schema: source scheme which fields must be renamed
-        :return:
-        """
+    def generate_schema_by_fields(cls, fields):
         translated_schema: dict[str, str | dict[Any, Any]] = {
             "title": "JSON SCHEMA TRANSLATE",
             "type": "object",
             "properties": {}
 
         }
-        for item in cls.generate_fields(cls.get_keys_from_schema(schema)):
+
+        for item in cls.generate_fields(fields):
             translated_schema["properties"].update(item)
         return translated_schema
+
+
+    @classmethod
+    def generate_schema_to_translate_by_schema(cls, schema: dict) \
+            -> dict[str, str]:
+        """
+        Method generates new schema with fields from schema that must be translated.
+
+        :param schema: source scheme which fields must be renamed
+        :return:
+        """
+
+        return cls.generate_schema_by_texts(cls.get_keys_from_schema(schema))
 
     @classmethod
     def get_keys_from_schema(cls, schema: dict) -> dict[str, str]:
