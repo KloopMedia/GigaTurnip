@@ -169,6 +169,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         self.assertEqual(Translation.objects.all().count(), 12)
         tasks_to_translate = chain1_modifier_stage.tasks.all()
         self.assertEqual(tasks_to_translate.count(), 9)
+        self.assertEqual(task_trigger.out_tasks.all().count(), 9)
 
         expecting_schemas = [
             {'type': 'object',
@@ -255,3 +256,4 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         self.assertEqual(Translation.objects.all().count(), 12)
         tasks_to_translate = chain1_modifier_stage.tasks.all()
         self.assertEqual(tasks_to_translate.count(), 9)
+        self.assertEqual(task_trigger.out_tasks.all().count(), 0)
