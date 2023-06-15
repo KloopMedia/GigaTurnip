@@ -161,7 +161,8 @@ class LocalizationTest(GigaTurnipTestHelper):
                              '2b71f00b126e10636fbb133ecc57bd6df85ba5c08cd8534bc8cfe1467e903a06': {
                                  'title': 'Question 4', 'type': 'string'}}}
         self.assertEqual(result_schema,
-                         TranslateKey.generate_schema_to_translate(schema))
+                         TranslateKey.generate_schema_to_translate_by_schema(
+                             schema, "Russia"))
 
     def test_task_translation_schema(self):
         schema = {

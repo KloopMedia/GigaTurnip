@@ -22,6 +22,19 @@ class Translation(models.Model):
         help_text="Translations."
     )
 
+    class Status(models.TextChoices):
+        ANSWERED = "AN", "ANSWERED"
+        PENDING = "PE", "PENDING"
+        FREE = "FR", "FREE"
+
+    status = models.CharField(
+        max_length=2,
+        choices=Status.choices,
+        default=Status.FREE,
+        help_text="Status of translation answer."
+    )
+
+
     @classmethod
     def create_from_list(cls, language, pairs):
         """

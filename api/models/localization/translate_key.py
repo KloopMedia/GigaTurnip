@@ -79,9 +79,9 @@ class TranslateKey(models.Model):
         return result
 
     @classmethod
-    def generate_schema_by_fields(cls, fields):
+    def generate_schema_by_fields(cls, fields, target_lang: str):
         translated_schema: dict[str, str | dict[Any, Any]] = {
-            "title": "JSON SCHEMA TRANSLATE",
+            "title": f"Translate this phrases on {target_lang}",
             "type": "object",
             "properties": {}
 
@@ -93,7 +93,7 @@ class TranslateKey(models.Model):
 
 
     @classmethod
-    def generate_schema_to_translate_by_schema(cls, schema: dict) \
+    def generate_schema_to_translate_by_schema(cls, schema: dict, target_lang: str) \
             -> dict[str, str]:
         """
         Method generates new schema with fields from schema that must be translated.
@@ -102,7 +102,7 @@ class TranslateKey(models.Model):
         :return:
         """
 
-        return cls.generate_schema_by_texts(cls.get_keys_from_schema(schema))
+        return cls.generate_schema_by_fields(cls.get_keys_from_schema(schema), target_lang)
 
     @classmethod
     def get_keys_from_schema(cls, schema: dict) -> dict[str, str]:

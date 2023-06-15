@@ -34,7 +34,7 @@ class TranslationAdapter(BaseDatesModel):
     )
 
     @classmethod
-    def generate_translation_tasks(self, stage, in_tasks=None):
+    def generate_translation_tasks(cls, stage, in_tasks=None):
         in_tasks = in_tasks if in_tasks else []
         texts_by_stage = dict()
         all_keys = dict()
@@ -65,8 +65,8 @@ class TranslationAdapter(BaseDatesModel):
         Task = apps.get_model("api.task")
         Case = apps.get_model("api.case")
         tasks_to_create = []
-        print(all_keys)
-        print(texts_by_stage)
+        # print(all_keys)
+        # print(texts_by_stage)
         for adapter in stage.translation_adapters.select_related("source",
                                                                  "target").all():
 
@@ -80,13 +80,42 @@ class TranslationAdapter(BaseDatesModel):
                 all_translations = Translation.objects.filter(
                     key__campaign=stage.get_campaign()
                 ).select_related("language").prefetch_related("key")
-            print("ALL translations: ", all_translations)
+            # print("ALL translations: ", all_translations)
+            # print()
+
             for st, texts in texts_by_stage.items():
-                print()
+                # print(adapter, st)
+                # print(texts)
+                available_translations = all_translations.filter(
+                    language=adapter.target,
+                    status=Translation.Status.FREE,
+                    key__key__in=list(texts.keys())
+                )
+                # print("Available translations: ", available_translations)
 
-                # print(TranslateKey.generate_schema_by_fields(texts))
+                available_keys = {k: v for k, v in texts.items() if
+                                  k in available_translations.values_list(
+                                      "key__key", flat=True)
+                                  }
+                # print("fjlajlkfjsalf;jkd")
+                # print(available_keys)
+                if available_keys:
+                    c = Case.objects.create()
+                    tasks_to_create.append(
+                        Task(
+                            stage=stage,
+                            case=c,
+                            schema=TranslateKey.generate_schema_by_fields(
+                                available_keys, adapter.target.name)
 
-        print(tasks_to_create)
+                        )
+                    )
+                    available_translations.update(
+                        status=Translation.Status.PENDING)
+
+                # print()
+
+        Task.objects.bulk_create(tasks_to_create)
 
     def __str__(self):
         return f"{self.source.code} - {self.target.code}. {self.stage.id}"
