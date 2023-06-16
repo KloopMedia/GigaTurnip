@@ -132,6 +132,17 @@ class TranslationAdapter(BaseDatesModel):
         created_objects = Task.objects.bulk_create(tasks_to_create)
         [i.in_tasks.add(*in_tasks) for i in created_objects]
 
+    def save_translations(self, campaign, phrases: dict[str, str]):
+        """
+        Call method that will save phrases in Translation model.
+
+        :param campaign: Campaign object.
+        :param phrases: Key - hash code of source phrase, value - translation
+        :return:
+        """
+
+        apps.get_model("api.translation") \
+            .update_from_dict(campaign, self.target, phrases)
 
     def __str__(self):
         return f"{self.source.code} - {self.target.code}. {self.stage.id}"
