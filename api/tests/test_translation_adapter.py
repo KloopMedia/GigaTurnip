@@ -8,50 +8,10 @@ from api.tests import GigaTurnipTestHelper
 class TranslationAdapterTest(GigaTurnipTestHelper):
 
     def test_translation_adapter_on_task_creation(self):
-        schema = {
-            "type": "object",
-            "title": "Please pass your answers on below questions",
-            "properties": {
-                "answer": {
-                    "title": "Pass something here.",
-                    "type": "string"
-                }
-            },
-            "required": ["answer"]
-        }
-        schema2 = {
-            "type": "object",
-            "title": "Please pass your answers on below questions",
-            "properties": {
-                "answer": {
-                    "title": "Pass something here 2.",
-                    "type": "string"
-                }
-            },
-            "required": ["answer"]
-        }
-        schema3 = {
-            "type": "object",
-            "title": "Please pass your answers on below questions 2",
-            "properties": {
-                "answer": {
-                    "title": "Pass something here.",
-                    "type": "string"
-                }
-            },
-            "required": ["answer"]
-        }
-        schema4 = {
-            "type": "object",
-            "title": "Please pass your answers on below questions",
-            "properties": {
-                "answer": {
-                    "title": "Pass something here.",
-                    "type": "string"
-                }
-            },
-            "required": ["answer"]
-        }
+        schema = {"type": "object","title": "Please pass your answers on below questions","properties": {"answer": {"title": "Pass something here.","type": "string"}},"required": ["answer"]}
+        schema2 = {"type": "object","title": "Please pass your answers on below questions","properties": {"answer": {"title": "Pass something here 2.","type": "string"}},"required": ["answer"]}
+        schema3 = {"type": "object","title": "Please pass your answers on below questions 2","properties": {"answer": {"title": "Pass something here.","type": "string"}},"required": ["answer"]}
+        schema4 = {"type": "object","title": "Please pass your answers on below questions","properties": {"answer": {"title": "Pass something here.","type": "string"}},"required": ["answer"]}
         self.initial_stage.json_schema = json.dumps(schema)
         self.initial_stage.save()
 
@@ -155,9 +115,9 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
             all(self.initial_stage.tasks.values_list("complete", flat=True)))
 
         texts = ["Please pass your answers on below questions",
-        "Pass something here.",
-        "Pass something here 2.",
-        "Please pass your answers on below questions 2"]
+                 "Pass something here.",
+                 "Pass something here 2.",
+                 "Please pass your answers on below questions 2"]
         keys = TranslateKey.objects.filter(campaign=self.campaign)
         self.assertEqual(keys.count(), 4)
 
@@ -172,69 +132,15 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         self.assertEqual(task_trigger.out_tasks.all().count(), 9)
 
         expecting_schemas = [
-            {'type': 'object',
-             'title': 'Translate this phrases on Russia',
-             'properties': {
-                 '253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {
-                     'type': 'string',
-                     'title': 'Please pass your answers on below questions'},
-                 '3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {
-                     'type': 'string',
-                     'title': 'Pass something here.'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on Russia',
-             'properties': {
-                 'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {
-                     'type': 'string',
-                     'title': 'Pass something here 2.'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on Russia',
-             'properties': {
-                 '19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {
-                     'type': 'string',
-                     'title': 'Please pass your answers on below questions 2'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on Kyrgyzstan',
-             'properties': {
-                 '253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {
-                     'type': 'string',
-                     'title': 'Please pass your answers on below questions'},
-                 '3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {
-                     'type': 'string',
-                     'title': 'Pass something here.'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on Kyrgyzstan',
-             'properties': {
-                 'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {
-                     'type': 'string',
-                     'title': 'Pass something here 2.'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on Kyrgyzstan',
-             'properties': {
-                 '19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {
-                     'type': 'string',
-                     'title': 'Please pass your answers on below questions 2'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on French',
-             'properties': {
-                 '253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {
-                     'type': 'string',
-                     'title': 'Please pass your answers on below questions'},
-                 '3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {
-                     'type': 'string',
-                     'title': 'Pass something here.'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on French',
-             'properties': {
-                 'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {
-                     'type': 'string',
-                     'title': 'Pass something here 2.'}}},
-            {'type': 'object',
-             'title': 'Translate this phrases on French',
-             'properties': {
-                 '19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {
-                     'type': 'string',
-                     'title': 'Please pass your answers on below questions 2'}}}
+            {'type': 'object','title': 'Translate this phrases on Russia','properties': {'253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {'type': 'string','title': 'Please pass your answers on below questions'},'3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {'type': 'string','title': 'Pass something here.'}}},
+            {'type': 'object','title': 'Translate this phrases on Russia','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
+            {'type': 'object','title': 'Translate this phrases on Russia','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}},
+            {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {'type': 'string','title': 'Please pass your answers on below questions'},'3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {'type': 'string','title': 'Pass something here.'}}},
+            {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
+            {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}},
+            {'type': 'object','title': 'Translate this phrases on French','properties': {'253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {'type': 'string','title': 'Please pass your answers on below questions'},'3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {'type': 'string','title': 'Pass something here.'}}},
+            {'type': 'object','title': 'Translate this phrases on French','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
+            {'type': 'object','title': 'Translate this phrases on French','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}}
         ]
         actual_schemas = [i for i in tasks_to_translate.values_list("schema", flat=True)]
         self.assertEqual(expecting_schemas, actual_schemas)
