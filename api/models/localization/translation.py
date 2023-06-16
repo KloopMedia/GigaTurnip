@@ -55,15 +55,15 @@ class Translation(models.Model):
         return cls.objects.bulk_create(data_to_create)
 
     @classmethod
-    def update_from_dict(cls, campaign, texts, language):
+    def update_from_dict(cls, campaign, language, texts):
         """
         Get translations using parameters and set its values to new.
         :param campaign: Campaign instance.
-        :param texts: Dictionary where key - hash value of source text, value - translation.
         :param language: Language instance.
+        :param texts: Dictionary where key - hash value of source text, value - translation.
         :return: None
         """
-
+        print("im here")
         to_update = list(language.translations.prefetch_related("key") \
             .filter(
             key__campaign=campaign,

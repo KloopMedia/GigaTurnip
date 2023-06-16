@@ -1,5 +1,7 @@
 import json
 
+from rest_framework import status
+
 from api.constans import TaskStageConstants
 from api.models import *
 from api.tests import GigaTurnipTestHelper
@@ -91,18 +93,22 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
                 assign_user_by=TaskStageConstants.RANK
             )
         )
+        self.prepare_client(adapter_ru_modifier_stage, self.user)
         adapter_ky_modifier_stage = self.initial_stage.add_stage(
             TaskStage(
                 name="Translate adapter KY",
                 assign_user_by=TaskStageConstants.RANK
             )
         )
+        self.prepare_client(adapter_ky_modifier_stage, self.user)
         adapter_fr_modifier_stage = self.initial_stage.add_stage(
             TaskStage(
                 name="Translate adapter FR",
                 assign_user_by=TaskStageConstants.RANK
             )
         )
+        self.prepare_client(adapter_fr_modifier_stage, self.user)
+
         TranslationAdapter.objects.create(
             stage=adapter_ru_modifier_stage,
             source=self.lang,
@@ -139,6 +145,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         )
         self.assertEqual(TranslateKey.objects.all().count(), 4)
         self.assertEqual(Translation.objects.all().count(), 12)
+
         ru_tasks_to_translate = adapter_ru_modifier_stage.tasks.all()
         ky_tasks_to_translate = adapter_ky_modifier_stage.tasks.all()
         fr_tasks_to_translate = adapter_fr_modifier_stage.tasks.all()
@@ -185,3 +192,28 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         self.assertEqual(TranslateKey.objects.all().count(), 4)
         self.assertEqual(Translation.objects.all().count(), 12)
         self.assertEqual(Task.objects.count(), 11)
+
+        # start sending task and check for accepted translations
+        task_to_translate = ru_tasks_to_translate.first()
+        response_assign = self.get_objects('task-request-assignment',
+                                           pk=task_to_translate.id)
+        self.assertEqual(response_assign.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user.tasks.count(), 3)
+
+        # START COMPLETING TRANSLATIONS
+        translate_phrases = {k: str(i) for i, k in
+                             enumerate(task_to_translate.schema[
+                                           "properties"].keys())}
+        task_to_translate = self.complete_task(task_to_translate,
+                                               responses=translate_phrases)
+
+        self.assertTrue(task_to_translate.complete)
+        needed_translations = Translation.objects.filter(
+            key__key__in=translate_phrases.keys(),
+            language=ru_lang)
+        self.assertEqual(sorted(needed_translations.values_list("text", flat=True)),
+                         sorted(translate_phrases.values()))
+        self.assertEqual(
+            len(Translation.objects.filter(
+                status=Translation.Status.ANSWERED)),
+            len(translate_phrases))

@@ -67,6 +67,14 @@ def give_rank_by_campaignlinks(task):
             create_new_task(task_stage, task, user)
 
 
+def create_translation_based_on_answers(stage, task):
+    if not stage._translation_adapter:
+        return
+    print(stage._translation_adapter)
+    stage._translation_adapter.save_translations(
+        stage.get_campaign(), task.responses
+    )
+
 def process_completed_task(task):
     current_stage = task.stage
 
@@ -88,6 +96,8 @@ def process_completed_task(task):
     next_direct_task = task.get_direct_next()
     if next_direct_task is not None and not task.stage.chain.is_individual:
         return get_next_direct_task(next_direct_task, task)
+
+    create_translation_based_on_answers(current_stage, task)
 
     process_on_chain(current_stage, task)
     detecting_auto_notifications(current_stage, task)

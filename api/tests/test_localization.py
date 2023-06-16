@@ -388,7 +388,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             status=Translation.Status.ANSWERED).count(), 4
             )
 
-        Translation.update_from_dict(self.campaign, translations, local_lang)
+        Translation.update_from_dict(self.campaign, local_lang, translations)
         self.assertEqual(Translation.objects.count(), 4)
         all_translations = Translation.objects.all()
         self.assertEqual(all_translations.exclude(
