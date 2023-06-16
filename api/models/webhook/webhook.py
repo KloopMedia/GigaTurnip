@@ -4,9 +4,9 @@ from json import JSONDecodeError
 import requests
 from django.db import models
 
-from api.constans import WebhookConstants, ReplaceConstants, RequestMethodConstants
+from api.constans import WebhookConstants, RequestMethodConstants
 from api.models import BaseDatesModel, TaskStage
-from api.utils.injector import text_inject
+from api.utils.injector import inject
 
 
 class Webhook(BaseDatesModel):
