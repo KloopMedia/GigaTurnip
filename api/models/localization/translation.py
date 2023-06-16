@@ -54,6 +54,28 @@ class Translation(models.Model):
 
         return cls.objects.bulk_create(data_to_create)
 
+    @classmethod
+    def update_from_dict(cls, campaign, texts, lang):
+        """
+        Get translations using parameters and set its values to new.
+        :param campaign:
+        :param texts:
+        :return:
+        """
+
+        to_update = lang.translations.prefetch_related("key") \
+            .filter(
+            status=cls.Status.ANSWERED,
+            campaign=campaign,
+            language=lang,
+            key__key__in=list(texts.keys()))
+
+        for i in range(to_update.count()):
+            to_update[i].text = texts.get(to_update[i].key.key)
+            to_update[i].status = cls.Status.ANSWERED
+
+        cls.objects.bulk_update(to_update, ["text", "status"])
+
     def __str__(self):
         return f"{self.key.key}: {self.language}"
 
