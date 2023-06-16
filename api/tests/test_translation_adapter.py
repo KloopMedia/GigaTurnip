@@ -85,24 +85,36 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
 
         # create modifier
         ## first chain
-        chain1_modifier_stage = self.initial_stage.add_stage(
+        adapter_ru_modifier_stage = self.initial_stage.add_stage(
             TaskStage(
-                name="Translate adapter",
+                name="Translate adapter RU",
+                assign_user_by=TaskStageConstants.RANK
+            )
+        )
+        adapter_ky_modifier_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Translate adapter KY",
+                assign_user_by=TaskStageConstants.RANK
+            )
+        )
+        adapter_fr_modifier_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Translate adapter FR",
                 assign_user_by=TaskStageConstants.RANK
             )
         )
         TranslationAdapter.objects.create(
-            stage=chain1_modifier_stage,
+            stage=adapter_ru_modifier_stage,
             source=self.lang,
             target=ru_lang,
         )
         TranslationAdapter.objects.create(
-            stage=chain1_modifier_stage,
+            stage=adapter_ky_modifier_stage,
             source=self.lang,
             target=ky_lang,
         )
         TranslationAdapter.objects.create(
-            stage=chain1_modifier_stage,
+            stage=adapter_fr_modifier_stage,
             source=self.lang,
             target=fr_lang,
         )
@@ -127,23 +139,35 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         )
         self.assertEqual(TranslateKey.objects.all().count(), 4)
         self.assertEqual(Translation.objects.all().count(), 12)
-        tasks_to_translate = chain1_modifier_stage.tasks.all()
-        self.assertEqual(tasks_to_translate.count(), 9)
+        ru_tasks_to_translate = adapter_ru_modifier_stage.tasks.all()
+        ky_tasks_to_translate = adapter_ky_modifier_stage.tasks.all()
+        fr_tasks_to_translate = adapter_fr_modifier_stage.tasks.all()
+        self.assertEqual(ru_tasks_to_translate.count(), 3)
+        self.assertEqual(ky_tasks_to_translate.count(), 3)
+        self.assertEqual(fr_tasks_to_translate.count(), 3)
         self.assertEqual(task_trigger.out_tasks.all().count(), 9)
 
-        expecting_schemas = [
+        expecting_ru_schemas = [
             {'type': 'object','title': 'Translate this phrases on Russia','properties': {'253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {'type': 'string','title': 'Please pass your answers on below questions'},'3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {'type': 'string','title': 'Pass something here.'}}},
             {'type': 'object','title': 'Translate this phrases on Russia','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
-            {'type': 'object','title': 'Translate this phrases on Russia','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}},
+            {'type': 'object','title': 'Translate this phrases on Russia','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}}
+        ]
+        expecting_ky_schemas = [
             {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {'type': 'string','title': 'Please pass your answers on below questions'},'3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {'type': 'string','title': 'Pass something here.'}}},
             {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
-            {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}},
+            {'type': 'object','title': 'Translate this phrases on Kyrgyzstan','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}}
+        ]
+        expecting_fr_schemas = [
             {'type': 'object','title': 'Translate this phrases on French','properties': {'253c094b50c180b19aa2abaed698d54e759d4aabadc50189d4925aef4fff7e49': {'type': 'string','title': 'Please pass your answers on below questions'},'3bc69761604de2f66f3a0f7c6866abf832e86409581f567169b8875c87b69eac': {'type': 'string','title': 'Pass something here.'}}},
             {'type': 'object','title': 'Translate this phrases on French','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
             {'type': 'object','title': 'Translate this phrases on French','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}}
         ]
-        actual_schemas = [i for i in tasks_to_translate.values_list("schema", flat=True)]
-        self.assertEqual(expecting_schemas, actual_schemas)
+        actual_ru_schemas = [i for i in ru_tasks_to_translate.values_list("schema", flat=True)]
+        actual_ky_schemas = [i for i in ky_tasks_to_translate.values_list("schema", flat=True)]
+        actual_fr_schemas = [i for i in fr_tasks_to_translate.values_list("schema", flat=True)]
+        self.assertEqual(actual_ru_schemas, expecting_ru_schemas)
+        self.assertEqual(actual_ky_schemas, expecting_ky_schemas)
+        self.assertEqual(actual_fr_schemas, expecting_fr_schemas)
 
         # repeat actions if no schema didn't change
         task_trigger = self.create_task(self.initial_stage)
@@ -160,6 +184,4 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         )
         self.assertEqual(TranslateKey.objects.all().count(), 4)
         self.assertEqual(Translation.objects.all().count(), 12)
-        tasks_to_translate = chain1_modifier_stage.tasks.all()
-        self.assertEqual(tasks_to_translate.count(), 9)
-        self.assertEqual(task_trigger.out_tasks.all().count(), 0)
+        self.assertEqual(Task.objects.count(), 11)
