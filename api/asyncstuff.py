@@ -268,9 +268,8 @@ def create_new_task(stage, in_task, user=None):
         new_task = process_webhook(stage, in_task, data)
     elif stage.get_integration():
         in_task = process_integration(stage, in_task)
-    elif stage.translation_adapters.select_related("source", "target").first():
-        apps.get_model("api.translationadapter") \
-            .generate_translation_tasks(stage, [in_task])
+    elif stage._translation_adapter:
+        stage._translation_adapter.generate_translation_tasks([in_task])
     else:
         new_task = process_stage_assign(stage, data, in_task, user)
         new_task = trigger_on_copy_input(stage, new_task, in_task)
