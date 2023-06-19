@@ -167,6 +167,10 @@ class TaskStage(Stage, SchemaProvider):
             return self.previous_manual_to_assign
         return None
 
+    @property
+    def _translation_adapter(self):
+        return getattr(self, 'translation_adapter', None)
+
     def get_webhook(self):
         if hasattr(self, 'webhook'):
             return self.webhook

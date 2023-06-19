@@ -10,6 +10,31 @@ from api.models import Rank, RankRecord, CustomUser, RankLimit, Campaign, \
 def to_json(string):
     return json.loads(string)
 
+def get_schema():
+    schema = {
+    "type": "object",
+    "properties": {
+        "answer": {
+            "title": "Question 1",
+            "type": "string"
+        },
+        "answer2": {
+            "title": "Question 2",
+            "type": "string"
+        },
+        "answer3": {
+            "title": "Question 3",
+            "type": "string"
+        },
+        "answer4": {
+            "title": "Question 4",
+            "type": "string"
+        }
+    },
+    "required": ["answer", "answer2", "answer3", "answer4"]
+}
+    return schema
+
 class GigaTurnipTestHelper(APITestCase):
 
     def create_client(self, u):
