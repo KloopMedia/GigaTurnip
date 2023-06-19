@@ -16,7 +16,7 @@ from .models import (
     Webhook, CopyField, StagePublisher, Quiz, ResponseFlattener, TaskAward,
     DynamicJson, PreviousManual, AutoNotification, ConditionalLimit,
     DatetimeSort, ErrorItem, TestWebhook, CampaignLinker, ApproveLink,
-    Language, Category, Country
+    Language, Category, Country, TranslationAdapter, TranslateKey, Translation
 )
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -323,6 +323,28 @@ class IntegrationAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super(IntegrationAdmin, self).get_queryset(request)
         return filter_by_admin_preference(queryset, request, "task_stage__chain__")
+
+
+class TranslationAdapterAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("stage", "source", "target")
+    search_fields = ("stage", "source", "target")
+    list_display = ("stage", "source", "target")
+    list_filter = ("stage", "source", "target")
+
+
+class TranslateKeyAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("campaign",)
+    search_fields = ("key", "text")
+    list_display = ("campaign", "key", "text")
+    list_filter = ("campaign",)
+
+
+class TranslationAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("key", "language")
+    search_fields = ("key", "language")
+    list_display = ("key", "language", "text")
+    list_filter = ("key", "language", "status")
+
 
 
 class WebhookAdmin(admin.ModelAdmin):
@@ -982,6 +1004,9 @@ admin.site.register(ConditionalStage, StageAdmin)
 admin.site.register(ConditionalLimit, ConditionalLimitAdmin)
 admin.site.register(Stage, GeneralStageAdmin)
 admin.site.register(Integration, IntegrationAdmin)
+admin.site.register(TranslationAdapter, TranslationAdapterAdmin)
+admin.site.register(TranslateKey, TranslateKeyAdmin)
+admin.site.register(Translation, TranslationAdmin)
 admin.site.register(Webhook, WebhookAdmin)
 admin.site.register(DynamicJson, DynamicJsonAdmin)
 admin.site.register(StagePublisher, IntegrationAdmin)
