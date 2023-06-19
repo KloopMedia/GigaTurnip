@@ -37,7 +37,7 @@ class TranslateKey(models.Model):
     @staticmethod
     def extract_enums(storage, val):
         for enum in val:
-            storage[hashlib.sha256(val.encode()).hexdigest()] = enum
+            storage[hashlib.sha256(enum.encode()).hexdigest()] = enum
 
     @classmethod
     def extract_fields_to_translate(cls, data, storage, path=None):
