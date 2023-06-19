@@ -407,6 +407,11 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStage.objects.all()
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
     @paginate
     @action(detail=False)
     def user_relevant(self, request):
@@ -1670,7 +1675,7 @@ class UserStatisticViewSet(GenericViewSet):
                     f"Properly format: {self.date_format}")
         return None
 
-    # generate filter dictionary to filter by datetime
+    # generate filter schema to filter by datetime
     def range_date_filter(self, start, end, key):
         greater_key = key + "__gte"
         less_key = key + "__lte"

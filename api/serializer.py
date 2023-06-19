@@ -16,8 +16,10 @@ from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson, TestWebhook, Category, Language, Country
+    TaskAward, DynamicJson, TestWebhook, Category, Language, Country, \
+    TranslateKey
 from api.permissions import ManagersOnlyAccessPolicy
+
 
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
@@ -215,6 +217,12 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
     def get_campaign(self, obj):
         return obj.get_campaign().id
 
+    def to_representation(self, instance):
+        request = self.context.get("request")
+        if request:
+            instance = TranslateKey.to_representation(instance, request)
+        return super().to_representation(instance)
+
 
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):
@@ -335,8 +343,12 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Replace stage schema with schema from task stage if so configured."""
         if instance.stage.schema_source == TaskStageSchemaSourceConstants.TASK:
-            instance.stage.json_schema = json.dumps(instance.schema)
-            instance.stage.ui_schema = json.dumps(instance.ui_schema)
+            instance.stage.json_schema = instance.schema
+            instance.stage.ui_schema = instance.ui_schema
+        request = self.context.get("request", None)
+        if request:
+            instance.stage = TranslateKey.to_representation(instance.stage,
+                                                            request)
         return super().to_representation(instance)
 
 
@@ -409,6 +421,7 @@ class TaskResponsesFilterSerializer(PostJSONFilterSerializer):
             'stage': item.get('stage', None),
             'search_stage': item.get('search_stage', None)
         }
+
 
 class TaskAutoCreateSerializer(serializers.ModelSerializer):
     class Meta:
