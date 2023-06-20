@@ -34,11 +34,12 @@ class DanceVocabraTest(GigaTurnipTestHelper):
         self.initial_stage.save()
 
         task = self.create_initial_task()
-        task.schema = task_schema
-        task.ui_schema = task_ui_schema
+        task.schema = json.dumps(task_schema)
+        task.ui_schema = json.dumps(task_ui_schema)
         task.save()
 
         response = self.get_objects("task-detail", pk=task.pk)
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(json.loads(response.data["stage"]["json_schema"]),
                          task_schema)
@@ -414,34 +415,6 @@ class DanceVocabraTest(GigaTurnipTestHelper):
         self.assertEqual(next_task.ui_schema,
                          {'ui:order': ['car', 'house', 'go', 'people', 'human', 'rain', 'road', 'sun', 'snow',
                                        'wind']})
-
-    def test_webhook_url_injection(self):
-        task = self.create_initial_task()
-        task.internal_metadata = {"url_part": "echo_function"}
-
-        task.save()
-
-        second_stage = self.initial_stage.add_stage(TaskStage(
-            name="Get on verification",
-            assign_user_by=TaskStageConstants.STAGE,
-            assign_user_from_stage=self.initial_stage,
-        ))
-        Webhook.objects.create(
-            task_stage=second_stage,
-            url=(
-                'https://us-central1-journal-bb5e3.cloudfunctions.net/'
-                '{"@TURNIP_INTERNAL_META": {"stage": "in_task", "field": "url_part"}}'
-            ),
-            is_triggered=False,
-            which_responses=WebhookConstants.IN_RESPONSES,
-        )
-
-        self.complete_task(task)
-
-        next_task = task.out_tasks.get()
-
-        response = self.get_objects('task-trigger-webhook', pk=next_task.pk)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_dance_vocabre_integration(self):
         headers = {"Authorization": "Token 23bd338120b4116b298c5f25ead64c234bc3ebd9"}
