@@ -8,12 +8,9 @@ from api.models import Task
 
 
 def inject(text, task):
-    print("INJECTION TEXT IN:")
-    print(str(text))
     is_dict = False
     if isinstance(text, dict):
         is_dict = True
-    print(str(is_dict))
     if is_dict:
         text = json.dumps(text)
 
@@ -27,17 +24,11 @@ def inject(text, task):
 
     for injection in set(injections):
         data = _get_injection_data(injection, task)
-        print("INJECTION PART")
-        print(data)
         if is_dict:
             if isinstance(data, dict):
                 text = text.replace(injection, json.dumps(data))
             else:
-                print("TEXT BEFORE INJECTION:")
-                print(text)
                 text = text.replace(injection, '"' + data + '"')
-                print("TEXT AFTER INJECTION:")
-                print(text)
         else:
             if isinstance(data, dict):
                 text = text.replace(injection, json.dumps(data))
@@ -47,14 +38,10 @@ def inject(text, task):
     if is_dict:
         text = json.loads(text)
 
-    print("INJECTION TEXT OUT:")
-    print(str(text))
     return text
 
 
 def _get_injection_data(injection, task):
-    print("INJECTION:")
-    print(injection)
     stage = _get_param(RSC.STAGE, injection, task)
     field = _get_param(RSC.FIELD, injection, task)
 
@@ -84,8 +71,7 @@ def _get_param(param, injection, task=None):
     except json.decoder.JSONDecodeError:
         return None
     data = data[list(data.keys())[0]]
-    print("GET PARAM DATA:")
-    print(data)
+
     if not data:
         return None
     return data.get(param, None)

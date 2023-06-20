@@ -472,7 +472,8 @@ class DanceVocabraTest(GigaTurnipTestHelper):
 
         third_stage = second_stage.add_stage(TaskStage(
             name="Select familiar",
-            assign_user_by=TaskStageConstants.STAGE
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage
         ))
 
         data_third_stage = {
@@ -526,22 +527,21 @@ class DanceVocabraTest(GigaTurnipTestHelper):
             which_responses=WebhookConstants.MODIFIER_FIELD,
         )
 
-        task = self.create_initial_task()
-        print("INITIAL TASK CREATED!!!")
-        task.responses = {"go": False}
-        task.save()
-        self.complete_task(task)
+        first_task = self.create_initial_task()
+        first_task.responses = {"go": False, "car": False}
+        first_task.save()
+        self.complete_task(first_task)
 
-        next_task = task.out_tasks.get().out_tasks.get()
+        third_task = first_task.out_tasks.get().out_tasks.get()
 
-        next_task.responses = {"go": True}
-        next_task.save()
-        self.complete_task(next_task)
+        third_task.responses = {"go": True}
+        third_task.save()
+        self.complete_task(third_task)
 
-        next_task = Task.objects.get(pk=next_task.pk)
+        fourth_task = third_task.out_tasks.get()
 
-        self.assertEqual(next_task.internal_metadata["score"], 10)
-        self.assertEqual(next_task.responses["score"], 10)
+        self.assertEqual(fourth_task.internal_metadata.get("score", None), 50)
+        self.assertEqual(fourth_task.responses.get("score", None), 50)
 
     # def test_task_stage_schema(self):
     #     stage_schema = {

@@ -154,8 +154,6 @@ class Webhook(BaseDatesModel):
     def trigger(self, task):
         if self.which_responses == WebhookConstants.MODIFIER_FIELD:
             data = inject(self.data, task)
-            print("INJECTED DATA:")
-            print(str(data))
         else:
             data = self.get_responses(task)
 
