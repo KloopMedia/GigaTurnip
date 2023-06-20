@@ -4,6 +4,7 @@ import sys
 import traceback
 
 import requests
+from django.apps import apps
 from django.db.models import F, Count
 from django.utils import timezone
 from rest_framework import status
@@ -66,6 +67,14 @@ def give_rank_by_campaignlinks(task):
             create_new_task(task_stage, task, user)
 
 
+def create_translation_based_on_answers(stage, task):
+    if not stage._translation_adapter:
+        return
+    print(stage._translation_adapter)
+    stage._translation_adapter.save_translations(
+        stage.get_campaign(), task.responses
+    )
+
 def process_completed_task(task):
     current_stage = task.stage
 
@@ -87,6 +96,8 @@ def process_completed_task(task):
     next_direct_task = task.get_direct_next()
     if next_direct_task is not None and not task.stage.chain.is_individual:
         return get_next_direct_task(next_direct_task, task)
+
+    create_translation_based_on_answers(current_stage, task)
 
     process_on_chain(current_stage, task)
     detecting_auto_notifications(current_stage, task)
@@ -244,7 +255,7 @@ def process_previous_manual_assign(stage, new_task, in_task):
 def process_create_new_task_based_and_stage_assign(stage, new_task, in_task):
     if stage.webhook_address or stage.assign_user_by in [TaskStageConstants.AUTO_COMPLETE, TaskStageConstants.INTEGRATOR]:
         task_award = stage.task_stage_verified.all()
-        if not task_award:
+        if not task_award and new_task:
             process_completed_task(new_task)
         if task_award:
             rank_record = task_award[0].connect_user_with_rank(in_task)
@@ -267,6 +278,8 @@ def create_new_task(stage, in_task, user=None):
         new_task = process_webhook(stage, in_task, data)
     elif stage.get_integration():
         in_task = process_integration(stage, in_task)
+    elif stage._translation_adapter:
+        stage._translation_adapter.generate_translation_tasks([in_task])
     else:
         new_task = process_stage_assign(stage, data, in_task, user)
         new_task = trigger_on_copy_input(stage, new_task, in_task)

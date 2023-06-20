@@ -22,6 +22,19 @@ class Translation(models.Model):
         help_text="Translations."
     )
 
+    class Status(models.TextChoices):
+        ANSWERED = "AN", "ANSWERED"
+        PENDING = "PE", "PENDING"
+        FREE = "FR", "FREE"
+
+    status = models.CharField(
+        max_length=2,
+        choices=Status.choices,
+        default=Status.FREE,
+        help_text="Status of translation answer."
+    )
+
+
     @classmethod
     def create_from_list(cls, language, pairs):
         """
@@ -40,6 +53,31 @@ class Translation(models.Model):
                           for i in pairs if i[0] not in exists]
 
         return cls.objects.bulk_create(data_to_create)
+
+    @classmethod
+    def update_from_dict(cls, campaign, language, texts):
+        """
+        Get translations using parameters and set its values to new.
+        :param campaign: Campaign instance.
+        :param language: Language instance.
+        :param texts: Dictionary where key - hash value of source text, value - translation.
+        :return: None
+        """
+        print("im here")
+        to_update = list(language.translations.prefetch_related("key") \
+            .filter(
+            key__campaign=campaign,
+            language=language,
+            key__key__in=list(texts.keys()))
+                         .exclude(
+            status=cls.Status.ANSWERED
+        ))
+
+        for i in range(len(to_update)):
+            to_update[i].text = texts.get(to_update[i].key.key)
+            to_update[i].status = cls.Status.ANSWERED
+
+        cls.objects.bulk_update(to_update, ["text", "status"])
 
     def __str__(self):
         return f"{self.key.key}: {self.language}"

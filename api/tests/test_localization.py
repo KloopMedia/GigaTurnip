@@ -6,7 +6,7 @@ from rest_framework import status
 from api.constans import AutoNotificationConstants, TaskStageConstants, \
     CopyFieldConstants
 from api.models import *
-from api.tests import GigaTurnipTestHelper, to_json
+from api.tests import GigaTurnipTestHelper, to_json, get_schema
 
 
 class LocalizationTest(GigaTurnipTestHelper):
@@ -150,7 +150,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             },
             "required": ["answer", "answer2", "answer3", "answer4"]
         }
-        result_schema = {'title': 'JSON SCHEMA TRANSLATE', 'type': 'object',
+        result_schema = {'title': 'Translate this phrases on Russia', 'type': 'object',
                          'properties': {
                              '02ecd63e4f1632ff673d8ebfb0709c5e520a2a64a77644369eab86c5c833a796': {
                                  'title': 'Question 1', 'type': 'string'},
@@ -161,7 +161,8 @@ class LocalizationTest(GigaTurnipTestHelper):
                              '2b71f00b126e10636fbb133ecc57bd6df85ba5c08cd8534bc8cfe1467e903a06': {
                                  'title': 'Question 4', 'type': 'string'}}}
         self.assertEqual(result_schema,
-                         TranslateKey.generate_schema_to_translate(schema))
+                         TranslateKey.generate_schema_to_translate_by_schema(
+                             schema, "Russia"))
 
     def test_task_translation_schema(self):
         schema = {
@@ -358,3 +359,43 @@ class LocalizationTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.data["stage"]["json_schema"]),
                          translated_schema)
+
+    def test_translation_update_from_dict(self):
+        schema = get_schema()
+        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.save()
+        objects = TranslateKey.generate_keys_from_stage(self.initial_stage)
+        self.assertEqual(len(objects), 4)
+
+        translations = {
+            "Question 1": "Вопрос 1",
+            "Question 2": "Вопрос 2",
+            "Question 3": "Вопрос 3",
+            "Question 4": "Вопрос 4"
+        }
+        translations = {hashlib.sha256(k.encode()).hexdigest(): v
+                        for k, v in translations.items()}
+        local_lang = Language.objects.create(
+            name="Russia",
+            code="ru"
+        )
+        Translation.objects.bulk_create(
+            [Translation(key=i, language=local_lang) for i in objects]
+        )
+
+        self.assertEqual(Translation.objects.count(), 4)
+        self.assertEqual(Translation.objects.exclude(
+            status=Translation.Status.ANSWERED).count(), 4
+            )
+
+        Translation.update_from_dict(self.campaign, local_lang, translations)
+        self.assertEqual(Translation.objects.count(), 4)
+        all_translations = Translation.objects.all()
+        self.assertEqual(all_translations.exclude(
+            status=Translation.Status.ANSWERED).count(), 0)
+        self.assertEqual(
+            all_translations.filter(
+                status=Translation.Status.ANSWERED).count(), 4)
+        translated_texts = [i[0].split()[1] == i[1].split()[1] for i in
+                            all_translations.values_list("key__text", "text")]
+        self.assertTrue(all(translated_texts))

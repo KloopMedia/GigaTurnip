@@ -37,7 +37,7 @@ class TranslateKey(models.Model):
     @staticmethod
     def extract_enums(storage, val):
         for enum in val:
-            storage[hashlib.sha256(val.encode()).hexdigest()] = enum
+            storage[hashlib.sha256(enum.encode()).hexdigest()] = enum
 
     @classmethod
     def extract_fields_to_translate(cls, data, storage, path=None):
@@ -79,22 +79,30 @@ class TranslateKey(models.Model):
         return result
 
     @classmethod
-    def generate_schema_to_translate(cls, schema: dict) -> dict[str, str]:
+    def generate_schema_by_fields(cls, fields, target_lang: str):
+        translated_schema: dict[str, str | dict[Any, Any]] = {
+            "title": f"Translate this phrases on {target_lang}",
+            "type": "object",
+            "properties": {}
+
+        }
+
+        for item in cls.generate_fields(fields):
+            translated_schema["properties"].update(item)
+        return translated_schema
+
+
+    @classmethod
+    def generate_schema_to_translate_by_schema(cls, schema: dict, target_lang: str) \
+            -> dict[str, str]:
         """
         Method generates new schema with fields from schema that must be translated.
 
         :param schema: source scheme which fields must be renamed
         :return:
         """
-        translated_schema: dict[str, str | dict[Any, Any]] = {
-            "title": "JSON SCHEMA TRANSLATE",
-            "type": "object",
-            "properties": {}
 
-        }
-        for item in cls.generate_fields(cls.get_keys_from_schema(schema)):
-            translated_schema["properties"].update(item)
-        return translated_schema
+        return cls.generate_schema_by_fields(cls.get_keys_from_schema(schema), target_lang)
 
     @classmethod
     def get_keys_from_schema(cls, schema: dict) -> dict[str, str]:
