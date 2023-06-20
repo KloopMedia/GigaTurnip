@@ -47,7 +47,7 @@ class TranslationAdapter(BaseDatesModel):
         all_keys = dict()
 
         for st in stages:
-            if st.get("schema") is None:
+            if not st.get("schema"):
                 continue
             new_phrases = TranslateKey.get_keys_from_schema(
                 json.loads(st.get("schema"))
