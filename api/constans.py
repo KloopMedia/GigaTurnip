@@ -182,18 +182,3 @@ class RequestMethodConstants:
     POST = "post"
     PATCH = "patch"
     PUT = "put"
-
-
-# class ReplaceConstants:
-#     REPLACE_HINT = "@TURNIP_"
-#     USER_ID = REPLACE_HINT + "USER_ID"
-#     INTERNAL_META = REPLACE_HINT + "INTERNAL_META"
-#
-#
-# class ReplaceSourceConstants:
-#     STAGE = "stage"
-#     FIELD = "field"
-#
-#
-# class ReplaceOptionsConstants:
-#     IN_TASK = "in_task"
