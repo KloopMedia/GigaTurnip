@@ -1,7 +1,7 @@
 import json
 
 from django.apps import apps
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F
 
 from api.models import BaseDatesModel
@@ -104,34 +104,35 @@ class TranslationAdapter(BaseDatesModel):
             ).select_related("language").prefetch_related("key")
 
         # create tasks with schema that will show phrases that must be translated
-        for st, texts in texts_by_stage.items():
-            # phrases that haven't been translated yet
-            available_translations = all_translations.filter(
-                language=self.target,
-                status=Translation.Status.FREE,
-                key__key__in=list(texts.keys())
-            )
-
-            available_keys = {k: v for k, v in texts.items() if
-                              k in available_translations.values_list(
-                                  "key__key", flat=True)
-                              }
-            if available_keys:
-                c = Case.objects.create()
-                tasks_to_create.append(
-                    Task(
-                        stage=self.stage,
-                        case=c,
-                        schema=TranslateKey.generate_schema_by_fields(
-                            available_keys, self.target.name)
-
-                    )
+        with transaction.atomic():
+            for st, texts in texts_by_stage.items():
+                # phrases that haven't been translated yet
+                available_translations = all_translations.filter(
+                    language=self.target,
+                    status=Translation.Status.FREE,
+                    key__key__in=list(texts.keys())
                 )
-                available_translations.update(
-                    status=Translation.Status.PENDING)
 
-        created_objects = Task.objects.bulk_create(tasks_to_create)
-        [i.in_tasks.add(*in_tasks) for i in created_objects]
+                available_keys = {k: v for k, v in texts.items() if
+                                  k in available_translations.values_list(
+                                      "key__key", flat=True)
+                                  }
+                if available_keys:
+                    c = Case.objects.create()
+                    tasks_to_create.append(
+                        Task(
+                            stage=self.stage,
+                            case=c,
+                            schema=TranslateKey.generate_schema_by_fields(
+                                available_keys, self.target.name)
+
+                        )
+                    )
+                    available_translations.update(
+                        status=Translation.Status.PENDING)
+
+            created_objects = Task.objects.bulk_create(tasks_to_create)
+            [i.in_tasks.add(*in_tasks) for i in created_objects]
 
     def save_translations(self, campaign, phrases: dict[str, str]):
         """
