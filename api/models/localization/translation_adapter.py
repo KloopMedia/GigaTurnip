@@ -73,12 +73,14 @@ class TranslationAdapter(BaseDatesModel):
         Task = apps.get_model("api.task")
         Case = apps.get_model("api.case")
 
-
         in_tasks = in_tasks if in_tasks else []
         # geenreate new TranslateKey for new phrases
-        texts_by_stage, all_keys = self.get_phrases_by_stages(self.stage.get_campaign().chains)
+        texts_by_stage, all_keys = self.get_phrases_by_stages(
+            self.stage.get_campaign().chains)
         TranslateKey.create_from_list(self.stage.get_campaign(), all_keys)
-        translate_keys = TranslateKey.objects.filter(key__in=all_keys.keys())
+        translate_keys = TranslateKey.objects.filter(
+            campaign=self.stage.get_campaign(), key__in=all_keys.keys()) \
+            .distinct()
 
         # all translations for our campaign
         all_translations = Translation.objects.filter(
