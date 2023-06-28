@@ -73,8 +73,8 @@ class CampaignTest(GigaTurnipTestHelper):
             code="ky"
         )
 
-        campaign_ru_data["campaign"].language = lang_ru
-        campaign_ky_data["campaign"].language = lang_ky
+        campaign_ru_data["campaign"].languages.add(lang_ru)
+        campaign_ky_data["campaign"].languages.add(lang_ky)
 
         campaign_ru_data["campaign"].open = True
         campaign_ky_data["campaign"].open = True
@@ -87,7 +87,7 @@ class CampaignTest(GigaTurnipTestHelper):
         self.assertEqual(to_json(response.content)['count'], 4)
 
         response = self.get_objects("campaign-list",
-                                    params={"language__code": "ru"}
+                                    params={"languages__code": "ru"}
                                     )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.content)['count'], 1)
@@ -95,7 +95,7 @@ class CampaignTest(GigaTurnipTestHelper):
                          campaign_ru_data['campaign'].id)
 
         response = self.get_objects("campaign-list",
-                                    params={"language__code": "ky"}
+                                    params={"languages__code": "ky"}
                                     )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(to_json(response.content)['count'], 1)
@@ -103,11 +103,11 @@ class CampaignTest(GigaTurnipTestHelper):
                          campaign_ky_data['campaign'].id)
 
         response = self.get_objects("campaign-list",
-                                    params={"language__code": "en"}
+                                    params={"languages__code": "en"}
                                     )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(to_json(response.content)['count'], 2)
-        for i in [campaign_en_data['campaign'].id, self.campaign.id]:
+        self.assertEqual(to_json(response.content)['count'], 4)
+        for i in Campaign.objects.values_list("id", flat=True):
             self.assertIn(i, [_['id'] for _ in
                               to_json(response.content)['results']])
 

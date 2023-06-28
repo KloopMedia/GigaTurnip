@@ -9,8 +9,12 @@ from api.utils import utils
 class CampaignAccessPolicy(AccessPolicy):
     statements = [
         {
-            "action": ["list",
-                       "list_user_campaigns",
+            "action": ["list", "retrieve"],
+            "principal": ["*"],
+            "effect": "allow",
+        },
+        {
+            "action": ["list_user_campaigns",
                        "list_user_selectable",
                        "join_campaign"],
             "principal": "authenticated",
@@ -31,13 +35,14 @@ class CampaignAccessPolicy(AccessPolicy):
             "principal": "authenticated",
             "effect": "allow",
             "condition": "is_manager"
-        },
-        {
-            "action": ["retrieve"],
-            "principal": "authenticated",
-            "effect": "allow",
         }
     ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        if request.user.is_anonymous:
+            return qs.filter(open=True)
+        return qs
 
     def is_manager(self, request, view, action) -> bool:
         campaign = view.get_object()

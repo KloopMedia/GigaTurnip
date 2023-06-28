@@ -206,7 +206,7 @@ class CampaignAdmin(admin.ModelAdmin):
     autocomplete_fields = (
         "default_track",
         "categories",
-        "language",
+        "languages",
         "countries")
 
 

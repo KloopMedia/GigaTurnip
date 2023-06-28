@@ -70,7 +70,6 @@ def give_rank_by_campaignlinks(task):
 def create_translation_based_on_answers(stage, task):
     if not stage._translation_adapter:
         return
-    print(stage._translation_adapter)
     stage._translation_adapter.save_translations(
         stage.get_campaign(), task.responses
     )
