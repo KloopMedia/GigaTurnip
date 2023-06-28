@@ -221,6 +221,11 @@ class CampaignViewSet(viewsets.ModelViewSet):
             self.request, Campaign.objects.all()
         )
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
     @paginate
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(
