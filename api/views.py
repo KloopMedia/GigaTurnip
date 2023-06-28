@@ -208,7 +208,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
     permission_classes = (CampaignAccessPolicy,)
 
     filterset_fields = {
-        "language__code": ["exact"],
+        "languages__code": ["exact"],
         "categories": ["exact"],
         "countries__name": ["exact"],
     }

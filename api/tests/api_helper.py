@@ -76,12 +76,13 @@ class GigaTurnipTestHelper(APITestCase):
     def generate_new_basic_campaign(self, name, lang=None, countries=None):
         l = lang
         if not l:
-            l = self.lang
+            l = [self.lang]
         c = countries
         if not c:
             c = [self.country]
 
-        campaign = Campaign.objects.create(name=name, language=l)
+        campaign = Campaign.objects.create(name=name)
+        campaign.languages.add(*l)
         campaign.countries.set(c)
         default_track = Track.objects.create(
             campaign=campaign,
