@@ -9,8 +9,12 @@ from api.utils import utils
 class CampaignAccessPolicy(AccessPolicy):
     statements = [
         {
-            "action": ["list",
-                       "list_user_campaigns",
+            "action": ["list", "retrieve"],
+            "principal": ["*"],
+            "effect": "allow",
+        },
+        {
+            "action": ["list_user_campaigns",
                        "list_user_selectable",
                        "join_campaign"],
             "principal": "authenticated",
