@@ -35,13 +35,14 @@ class CampaignAccessPolicy(AccessPolicy):
             "principal": "authenticated",
             "effect": "allow",
             "condition": "is_manager"
-        },
-        {
-            "action": ["retrieve"],
-            "principal": "authenticated",
-            "effect": "allow",
         }
     ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        if request.user.is_anonymous:
+            return qs.filter(open=True)
+        return qs
 
     def is_manager(self, request, view, action) -> bool:
         campaign = view.get_object()

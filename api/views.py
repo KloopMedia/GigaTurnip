@@ -205,8 +205,6 @@ class CampaignViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = CampaignSerializer
-    queryset = Campaign.objects.all()
-
     permission_classes = (CampaignAccessPolicy,)
 
     filterset_fields = {
@@ -217,6 +215,11 @@ class CampaignViewSet(viewsets.ModelViewSet):
     filter_backends = (
         DjangoFilterBackend, CategoryInFilter,
     )
+
+    def get_queryset(self):
+        return CampaignAccessPolicy.scope_queryset(
+            self.request, Campaign.objects.all()
+        )
 
     @paginate
     def list(self, request, *args, **kwargs):
