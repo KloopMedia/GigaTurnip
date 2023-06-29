@@ -62,6 +62,16 @@ class CampaignTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["name"], self.campaign.name)
 
+    def test_campaign_list_managers_campaigns(self):
+        [i.delete() for i in self.user.ranks.all()]
+        self.assertEqual(Campaign.objects.count(), 1)
+        self.user.managed_campaigns.add(self.campaign)
+
+        response = self.get_objects("campaign-list", client=self.client)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
 
     def test_list_campaign_serializer(self):
         # join employee to campaign
