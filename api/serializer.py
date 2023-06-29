@@ -35,10 +35,14 @@ class CampaignSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_managers(self, obj):
+        if self.context['request'].user.is_anonymous:
+            return
         return obj.managers.values_list(flat=True)
 
     def get_notifications_count(self, obj):
         user = self.context['request'].user
+        if user.is_anonymous:
+            return 0
         return obj.notifications.filter(
             Q(rank__id__in=user.ranks.values('id'))
             | Q(target_user=user)).count()

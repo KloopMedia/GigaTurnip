@@ -63,7 +63,6 @@ class Translation(models.Model):
         :param texts: Dictionary where key - hash value of source text, value - translation.
         :return: None
         """
-        print("im here")
         to_update = list(language.translations.prefetch_related("key") \
             .filter(
             key__campaign=campaign,

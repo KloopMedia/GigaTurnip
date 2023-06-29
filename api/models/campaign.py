@@ -66,9 +66,9 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Categories of the campaign."
     )
 
-    language = models.ForeignKey(
+    languages = models.ManyToManyField(
         "Language",
-        on_delete=models.SET_NULL,
+        related_name="campaigns",
         blank=True,
         null=True,
         help_text="Language of the campaign."

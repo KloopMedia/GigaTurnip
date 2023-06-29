@@ -205,18 +205,26 @@ class CampaignViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = CampaignSerializer
-    queryset = Campaign.objects.all()
-
     permission_classes = (CampaignAccessPolicy,)
 
     filterset_fields = {
-        "language__code": ["exact"],
+        "languages__code": ["exact"],
         "categories": ["exact"],
         "countries__name": ["exact"],
     }
     filter_backends = (
         DjangoFilterBackend, CategoryInFilter,
     )
+
+    def get_queryset(self):
+        return CampaignAccessPolicy.scope_queryset(
+            self.request, Campaign.objects.all()
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
 
     @paginate
     def list(self, request, *args, **kwargs):
