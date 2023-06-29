@@ -42,7 +42,13 @@ class CampaignAccessPolicy(AccessPolicy):
     def scope_queryset(cls, request, qs):
         if request.user.is_anonymous:
             return qs.filter(open=True)
-        return qs
+
+
+        return qs.filter(
+            Q(id__in=request.user.ranks.values("track__campaign"))
+            | Q(open=True)
+            | Q(id__in=request.user.managed_campaigns.all())
+        ).distinct()
 
     def is_manager(self, request, view, action) -> bool:
         campaign = view.get_object()
