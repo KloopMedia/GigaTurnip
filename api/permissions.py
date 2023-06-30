@@ -658,7 +658,7 @@ class LanguageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
             "action": ["list"],
-            "principal": "authenticated",
+            "principal": ["*"],
             "effect": "allow"
         }
     ]
