@@ -9,13 +9,24 @@ from api.tests import GigaTurnipTestHelper
 
 class AutoNotificationTest(GigaTurnipTestHelper):
 
-    def test_auto_notification_last_one_option_as_go(self):
-        self.initial_stage.json_schema = json.dumps({
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.js_schema = {
             "type": "object",
             "properties": {
-                "foo": {"type": "string"}
+                'answer': {
+                    "type": "string",
+                }
             }
-        })
+        }
+
+    def setUp(self):
+        super().setUp()
+        self.initial_stage.json_schema = json.dumps(self.js_schema)
+        self.initial_stage.save()
+
+    def test_auto_notification_last_one_option_as_go(self):
         notification = Notification.objects.create(
             title='Congrats!',
             campaign=self.campaign
@@ -27,44 +38,35 @@ class AutoNotificationTest(GigaTurnipTestHelper):
             go=AutoNotificationConstants.LAST_ONE
         )
         task = self.create_initial_task()
-        task = self.complete_task(task, {"foo": "boo"})
+        task = self.complete_task(task, {"answer": "boo"})
         self.assertEqual(Notification.objects.count(), 2)
         self.assertEqual(self.user.notifications.filter(sender_task=task,
-                                                        receiver_task=task).count(), 1)
-        response = self.get_objects('task-user-selectable', client=self.employee_client)
+                                                        receiver_task=task).count(),
+                         1)
+        response = self.get_objects('task-user-selectable',
+                                    client=self.employee_client)
 
     def test_last_task_notification_errors_creation(self):
-        js_schema = {
-            "type": "object",
-            "properties": {
-                'answer': {
-                    "type": "string",
-                }
-            }
-        }
-        self.initial_stage.json_schema = json.dumps(js_schema)
-        self.initial_stage.save()
-
         rank_verifier = Rank.objects.create(name='verifier rank')
         RankRecord.objects.create(rank=rank_verifier, user=self.employee)
 
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.RANK,
-            json_schema=json.dumps(js_schema)
+            json_schema=json.dumps(self.js_schema)
         ))
         RankLimit.objects.create(rank=rank_verifier, stage=second_stage)
         third_stage = second_stage.add_stage(TaskStage(
             name="Some routine stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=second_stage,
-            json_schema=json.dumps(js_schema)
+            json_schema=json.dumps(self.js_schema)
         ))
         four_stage = third_stage.add_stage(TaskStage(
             name="Finish stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=third_stage,
-            json_schema=json.dumps(js_schema)
+            json_schema=json.dumps(self.js_schema)
         ))
 
         notif_1 = Notification.objects.create(
@@ -122,33 +124,22 @@ class AutoNotificationTest(GigaTurnipTestHelper):
         self.assertEqual(ErrorItem.objects.get().campaign, self.campaign)
 
     def test_last_task_notification(self):
-        js_schema = {
-            "type": "object",
-            "properties": {
-                'answer': {
-                    "type": "string",
-                }
-            }
-        }
-        self.initial_stage.json_schema = json.dumps(js_schema)
-        self.initial_stage.save()
-
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.RANK,
-            json_schema=json.dumps(js_schema)
+            json_schema=json.dumps(self.js_schema)
         ))
         third_stage = second_stage.add_stage(TaskStage(
             name="Some routine stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=second_stage,
-            json_schema=json.dumps(js_schema)
+            json_schema=json.dumps(self.js_schema)
         ))
         four_stage = third_stage.add_stage(TaskStage(
             name="Finish stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=third_stage,
-            json_schema=json.dumps(js_schema)
+            json_schema=json.dumps(self.js_schema)
         ))
 
         notif_1 = Notification.objects.create(
@@ -240,6 +231,61 @@ class AutoNotificationTest(GigaTurnipTestHelper):
             self.assertEqual(notification_received['id'],
                              self.user.notifications
                              .order_by('-created_at')[0].id)
-            self.assertEqual(notification_received['title'], notification.title)
+            self.assertEqual(notification_received['title'],
+                             notification.title)
             if step < 4:
                 out_task = out_task.out_tasks.get()
+
+    def test_notification_in_response(self):
+        notif = Notification.objects.create(
+            title='Congrats!',
+            campaign=self.campaign,
+        )
+        AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notif,
+            with_response=True,
+            go=AutoNotificationConstants.LAST_ONE,
+        )
+
+        task = self.create_initial_task()
+
+        response = self.complete_task(task, {"answer": "good"}, whole_response=True)
+        self.assertEqual(response.data,
+                         {'id': task.id, 'message': 'Task saved.',
+                          'notifications': [{'title': 'Congrats!', 'text': None}]}
+                         )
+
+    def test_notification_in_response_in_chain(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="second one",
+            json_schema=json.dumps(self.js_schema),
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+        notif = Notification.objects.create(
+            title='Congrats!',
+            campaign=self.campaign,
+        )
+        AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notif,
+            with_response=True,
+            go=AutoNotificationConstants.FORWARD,
+        )
+
+        task = self.create_initial_task()
+
+        response = self.complete_task(task, {"answer": "good"}, whole_response=True)
+        expect_response = {
+            'id': task.id,
+            'is_new_campaign': False,
+            'message': 'Next direct task is available.',
+            'next_direct_id': task.get_direct_next().id,
+            'notifications': [
+                {'text': None, 'title': 'Congrats!'}
+            ]
+        }
+        self.assertEqual(response.data, expect_response)

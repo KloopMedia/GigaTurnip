@@ -794,65 +794,66 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance,
                                          data=request.data,
                                          partial=partial)
-        if serializer.is_valid():
-            data = serializer.validated_data
-            data['id'] = instance.id
-            next_direct_task = None
-            complete = serializer.validated_data.get("complete", False)
-            if (complete and not instance.stage.chain.is_individual) \
-                    and not utils.can_complete(instance, request.user):
-                err_message = {
-                    "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
-                    "id": instance.id
-                }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN,
-                                         err_message)
-            try:
-                task = instance.set_complete(
-                    responses=serializer.validated_data.get("responses", {}),
-                    complete=complete
-                )
-                if complete:
-                    next_direct_task = process_completed_task(task)
-            except Task.CompletionInProgress:
-                err_message = {
-                    "detail": {
-                        "message": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
-                        "id": instance.id
-                    }
-                }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN,
-                                         err_message)
-            except Task.AlreadyCompleted:
-                err_message = {
-                    "detail": {
-                        "message": ErrorConstants.TASK_ALREADY_COMPLETED,
-                        "id": instance.id}
-                }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN,
-                                         err_message)
-            if getattr(instance, '_prefetched_objects_cache', None):
-                # If 'prefetch_related' has been applied to a queryset,
-                # we need to forcibly invalidate the prefetch
-                # cache on the instance.
-                instance._prefetched_objects_cache = {}
-            if next_direct_task:
-                is_new_campaign = \
-                    instance.get_campaign().id \
-                    != next_direct_task.get_campaign().id
-                return Response(
-                    {"message": "Next direct task is available.",
-                     "id": instance.id,
-                     "is_new_campaign": is_new_campaign,
-                     "next_direct_id": next_direct_task.id},
-                    status=status.HTTP_200_OK)
-            return Response(
-                {"message": "Task saved.",
-                 "id": instance.id},
-                status=status.HTTP_200_OK)
-        else:
+        if not serializer.is_valid():
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        data['id'] = instance.id
+        next_direct_task = None
+        complete = serializer.validated_data.get("complete", False)
+        if (complete and not instance.stage.chain.is_individual) \
+                and not utils.can_complete(instance, request.user):
+            err_message = {
+                "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                "id": instance.id
+            }
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     err_message)
+        try:
+            task = instance.set_complete(
+                responses=serializer.validated_data.get("responses", {}),
+                complete=complete
+            )
+            if complete:
+                next_direct_task = process_completed_task(task)
+        except Task.CompletionInProgress:
+            err_message = {
+                "detail": {
+                    "message": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                    "id": instance.id
+                }
+            }
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     err_message)
+        except Task.AlreadyCompleted:
+            err_message = {
+                "detail": {
+                    "message": ErrorConstants.TASK_ALREADY_COMPLETED,
+                    "id": instance.id}
+            }
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     err_message)
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset,
+            # we need to forcibly invalidate the prefetch
+            # cache on the instance.
+            instance._prefetched_objects_cache = {}
+        response = {
+            "id": instance.id,
+            "message": "Task saved."
+        }
+        if next_direct_task:
+            response["is_new_campaign"] = instance.get_campaign().id != next_direct_task.get_campaign().id
+            response["message"] = "Next direct task is available."
+            response["next_direct_id"] = next_direct_task.id
+
+        if instance.stage.auto_notification_recipient_stages.all():
+            response["notifications"] = list(
+                instance.receiver_notifications.values("title", "text")
+            )
+
+        return Response(response, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
         """

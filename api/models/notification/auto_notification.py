@@ -38,6 +38,11 @@ class AutoNotification(BaseDatesModel, CampaignInterface):
         default=AutoNotificationConstants.FORWARD,
         help_text=('You have to choose on what action notification would be sent.')
     )
+    with_response = models.BooleanField(
+        default=False,
+        null=False,
+        help_text="If set as true, so notification text will be sent with Response on task completion."
+    )
 
     def create_notification(self, task, receiver_task, user):
         new_notification = self.notification
