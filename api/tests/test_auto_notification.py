@@ -235,3 +235,57 @@ class AutoNotificationTest(GigaTurnipTestHelper):
                              notification.title)
             if step < 4:
                 out_task = out_task.out_tasks.get()
+
+    def test_notification_in_response(self):
+        notif = Notification.objects.create(
+            title='Congrats!',
+            campaign=self.campaign,
+        )
+        AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notif,
+            with_response=True,
+            go=AutoNotificationConstants.LAST_ONE,
+        )
+
+        task = self.create_initial_task()
+
+        response = self.complete_task(task, {"answer": "good"}, whole_response=True)
+        self.assertEqual(response.data,
+                         {'id': task.id, 'message': 'Task saved.',
+                          'notifications': [{'title': 'Congrats!', 'text': None}]}
+                         )
+
+    def test_notification_in_response_in_chain(self):
+        second_stage = self.initial_stage.add_stage(TaskStage(
+            name="second one",
+            json_schema=json.dumps(self.js_schema),
+            assign_user_by=TaskStageConstants.STAGE,
+            assign_user_from_stage=self.initial_stage
+        ))
+        notif = Notification.objects.create(
+            title='Congrats!',
+            campaign=self.campaign,
+        )
+        AutoNotification.objects.create(
+            trigger_stage=self.initial_stage,
+            recipient_stage=self.initial_stage,
+            notification=notif,
+            with_response=True,
+            go=AutoNotificationConstants.FORWARD,
+        )
+
+        task = self.create_initial_task()
+
+        response = self.complete_task(task, {"answer": "good"}, whole_response=True)
+        expect_response = {
+            'id': task.id,
+            'is_new_campaign': False,
+            'message': 'Next direct task is available.',
+            'next_direct_id': task.get_direct_next().id,
+            'notifications': [
+                {'text': None, 'title': 'Congrats!'}
+            ]
+        }
+        self.assertEqual(response.data, expect_response)
