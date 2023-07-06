@@ -246,34 +246,6 @@ class WebhookTest(GigaTurnipTestHelper):
         self.assertEqual({'echo': [echo_response], 'status': 200},
                          Task.objects.get(id=next_task.id).responses)
 
-    # def test_webhook_url_injection(self):
-    #     task = self.create_initial_task()
-    #     task.internal_metadata = {"url_part": "echo_function"}
-    #
-    #     task.save()
-    #
-    #     second_stage = self.initial_stage.add_stage(TaskStage(
-    #         name="Get on verification",
-    #         assign_user_by=TaskStageConstants.STAGE,
-    #         assign_user_from_stage=self.initial_stage,
-    #     ))
-    #     Webhook.objects.create(
-    #         task_stage=second_stage,
-    #         url=(
-    #             'https://us-central1-journal-bb5e3.cloudfunctions.net/'
-    #             '[@TURNIP_INTERNAL_META={"stage": "in_task", "field": "url_part"}]'
-    #         ),
-    #         is_triggered=False,
-    #         which_responses=WebhookConstants.IN_RESPONSES,
-    #     )
-    #
-    #     self.complete_task(task)
-    #
-    #     next_task = task.out_tasks.get()
-    #
-    #     response = self.get_objects('task-trigger-webhook',  pk=next_task.pk)
-    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
-
     def test_webhook_url_injection(self):
         init_task = self.create_initial_task()
         init_task.internal_metadata = {"url_part": "echo_function"}
