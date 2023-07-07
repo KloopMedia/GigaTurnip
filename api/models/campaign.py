@@ -66,6 +66,13 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Categories of the campaign."
     )
 
+    sms_phone = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="Phone of the campaign to send sms."
+    )
+
     languages = models.ManyToManyField(
         "Language",
         related_name="campaigns",
