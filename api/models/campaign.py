@@ -73,6 +73,12 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Phone of the campaign to send sms."
     )
 
+    sms_complete_task_allow = models.BooleanField(
+        default=False,
+        null=True,
+        help_text="If the campaign allows users to send tasks via sms."
+    )
+
     languages = models.ManyToManyField(
         "Language",
         related_name="campaigns",

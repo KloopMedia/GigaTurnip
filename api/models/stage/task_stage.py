@@ -157,6 +157,12 @@ class TaskStage(Stage, SchemaProvider):
         default=TaskStageSchemaSourceConstants.STAGE,
         help_text="Flag indicating from where Task should get its schema.")
 
+    sms_complete_task_allow = models.BooleanField(
+        default=False,
+        null=True,
+            help_text="If the Task Stage accept tasks via sms."
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
