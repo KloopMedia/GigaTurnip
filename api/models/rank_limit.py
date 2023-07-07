@@ -41,6 +41,10 @@ class RankLimit(BaseDatesModel, CampaignInterface):
         default=True,
         help_text="Allow user to create a task"
     )
+    sms_relay_allow = models.BooleanField(
+        default=False,
+        help_text="Allow user to send task using sms."
+    )
 
     class Meta:
         unique_together = ['rank', 'stage']
