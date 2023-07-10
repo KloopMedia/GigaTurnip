@@ -1,13 +1,23 @@
-version: "3.8"
+version: "3.9"
 
 services:
-  app:
+  web:
     build: .
+    ports:
+      - "8000:8000"
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./:/app
+      - .:/home/app/webapp
+    depends_on:
+      - db
     env_file: .env
-    expose:
-      - 8000
-    ports:
-      - 8000:8000
+    environment:
+      - "LOCAL_DOCKER_DB=yes"
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_turnip_data:/var/lib/postgresql/data/
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
+volumes:
+  postgres_turnip_data:

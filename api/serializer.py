@@ -10,13 +10,16 @@ from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants
+from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants, \
+    TaskStageSchemaSourceConstants
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
-    TaskAward, DynamicJson, TestWebhook, Category, Language, Country, SMSTask
+    TaskAward, DynamicJson, TestWebhook, Category, Language, Country, SMSTask, \
+    TranslateKey
 from api.permissions import ManagersOnlyAccessPolicy
+
 
 base_model_fields = ['id', 'name', 'description']
 stage_fields = ['chain', 'in_stages', 'out_stages', 'x_pos', 'y_pos']
@@ -32,10 +35,14 @@ class CampaignSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_managers(self, obj):
+        if self.context['request'].user.is_anonymous:
+            return
         return obj.managers.values_list(flat=True)
 
     def get_notifications_count(self, obj):
         user = self.context['request'].user
+        if user.is_anonymous:
+            return 0
         return obj.notifications.filter(
             Q(rank__id__in=user.ranks.values('id'))
             | Q(target_user=user)).count()
@@ -206,13 +213,19 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
                  ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign',
+                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign', 'stage_type',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
                   'webhook_payload_field', 'webhook_params', 'dynamic_jsons_source', 'dynamic_jsons_target',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
     def get_campaign(self, obj):
         return obj.get_campaign().id
+
+    def to_representation(self, instance):
+        request = self.context.get("request")
+        if request:
+            instance = TranslateKey.to_representation(instance, request)
+        return super().to_representation(instance)
 
 
 class TaskStageSerializer(serializers.ModelSerializer,
@@ -223,7 +236,7 @@ class TaskStageSerializer(serializers.ModelSerializer,
                  ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
                   'displayed_prev_stages', 'assign_user_by',
                   'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params',
+                  'webhook_payload_field', 'webhook_params', 'stage_type',
                   'webhook_response_field', 'allow_go_back', 'allow_release']
 
     def validate_chain(self, value):
@@ -241,7 +254,7 @@ class TaskStagePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
         fields = ['id', 'name', 'description', 'json_schema', 'ui_schema', 'external_metadata',
-                  'library', 'rich_text', 'created_at', 'updated_at']
+                  'stage_type', 'library', 'rich_text', 'created_at', 'updated_at']
         read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
                             'library', 'rich_text', 'created_at', 'updated_at']
 
@@ -269,6 +282,19 @@ class SMSTaskCreateSeraializer(serializers.ModelSerializer):
             decreed=SMSTask.text_decreed(sms_text),
         )
         return sms_task
+
+
+class TaskPublicSerializer(serializers.ModelSerializer):
+    stage = TaskStagePublicSerializer()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'responses',
+            'stage',
+            'created_at'
+        ]
 
 
 class TaskListSerializer(serializers.ModelSerializer):
@@ -336,6 +362,17 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'reopened',
                             'force_complete',
                             'complete']
+
+    def to_representation(self, instance):
+        """Replace stage schema with schema from task stage if so configured."""
+        if instance.stage.schema_source == TaskStageSchemaSourceConstants.TASK:
+            instance.stage.json_schema = instance.schema
+            instance.stage.ui_schema = instance.ui_schema
+        request = self.context.get("request", None)
+        if request:
+            instance.stage = TranslateKey.to_representation(instance.stage,
+                                                            request)
+        return super().to_representation(instance)
 
 
 class TaskUserActivitySerializer(serializers.Serializer):
@@ -548,6 +585,14 @@ class RankSerializer(serializers.ModelSerializer, CampaignValidationCheck):
                                           "to this track")
 
 
+class RankGroupedByTrackSerializer(serializers.ModelSerializer):
+    all_ranks = serializers.ListSerializer(child=serializers.JSONField())
+
+    class Meta:
+        model = Track
+        fields = ["id", "name", "all_ranks"]
+
+
 class TaskStageFullRankReadSerializer(TaskStageReadSerializer):
     ranks = RankSerializer(many=True)
 
@@ -676,9 +721,9 @@ class NumberRankSerializer(serializers.Serializer):
 
 
 class UserStatisticSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-    tasks_count = serializers.IntegerField(read_only=True)
+    id = serializers.IntegerField(read_only=True, help_text="Campaign id.")
+    name = serializers.CharField(read_only=True, help_text="Campaign title.")
+    count = serializers.IntegerField(read_only=True, help_text="Count of users.")
 
 
 class CategoryListSerializer(serializers.ModelSerializer):

@@ -9,8 +9,12 @@ from api.utils import utils
 class CampaignAccessPolicy(AccessPolicy):
     statements = [
         {
-            "action": ["list",
-                       "list_user_campaigns",
+            "action": ["list", "retrieve"],
+            "principal": ["*"],
+            "effect": "allow",
+        },
+        {
+            "action": ["list_user_campaigns",
                        "list_user_selectable",
                        "join_campaign"],
             "principal": "authenticated",
@@ -31,13 +35,20 @@ class CampaignAccessPolicy(AccessPolicy):
             "principal": "authenticated",
             "effect": "allow",
             "condition": "is_manager"
-        },
-        {
-            "action": ["retrieve"],
-            "principal": "authenticated",
-            "effect": "allow",
         }
     ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        if request.user.is_anonymous:
+            return qs.filter(open=True)
+
+
+        return qs.filter(
+            Q(id__in=request.user.ranks.values("track__campaign"))
+            | Q(open=True)
+            | Q(id__in=request.user.managed_campaigns.all())
+        ).distinct()
 
     def is_manager(self, request, view, action) -> bool:
         campaign = view.get_object()
@@ -145,7 +156,7 @@ class CampaignManagementAccessPolicy(ManagersOnlyAccessPolicy):
 class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
-            "action": ["list", "selectable"],
+            "action": ["list", "selectable", "available_stages"],
             "principal": "authenticated",
             "effect": "allow",
         },
@@ -250,9 +261,9 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["retrieve", "get_integrated_tasks"],
-            "principal": "authenticated",
+            "principal": "*",
             "effect": "allow",
-            "condition_expression": "is_assignee or "
+            "condition_expression": "is_assignee or is_stage_public "
                                     "is_manager or "
                                     "can_user_request_assignment"
         },
@@ -292,20 +303,17 @@ class TaskAccessPolicy(AccessPolicy):
         },
         {
             "action": ["list_displayed_previous"],
-            "principal": "authenticated",
+            "principal": "*",
             "effect": "allow",
-            "condition_expression": "is_assignee or is_manager or (is_selection_open and is_listing_allowed)"
+            "condition_expression": "is_stage_public "
+                                    "or (is_assignee or is_manager "
+                                    "or (is_selection_open and is_listing_allowed))"
         },
         {
             "action": ["trigger_webhook", ],
             "principal": "authenticated",
             "effect": "allow",
             "condition_expression": "is_assignee and is_not_complete and is_webhook"
-        },
-        {
-            "action": ["public"],
-            "principal": "*",
-            "effect": "allow",
         }
     ]
 
@@ -326,6 +334,9 @@ class TaskAccessPolicy(AccessPolicy):
     def is_assignee(self, request, view, action):
         task = view.get_object()
         return request.user == task.assignee
+
+    def is_stage_public(self, request, view, action):
+        return view.get_object().stage.is_public
 
     def is_not_complete(self, request, view, action):
         task = view.get_object()
@@ -396,11 +407,40 @@ class SMSTaskAccessPolicy(AccessPolicy):
 
 
 class RankAccessPolicy(ManagersOnlyAccessPolicy):
+    statements = [
+        {
+            "action": ["list", "retrieve", "grouped_by_track"],
+            "principal": "authenticated",
+            "effect": "allow",
+        },
+        {
+            "action": ["create"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "can_create"
+
+        },
+        {
+            "action": ["partial_update", "update"],
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
+
+        },
+        {
+            "action": ["destroy"],
+            "principal": "*",
+            "effect": "deny"
+        }
+    ]
+
     @classmethod
     def scope_queryset(cls, request, queryset):
-        return queryset.filter(
+        qs = queryset.filter(
             track__campaign__campaign_managements__user=request.user
         )
+        qs |= request.user.ranks.all()
+        return qs.distinct()
 
 
 class RankLimitAccessPolicy(ManagersOnlyAccessPolicy):
@@ -632,7 +672,7 @@ class LanguageAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
             "action": ["list"],
-            "principal": "authenticated",
+            "principal": ["*"],
             "effect": "allow"
         }
     ]

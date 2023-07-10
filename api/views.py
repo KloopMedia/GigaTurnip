@@ -8,7 +8,8 @@ import re
 import requests
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import (
-    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,
+    Func
 )
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
@@ -55,7 +56,8 @@ from api.serializer import (
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
     LanguageListSerializer, ChainIndividualsSerializer,
-    SMSTaskCreateSeraializer
+    SMSTaskCreateSeraializer, LanguageListSerializer, ChainIndividualsSerializer,
+    RankGroupedByTrackSerializer, TaskPublicSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -67,7 +69,7 @@ from .utils.django_expressions import ArraySubquery
 
 
 class CategoryViewSet(mixins.ListModelMixin, GenericViewSet):
-    permission_classes = (CategoryAccessPolicy, )
+    permission_classes = (CategoryAccessPolicy,)
 
     def get_queryset(self):
         return CategoryAccessPolicy.scope_queryset(
@@ -86,7 +88,7 @@ class CategoryViewSet(mixins.ListModelMixin, GenericViewSet):
 
 
 class CountryViewSet(mixins.ListModelMixin, GenericViewSet):
-    permission_classes = (CountryAccessPolicy, )
+    permission_classes = (CountryAccessPolicy,)
 
     def get_queryset(self):
         return CountryAccessPolicy.scope_queryset(
@@ -105,7 +107,7 @@ class CountryViewSet(mixins.ListModelMixin, GenericViewSet):
 
 
 class LanguageViewSet(mixins.ListModelMixin, GenericViewSet):
-    permission_classes = (LanguageAccessPolicy, )
+    permission_classes = (LanguageAccessPolicy,)
 
     def get_queryset(self):
         return LanguageAccessPolicy.scope_queryset(
@@ -156,7 +158,7 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         now_minus_5 = datetime.now() - timedelta(minutes=5)
         obj = UserDelete.objects.filter(
-            pk=pk, user =request.user,
+            pk=pk, user=request.user,
             created_at__gt=now_minus_5
         )
         serializer = UserDeleteSerializer(data=request.data)
@@ -171,7 +173,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 else:
                     return Response(
                         {
-                         "message": "Something went wrong"},
+                            "message": "Something went wrong"},
                         status=status.HTTP_409_CONFLICT
                     )
             return Response(
@@ -205,18 +207,26 @@ class CampaignViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = CampaignSerializer
-    queryset = Campaign.objects.all()
-
     permission_classes = (CampaignAccessPolicy,)
 
     filterset_fields = {
-        "language__code": ["exact"],
+        "languages__code": ["exact"],
         "categories": ["exact"],
         "countries__name": ["exact"],
     }
     filter_backends = (
         DjangoFilterBackend, CategoryInFilter,
     )
+
+    def get_queryset(self):
+        return CampaignAccessPolicy.scope_queryset(
+            self.request, Campaign.objects.all()
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
 
     @paginate
     def list(self, request, *args, **kwargs):
@@ -241,16 +251,14 @@ class CampaignViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False)
     def list_user_campaigns(self, request):
-        campaigns = utils.filter_for_user_campaigns(self.get_queryset(),
-                                                    request)
-        return campaigns
+        qs = self.filter_queryset(self.get_queryset())
+        return utils.filter_for_user_campaigns(qs, request)
 
     @paginate
     @action(detail=False)
     def list_user_selectable(self, request):
-        campaigns = utils \
-            .filter_for_user_selectable_campaigns(self.get_queryset(), request)
-        return campaigns
+        qs = self.filter_queryset(self.get_queryset())
+        return utils.filter_for_user_selectable_campaigns(qs, request)
 
 
 class ChainViewSet(viewsets.ModelViewSet):
@@ -273,7 +281,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     permission_classes = (ChainAccessPolicy,)
     filterset_fields = {
         "id": ["exact"],
-        "campaign": ["exact"]
+        "campaign": ["exact"],
+        "is_individual": ["exact"]
     }
 
     def get_queryset(self):
@@ -298,10 +307,21 @@ class ChainViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
-        qs = self.filter_queryset(self.get_queryset())
+        qs = self.filter_queryset(self.get_queryset()) \
+            .filter(is_individual=True)
+        user = request.user
+
+        # filter by highest user ranks
+        if request.query_params.get("by_highest_ranks"):
+            ranks = request.user.get_highest_ranks_by_track()
+            qs = qs.filter(
+                id__in=RankLimit.objects.filter(rank__in=ranks).values(
+                    "stage__chain")
+            )
+
         cases = Task.objects.filter(
-            assignee=request.user,
-            stage__chain__in=qs)\
+            assignee=user,
+            stage__chain__in=qs) \
             .values("case").distinct()
 
         qs = qs.values("id", "name").annotate(
@@ -309,10 +329,11 @@ class ChainViewSet(viewsets.ModelViewSet):
                 TaskStage.objects.filter(chain=OuterRef("id")).annotate(
                     all_out_stages=ArrayAgg("out_stages", distinct=True),
                     all_in_stages=ArrayAgg("in_stages", distinct=True),
-                    total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
+                    total_count=Count("tasks",
+                                      filter=Q(tasks__case__in=cases)),
                     complete_count=Count("tasks",
-                                               filter=Q(tasks__case__in=cases,
-                                                        tasks__complete=True))
+                                         filter=Q(tasks__case__in=cases,
+                                                  tasks__complete=True))
                 ).values(
                     info=JSONObject(
                         id="id",
@@ -350,7 +371,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
     permission_classes = (TaskStageAccessPolicy,)
     filterset_fields = {
-        'is_proactive': ['exact'],
+        'stage_type': ['exact'],
         'chain': ['exact'],
         'chain__campaign': ['exact'],
         'is_creatable': ['exact'],
@@ -396,6 +417,11 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         else:
             return TaskStage.objects.all()
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
     @paginate
     @action(detail=False)
     def user_relevant(self, request):
@@ -428,6 +454,9 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         task = Task(stage=stage, assignee=request.user, case=case)
         for copy_field in stage.copy_fields.all():
             task.responses = copy_field.copy_response(task)
+        webhook = stage.get_webhook()
+        if webhook and webhook.is_triggered:
+            webhook.trigger(task)
         task.save()
         return Response({'status': 'New task created', 'id': task.id})
 
@@ -463,7 +492,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
                 kwargs['case'] = task.case.id if task.case else None
             except Task.DoesNotExist:
                 raise CustomApiException(status.HTTP_400_BAD_REQUEST,
-                                         ErrorConstants.ENTITY_DOESNT_EXIST % ('Task', task_id))
+                                         ErrorConstants.ENTITY_DOESNT_EXIST % (
+                                         'Task', task_id))
 
         if task_stage.json_schema:
             schema = process_updating_schema_answers(**kwargs)
@@ -483,6 +513,34 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         qs = qs.filter(id__in=tasks_selectable.values("stage").distinct())
 
         return qs
+
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def available_stages(self, request, *args, **kwargs):
+        """
+        Return all available stages that user  can pass in the future.
+        """
+        qs = self.filter_queryset(self.get_queryset())
+
+        stages_by_ranks = RankLimit.objects.filter(
+            rank__in=request.user.ranks.values("id")
+        ).values_list('stage', flat=True).distinct()
+
+        qs = qs.filter(id__in=stages_by_ranks)
+
+        used = set()
+        to_parse = set(qs)
+
+        while to_parse:
+            current = to_parse.pop()
+
+            new = current.assign_user_to_stages.exclude(id__in=used)
+            qs |= new
+
+            used.add(current.id)
+            to_parse.update(new.exclude(id__in=used))
+
+        return qs.distinct()
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -534,7 +592,7 @@ class CaseViewSet(viewsets.ModelViewSet):
     }
 
     @action(detail=True)
-    def info_by_case(self, request, pk=None): # todo: through serializer
+    def info_by_case(self, request, pk=None):  # todo: through serializer
         tasks = self.get_object().tasks.all()
         filters_tasks_info = {
             "complete": ArrayAgg('complete'),
@@ -645,7 +703,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         'created_at': ['lte', 'gte', 'lt', 'gt'],
         'updated_at': ['lte', 'gte', 'lt', 'gt']
     }
-    search_fields = ('responses', )
+    search_fields = ('responses',)
     filter_backends = [
         DjangoFilterBackend,
         ResponsesContainsFilter,
@@ -672,8 +730,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             return TaskEditSerializer
         elif self.action == 'request_assignment':
             return TaskRequestAssignmentSerializer
-        elif self.action == 'public':
-            return TaskListSerializer
         elif self.action == 'user_activity':
             return TaskUserActivitySerializer
         else:
@@ -740,62 +796,66 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance,
                                          data=request.data,
                                          partial=partial)
-        if serializer.is_valid():
-            data = serializer.validated_data
-            data['id'] = instance.id
-            next_direct_task = None
-            complete = serializer.validated_data.get("complete", False)
-            if (complete and not instance.stage.chain.is_individual) \
-                    and not utils.can_complete(instance, request.user):
-                err_message = {
-                    "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
-                    "id": instance.id
-                }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
-            try:
-                task = instance.set_complete(
-                    responses=serializer.validated_data.get("responses", {}),
-                    complete=complete
-                )
-                if complete:
-                    next_direct_task = process_completed_task(task)
-            except Task.CompletionInProgress:
-                err_message = {
-                    "detail": {
-                        "message": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
-                        "id": instance.id
-                    }
-                }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
-            except Task.AlreadyCompleted:
-                err_message = {
-                    "detail": {
-                        "message": ErrorConstants.TASK_ALREADY_COMPLETED,
-                        "id": instance.id}
-                }
-                raise CustomApiException(status.HTTP_403_FORBIDDEN, err_message)
-            if getattr(instance, '_prefetched_objects_cache', None):
-                # If 'prefetch_related' has been applied to a queryset,
-                # we need to forcibly invalidate the prefetch
-                # cache on the instance.
-                instance._prefetched_objects_cache = {}
-            if next_direct_task:
-                is_new_campaign = \
-                    instance.get_campaign().id \
-                    != next_direct_task.get_campaign().id
-                return Response(
-                    {"message": "Next direct task is available.",
-                     "id": instance.id,
-                     "is_new_campaign": is_new_campaign,
-                     "next_direct_id": next_direct_task.id},
-                    status=status.HTTP_200_OK)
-            return Response(
-                {"message": "Task saved.",
-                 "id": instance.id},
-                status=status.HTTP_200_OK)
-        else:
+        if not serializer.is_valid():
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        data['id'] = instance.id
+        next_direct_task = None
+        complete = serializer.validated_data.get("complete", False)
+        if (complete and not instance.stage.chain.is_individual) \
+                and not utils.can_complete(instance, request.user):
+            err_message = {
+                "detail": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                "id": instance.id
+            }
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     err_message)
+        try:
+            task = instance.set_complete(
+                responses=serializer.validated_data.get("responses", {}),
+                complete=complete
+            )
+            if complete:
+                next_direct_task = process_completed_task(task)
+        except Task.CompletionInProgress:
+            err_message = {
+                "detail": {
+                    "message": f"{ErrorConstants.CANNOT_SUBMIT} {ErrorConstants.TASK_COMPLETED}",
+                    "id": instance.id
+                }
+            }
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     err_message)
+        except Task.AlreadyCompleted:
+            err_message = {
+                "detail": {
+                    "message": ErrorConstants.TASK_ALREADY_COMPLETED,
+                    "id": instance.id}
+            }
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     err_message)
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset,
+            # we need to forcibly invalidate the prefetch
+            # cache on the instance.
+            instance._prefetched_objects_cache = {}
+        response = {
+            "id": instance.id,
+            "message": "Task saved."
+        }
+        if next_direct_task:
+            response["is_new_campaign"] = instance.get_campaign().id != next_direct_task.get_campaign().id
+            response["message"] = "Next direct task is available."
+            response["next_direct_id"] = next_direct_task.id
+
+        if instance.stage.auto_notification_recipient_stages.all():
+            response["notifications"] = list(
+                instance.receiver_notifications.values("title", "text")
+            )
+
+        return Response(response, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
         """
@@ -854,7 +914,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         )
 
         tasks = queryset
-        if request.query_params.get('responses_contains') or request.method == "POST":
+        if request.query_params.get(
+                'responses_contains') or request.method == "POST":
             tasks = Task.objects.filter(
                 id__in=Subquery(
                     queryset.filter(
@@ -862,7 +923,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                     ).values('out_tasks')
                 )
             )
-        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request)
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
+                                                                  request)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
 
         qs = by_datetime.annotate(
@@ -887,27 +949,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     @paginate
     @action(detail=False)
-    def public(self, request):
-        tasks = self.filter_queryset(self.get_queryset())
-        tasks = tasks.values('id',
-                             'complete',
-                             'force_complete',
-                             'reopened',
-                             'stage__publisher__is_public',
-                             'stage__name',
-                             'stage__description')
-        is_public = tasks.filter(stage__is_public=True)
-        is_public_publisher = tasks.filter(complete=True).filter(
-            stage__publisher__is_public=True
-        )
-        tasks = list(chain(is_public, is_public_publisher))
-        return tasks
-
-    @paginate
-    @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
-            .select_related('stage',) \
+            .select_related('stage') \
             .prefetch_related('stage__ranks', 'stage__in_stages',
                               'stage__out_stages')
         groups = tasks.values('stage').annotate(
@@ -1012,25 +1056,30 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if in_tasks:
                     in_tasks.update(assignee=None)
             return Response({'status': 'assignment released'})
-        raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'release this')
+        raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                 ErrorConstants.IMPOSSIBLE_ACTION % 'release this')
 
     @action(detail=True, methods=['post', 'get'])
     def uncomplete(self, request, pk=None):
         task = self.get_object()
         try:
             task.set_not_complete()
-            return Response({'status': 'Assignment uncompleted', 'id': task.id})
+            return Response(
+                {'status': 'Assignment uncompleted', 'id': task.id})
         except Task.ImpossibleToUncomplete:
-            raise CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'uncomplete this')
+            raise CustomApiException(status.HTTP_403_FORBIDDEN,
+                                     ErrorConstants.IMPOSSIBLE_ACTION % 'uncomplete this')
 
     @action(detail=True, methods=['post', 'get'])
     def open_previous(self, request, pk=None):
         task = self.get_object()
         try:
             (prev_task, task) = task.open_previous()
-            return Response({'status': 'Previous task opened.', 'id': prev_task.id})
+            return Response(
+                {'status': 'Previous task opened.', 'id': prev_task.id})
         except Task.ImpossibleToOpenPrevious:
-            return CustomApiException(status.HTTP_403_FORBIDDEN, ErrorConstants.IMPOSSIBLE_ACTION % 'open previous')
+            return CustomApiException(status.HTTP_403_FORBIDDEN,
+                                      ErrorConstants.IMPOSSIBLE_ACTION % 'open previous')
 
     # @action(detail=True, methods=['post', 'get'])
     # def open_next(self, request, pk=None):
@@ -1055,7 +1104,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         webhook = task.stage.get_webhook()
         if webhook:
-            is_altered, altered_task, response, error_description = webhook.trigger(task)
+            is_altered, altered_task, response, error_description = webhook.trigger(
+                task)
             if is_altered:
                 return Response({"status": "Responses overwritten",
                                  "responses": altered_task.responses})
@@ -1125,8 +1175,12 @@ class RankViewSet(viewsets.ModelViewSet):
     Partial update rank data.
     """
 
-    serializer_class = RankSerializer
     permission_classes = (RankAccessPolicy,)
+
+    def get_serializer_class(self):
+        if self.action == "grouped_by_track":
+            return RankGroupedByTrackSerializer
+        return RankSerializer
 
     def get_queryset(self):
         return RankAccessPolicy.scope_queryset(
@@ -1134,13 +1188,29 @@ class RankViewSet(viewsets.ModelViewSet):
         )
 
     @paginate
-    def list(self,request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(self.get_queryset())
         qs = qs.select_related('track').prefetch_related(
             'prerequisite_ranks', 'stages'
         )
 
         return qs
+
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def grouped_by_track(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+
+        grouped = Track.objects.filter(id__in=qs.values("track").distinct()) \
+            .annotate(
+            all_ranks=ArraySubquery(
+                qs.filter(track_id=OuterRef("id")).values(
+                    data=JSONObject(id="id", name="name")
+                )
+            )
+        )
+
+        return grouped
 
 
 class RankRecordViewSet(viewsets.ModelViewSet):
@@ -1367,7 +1437,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=True)
     def open_notification(self, request, pk):
         notification_status, created = self.get_object().open(request.user)
-        return Response(status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @paginate
     @action(detail=False)
@@ -1484,9 +1555,11 @@ class TestWebhookViewSet(viewsets.ModelViewSet):
         test_webhook = TestWebhook.objects.get(pk=pk)
         expected_task = test_webhook.expected_task
         sent_task = test_webhook.sent_task
-        webhook = Webhook.objects.filter(task_stage=expected_task.stage.pk).get()
+        webhook = Webhook.objects.filter(
+            task_stage=expected_task.stage.pk).get()
         if webhook:
-            response = requests.post(webhook.url, json=sent_task.responses, headers={}).json()
+            response = requests.post(webhook.url, json=sent_task.responses,
+                                     headers={}).json()
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         if response == expected_task.responses:
@@ -1512,12 +1585,16 @@ class UserStatisticViewSet(GenericViewSet):
     def total_count(self, request, *args, **kwargs):
         """
         Returns total count of users in one campaign.
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
+        To exclude managers from calculation add filter ?exclude_managers=true.
         """
+        managed_campaigns = request.user.managed_campaigns.all()
+        user_campaigns = self.get_campaigns_by_query_params(request,
+                                                            managed_campaigns)
+
         qs = self.get_queryset()
+        qs = self.filter_managers(request, CampaignManagement.objects.filter(
+            campaign__in=user_campaigns).values("user"), qs)
+
         return Response({"total": qs.values('id').count()})
 
     @paginate
@@ -1528,14 +1605,29 @@ class UserStatisticViewSet(GenericViewSet):
         In query params provide start and end dates for filter by period.
         Example: ?start=2020-01-16&end=2021-01-16
 
+        To exclude managers from calculation add filter ?exclude_managers=true.
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
-                                                   key="created_at")
-        qs = self.get_queryset().filter(
-            **date_range_filter
+                               key="tracks__ranks__users__created_at")
+        filters = [
+            Q(**date_range_filter),
+        ]
+
+        managed_campaigns = request.user.managed_campaigns.all()
+        user_campaigns = self.get_campaigns_by_query_params(request,
+                                                            managed_campaigns)
+        if request.query_params.get("exclude_managers", None) == "true":
+            managers = CampaignManagement.objects.filter(
+                campaign__in=user_campaigns)
+            filters.append(~Q(tracks__ranks__users__in=managers.values("user")))
+
+        user_campaigns = user_campaigns.values("id", "name").annotate(
+            count=Count("tracks__ranks__users",
+                        filter=Q(*filters),
+                        distinct=True)
         )
 
-        return qs.values("id", "email")
+        return user_campaigns
 
     @paginate
     @action(methods=["GET"], detail=False)
@@ -1546,34 +1638,41 @@ class UserStatisticViewSet(GenericViewSet):
         To filter by some period use filters start and end.
         Example: ?start=2020-01-16&end=2021-01-16
 
+        To filter by campaign id use "campaign" query param and provide id:
+        ?campaign=123
+
+        To exclude managers from calculation add filter ?exclude_managers=true.
         """
         date_range_filter = self.range_date_filter(*self.get_range(request),
                                                    key="created_at")
 
-        qs = self.get_queryset()
+        qs_users = self.filter_queryset(self.get_queryset())
 
-        admin_preference = request.user.get_admin_preference()
-        if not admin_preference:
-            return qs.none()
+        managed_campaigns = request.user.managed_campaigns.all()
+        user_campaigns = self.get_campaigns_by_query_params(request,
+                                                            managed_campaigns)
+        managers_by_campaign = CampaignManagement.objects.none()
+        if request.query_params.get("exclude_managers", None) == "true":
+            managers = CampaignManagement.objects.filter(
+                campaign__in=user_campaigns)
+            managers_by_campaign = managers.filter(
+                campaign_id=OuterRef(OuterRef(OuterRef("id"))))
 
-        tasks_of_campaign = Task.objects.select_related(
-            "stage__chain__campaign").filter(
-            stage__chain__campaign__in=request.user.managed_campaigns.values("id"),
-            **date_range_filter,
-            assignee_id=OuterRef("id"),
+        campaign_info = user_campaigns.values("id", "name").annotate(
+            count=Subquery(
+                Task.objects.filter(
+                    stage__chain__campaign_id=OuterRef("id"),
+                    assignee__isnull=False,
+                    assignee__in=qs_users.exclude(
+                        id__in=managers_by_campaign.values("user")),
+                    **date_range_filter
+                ).values("stage__chain__campaign").annotate(
+                    count=Count("assignee", distinct=True)
+                ).values("count")
+            )
         )
 
-        qs = qs.filter(
-            **date_range_filter
-        ).annotate(
-            tasks_count=Subquery(
-                tasks_of_campaign.values("assignee_id").annotate(
-                    tasks_count=Count("id")
-                ).values("tasks_count")
-            )
-        ).filter(tasks_count__gt=0)
-
-        return qs.values("id", "email", "tasks_count")
+        return campaign_info
 
     date_format = "%Y-%m-%d"  # "2013-11-30"
     query_params = ['start', 'end']
@@ -1598,7 +1697,7 @@ class UserStatisticViewSet(GenericViewSet):
                     f"Properly format: {self.date_format}")
         return None
 
-    # generate filter dictionary to filter by datetime
+    # generate filter schema to filter by datetime
     def range_date_filter(self, start, end, key):
         greater_key = key + "__gte"
         less_key = key + "__lte"
@@ -1610,3 +1709,16 @@ class UserStatisticViewSet(GenericViewSet):
             return {less_key: end}
         elif not start and not end:
             return {}
+
+    # return managed campaign with filter
+    def get_campaigns_by_query_params(self, request, campaigns):
+        campaign_filter = request.query_params.get("campaign", None)
+        if campaign_filter and campaign_filter.isdigit():
+            campaigns = campaigns.filter(id=int(campaign_filter))
+        return campaigns
+
+    def filter_managers(self, request, managers, qs):
+        exclude_managers = request.query_params.get("exclude_managers", None)
+        if exclude_managers == "true":
+            return qs.exclude(id__in=managers)
+        return qs
