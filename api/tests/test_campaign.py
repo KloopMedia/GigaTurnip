@@ -27,12 +27,15 @@ class CampaignTest(GigaTurnipTestHelper):
 
     def test_campaign_detail_open_unauth(self):
         self.campaign.open = True
+        self.campaign.sms_phone = "+996123123123"
         self.campaign.save()
 
         response = self.get_objects("campaign-detail", client=self.unauth_client,
                                     pk=self.campaign.id)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("sms_phone", response.data)
+        self.assertEqual(response.data["sms_phone"], "+996123123123")
 
     def test_campaign_detail_closed_unauth(self):
         response = self.get_objects("campaign-detail", client=self.unauth_client,
