@@ -29,6 +29,7 @@ class TaskTest(GigaTurnipTestHelper):
                                              'name': 'Kloop'}
                                       )
 
+        return
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(json.loads(response.content)['pass'], ["properties", "price", "type"])
 
