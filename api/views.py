@@ -56,7 +56,7 @@ from api.serializer import (
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
     LanguageListSerializer, ChainIndividualsSerializer,
-    SMSTaskCreateSeraializer, LanguageListSerializer, ChainIndividualsSerializer,
+    SMSTaskCreateSerializer, LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer
 )
 from api.utils import utils
@@ -1136,7 +1136,7 @@ class SMSTaskViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     permission_classes = (SMSTaskAccessPolicy, )
     def get_serializer_class(self):
         if self.action == "create":
-            return SMSTaskCreateSeraializer
+            return SMSTaskCreateSerializer
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, many=False)

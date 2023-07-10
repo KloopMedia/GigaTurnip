@@ -265,7 +265,7 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class SMSTaskCreateSeraializer(serializers.ModelSerializer):
+class SMSTaskCreateSerializer(serializers.ModelSerializer):
     sms_text = serializers.CharField(required=True)
     phone = serializers.CharField(required=True)
 
