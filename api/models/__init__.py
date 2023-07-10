@@ -25,6 +25,7 @@ from .task import Task
 from .task_award import TaskAward
 from .track import Track
 from .user import CustomUser, UserDelete
+from .sms_task import SMSTask
 
 from .error import ErrorGroup, ErrorItem
 from .localization import TranslateKey, Translation, TranslationAdapter
