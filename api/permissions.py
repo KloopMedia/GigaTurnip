@@ -402,7 +402,13 @@ class SMSTaskAccessPolicy(AccessPolicy):
         },
     ]
 
-    def is_user_sms_relay(self, request, view, action):
+    def is_campaign_sms_relay(self, request, view, action):
+        return request.user.sms_relay
+
+    def is_stage_sms_relay(self, request, view, action):
+        return request.user.sms_relay
+
+    def is_user_rank_sms_relay(self, request, view, action):
         return request.user.sms_relay
 
 
