@@ -278,9 +278,17 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
         sms_task = SMSTask.objects.create(
             sms_text=sms_text,
             phone=validated_data["phone"],
-            decompressed=SMSTask.text_decompress(sms_text),
-            decreed=SMSTask.text_decreed(sms_text),
+            decompressed=SMSTask.text_decompression(sms_text),
+            decrypted=SMSTask.text_decryption(sms_text),
         )
+
+        if "id" in sms_task.decrypted_dict:
+            pass
+            # update task
+        else:
+            pass
+            # create a new task
+
         return sms_task
 
 

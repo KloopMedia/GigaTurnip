@@ -1,3 +1,5 @@
+import json
+
 from django.db import models
 
 from api.models import BaseDatesModel
@@ -16,13 +18,13 @@ class SMSTask(BaseDatesModel):
         help_text="Text of the task."
     )
 
-    decreed = models.JSONField(
+    decrypted = models.TextField(
         null=True,
         blank=True,
         help_text="Decreed sms_text."
     )
 
-    decompressed = models.JSONField(
+    decompressed = models.TextField(
         null=True,
         blank=True,
         help_text="Decompressed sms_text."
@@ -38,12 +40,21 @@ class SMSTask(BaseDatesModel):
     )
 
     @staticmethod
-    def text_decreed(text):
+    def text_decryption(text):
         return {"text": "decreed"}
 
     @staticmethod
-    def text_decompress(text):
+    def text_decompression(text):
         return {"text": "decompressed"}
+
+    @property
+    def decrypted_dict(self):
+        if self.decrypted:
+            try:
+                return json.loads(self.decrypted)
+            finally:
+                return None
+        return None
 
     def __str__(self):
         return "{}: {}".format(self.id, self.phone)
