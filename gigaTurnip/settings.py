@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'drf_firebase_auth',
     'rest_framework.authtoken',
     'django_filters',
-    'django_q'
+    'django_q',
+    'admin_auto_filters',
 ]
 
 MIDDLEWARE = [

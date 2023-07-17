@@ -18,6 +18,7 @@ coreapi = "*"
 requests = "*"
 jsonschema = "*"
 psycopg2-binary = "*"
+django-admin-autocomplete-filter = "*"
 
 [dev-packages]
 yapf = "*"
