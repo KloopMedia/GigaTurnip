@@ -20,6 +20,7 @@ from .models import (
 )
 from django.contrib import messages
 from django.utils.translation import ngettext
+from admin_auto_filters.filters import AutocompleteFilterFactory
 from api.utils.utils import set_rank_to_user_action, filter_by_admin_preference
 
 
@@ -170,13 +171,13 @@ class StageFilter(InputFilter):
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_filter = (
-        UserTaskCompleteFilter,
-        UserNoRankFilter,
-        "ranks",
+        AutocompleteFilterFactory("User Ranks", "ranks"),
         "is_active",
         "is_staff",
         "is_superuser",
-        "groups",
+        AutocompleteFilterFactory("Group", "groups"),
+        UserTaskCompleteFilter,
+        UserNoRankFilter,
     )
     search_fields = ("id", "email", "first_name", "last_name", "username")
 
@@ -231,7 +232,9 @@ class TokenAdmin(admin.ModelAdmin):
 
 class ChainAdmin(admin.ModelAdmin):
     list_display = ("name", "campaign",)
-    list_filter = ("campaign",)
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "campaign"),
+    )
     autocomplete_fields = ("campaign",)
     search_fields = ("name", "description",)
 
@@ -274,7 +277,10 @@ class GeneralStageAdmin(admin.ModelAdmin):
 
 class StageAdmin(admin.ModelAdmin):
     list_display = ('name', 'id', 'chain',)
-    list_filter = ('chain__campaign', 'chain')
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "chain__campaign",),
+        AutocompleteFilterFactory("Chain", "chain",),
+    )
     search_fields = ('name',
                      'chain__name',
                      'chain__campaign__name',)
@@ -292,10 +298,11 @@ class StageAdmin(admin.ModelAdmin):
 
 class ConditionalLimitAdmin(admin.ModelAdmin):
     model = ConditionalLimit
-    list_display = ('conditional_stage', )
-    autocomplete_fields = ('conditional_stage', )
+    list_display = ("conditional_stage", )
+    autocomplete_fields = ("conditional_stage", )
     list_filter = (
-        'conditional_stage__chain',
+        AutocompleteFilterFactory("Campaign", "conditional_stage__chain__campaign"),
+        AutocompleteFilterFactory("Chain", "conditional_stage__chain"),
     )
 
     def get_queryset(self, request):
@@ -314,7 +321,11 @@ class TaskStageAdmin(StageAdmin):
 class IntegrationAdmin(admin.ModelAdmin):
     search_fields = ('task_stage__name',)
     autocomplete_fields = ('task_stage',)
-    list_filter = ("task_stage__chain", "task_stage__chain__campaign", "task_stage")
+    list_filter = (
+        AutocompleteFilterFactory("By task stage campaign", "task_stage__chain__campaign"),
+        AutocompleteFilterFactory("By task stage chain", "task_stage__chain"),
+        AutocompleteFilterFactory("By task stage", "task_stage")
+    )
 
     def get_form(self, request, *args, **kwargs):
         form = super(IntegrationAdmin, self).get_form(request, *args, **kwargs)
@@ -330,22 +341,31 @@ class TranslationAdapterAdmin(admin.ModelAdmin):
     autocomplete_fields = ("stage", "source", "target")
     search_fields = ("stage", "source", "target")
     list_display = ("stage", "source", "target")
-    list_filter = ("stage", "source", "target")
+    list_filter = (
+        AutocompleteFilterFactory("Stage", "stage", ),
+        AutocompleteFilterFactory("Source", "source", ),
+        AutocompleteFilterFactory("Target", "target", ),
+    )
 
 
 class TranslateKeyAdmin(admin.ModelAdmin):
     autocomplete_fields = ("campaign",)
     search_fields = ("key", "text")
     list_display = ("campaign", "key", "text")
-    list_filter = ("campaign",)
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "campaign"),
+    )
 
 
 class TranslationAdmin(admin.ModelAdmin):
     autocomplete_fields = ("key", "language")
     search_fields = ("key", "language")
     list_display = ("key", "language", "text")
-    list_filter = ("key", "language", "status")
-
+    list_filter = (
+        "status",
+        AutocompleteFilterFactory("Key", "key"),
+        AutocompleteFilterFactory("Language", "language"),
+    )
 
 
 class WebhookAdmin(admin.ModelAdmin):
@@ -375,10 +395,9 @@ class RankLimitAdmin(admin.ModelAdmin):
         "is_submission_open",
         "is_selection_open",
         "is_creation_open",
-        "stage__chain__campaign",
-        "rank",
-        "stage",
-        "rank",
+        AutocompleteFilterFactory("Campaign", "stage__chain__campaign"),
+        AutocompleteFilterFactory("Rank", "rank"),
+        AutocompleteFilterFactory("Stage", "stage"),
     )
 
     def get_queryset(self, request):
@@ -395,7 +414,9 @@ class RankRecordAdmin(admin.ModelAdmin):
     raw_id_fields = ('user', )
     autocomplete_fields = ('rank', )
     search_fields = ('user__email', 'user__username', 'user__last_name', 'user__first_name')
-    list_filter = ("rank",)
+    list_filter = (
+        AutocompleteFilterFactory("Rank", "rank"),
+    )
 
     def get_queryset(self, request):
         queryset = super(RankRecordAdmin, self).get_queryset(request)
@@ -410,7 +431,9 @@ class TrackAdmin(admin.ModelAdmin):
                     'updated_at')
     autocomplete_fields = ('campaign', )
     search_fields = ('campaign__name', 'name')
-    list_filter = ("campaign",)
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "campaign"),
+    )
 
     def get_queryset(self, request):
         queryset = super(TrackAdmin, self).get_queryset(request)
@@ -428,7 +451,9 @@ class RankAdmin(admin.ModelAdmin):
     list_select_related = (
         "track",
     )
-    list_filter = ("track",)
+    list_filter = (
+        AutocompleteFilterFactory("Track", "track"),
+    )
 
     def get_queryset(self, request):
         queryset = super(RankAdmin, self).get_queryset(request)
@@ -443,12 +468,12 @@ class TaskAwardAdmin(admin.ModelAdmin):
         "count"
     )
     list_filter = (
-        "task_stage_completion__chain__campaign",
-        "task_stage_completion__chain",
-        "task_stage_completion",
-        "task_stage_verified",
-        "rank",
-        "count"
+        "count",
+        AutocompleteFilterFactory("TaskStage completion campaign", "task_stage_completion__chain__campaign"),
+        AutocompleteFilterFactory("TaskStage completion chain", "task_stage_completion__chain"),
+        AutocompleteFilterFactory("TaskStage completion", "task_stage_completion"),
+        AutocompleteFilterFactory("TaskStage verified", "task_stage_verified"),
+        AutocompleteFilterFactory("Rank", "rank"),
     )
     autocomplete_fields = ('task_stage_completion', 'task_stage_verified', 'rank', 'notification')
     list_select_related = (
@@ -472,6 +497,16 @@ class CopyFieldAdmin(admin.ModelAdmin):
                     "updated_at")
     autocomplete_fields = ("task_stage", "copy_from_stage")
     search_fields = ("task_stage__name", "copy_from_stage__name")
+    list_filter = (
+        "copy_by",
+        "copy_all",
+        AutocompleteFilterFactory("task_stage campaign", "task_stage__chain__campaign"),
+        AutocompleteFilterFactory("task_stage chain", "task_stage__chain"),
+        AutocompleteFilterFactory("task_stage", "task_stage"),
+        AutocompleteFilterFactory("copy_from_stage campaign", "copy_from_stage__chain__campaign"),
+        AutocompleteFilterFactory("copy_from_stage chain", "copy_from_stage__chain"),
+        AutocompleteFilterFactory("copy_from_stage", "task_stage"),
+    )
 
     def get_queryset(self, request):
         queryset = super(CopyFieldAdmin, self).get_queryset(request)
@@ -491,9 +526,9 @@ class QuizAdmin(admin.ModelAdmin):
         "correct_responses_task__case"
     )
     list_filter = (
-        "task_stage__chain__campaign",
-        "task_stage__chain",
-        "task_stage",
+        AutocompleteFilterFactory("Campaign", "task_stage__chain__campaign"),
+        AutocompleteFilterFactory("Chain", "task_stage__chain"),
+        AutocompleteFilterFactory("TaskStage", "task_stage"),
     )
 
     def get_queryset(self, request):
@@ -512,12 +547,12 @@ class TaskAdmin(admin.ModelAdmin):
     )
     list_filter = (
         StageFilter,
-        "stage__chain__campaign",
-        "stage__chain",
-        "stage",
         "stage__is_public",
         "complete",
         "force_complete",
+        AutocompleteFilterFactory("Campaign", "stage__chain__campaign"),
+        AutocompleteFilterFactory("Chain", "stage__chain"),
+        AutocompleteFilterFactory("Stage", "stage"),
         TaskResponsesStatusFilter,
         "created_at",
         "updated_at",
@@ -588,7 +623,9 @@ class CountryAdmin(admin.ModelAdmin):
 
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", )
-    list_filter = ("parents__name", )
+    list_filter = (
+        AutocompleteFilterFactory("Parents name", "parents  "),
+    )
     search_fields = ("name", )
     autocomplete_fields = ("parents", )
 
@@ -605,11 +642,13 @@ class LogAdmin(admin.ModelAdmin):
                     "user",
                     "created_at",
                     "updated_at")
-    list_filter = ("campaign",
-                   "stage",
-                   "created_at",
-                   "task__complete",
-                   LogsTaskResponsesStatusFilter)
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "campaign"),
+        AutocompleteFilterFactory("Stage", "stage"),
+        "task__complete",
+        "created_at",
+        LogsTaskResponsesStatusFilter
+    )
     search_fields = ("id",
                      "name",
                      "stage__name",
@@ -649,9 +688,9 @@ class ResponseFlattenerAdmin(admin.ModelAdmin):
     list_filter = (
         "copy_first_level",
         "copy_system_fields",
-        "task_stage__chain__campaign",
-        "task_stage__chain",
-        "task_stage",
+        AutocompleteFilterFactory("Campaign", "task_stage__chain__campaign"),
+        AutocompleteFilterFactory("Chain", "task_stage__chain"),
+        AutocompleteFilterFactory("TaskStage", "task_stage"),
     )
     search_fields = ("task_stage__name",)
     autocomplete_fields = ("task_stage",)
@@ -722,7 +761,9 @@ class CampaignManagementAdmin(admin.ModelAdmin):
         "campaign__name",
         "campaign__description",
     )
-    list_filter = ("campaign", )
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "campaign"),
+    )
     autocomplete_fields = ("user", 'campaign')
 
 
@@ -731,10 +772,10 @@ class CampaignLinkerAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "out_stage",)
     autocomplete_fields = ("out_stage", "stage_with_user", "target",)
     list_filter = (
-        "target",
-        "out_stage",
-        "out_stage__chain",
-        "out_stage__chain__campaign",
+        AutocompleteFilterFactory("Target Campaign", "target"),
+        AutocompleteFilterFactory("Out Stage Campaign", "out_stage__chain__campaign"),
+        AutocompleteFilterFactory("Out Stage Chain", "out_stage__chain"),
+        AutocompleteFilterFactory("Out Stage", "out_stage"),
     )
 
     def get_queryset(self, request):
@@ -808,10 +849,10 @@ class DynamicJsonAdmin(admin.ModelAdmin):
     search_fields = ("target__name", "webhook__url", )
     autocomplete_fields = ("target", "webhook", )
     list_filter = (
-        "target__chain__campaign",
-        "target__chain",
-        "target",
-        "webhook",
+        AutocompleteFilterFactory("Target Campaign", "target__chain__campaign"),
+        AutocompleteFilterFactory("Target chain", "target__chain"),
+        AutocompleteFilterFactory("Target", "target"),
+        AutocompleteFilterFactory("Webhook", "webhook"),
     )
 
     def get_queryset(self, request):
@@ -828,12 +869,12 @@ class PreviousManualAdmin(admin.ModelAdmin):
     autocomplete_fields = ('task_stage_to_assign', 'task_stage_email',)
     search_fields = ('task_stage_to_assign__name', 'task_stage_email__name', 'field', )
     list_filter = (
-        "task_stage_to_assign__chain__campaign",
-        "task_stage_email__chain__campaign",
-        "task_stage_email__chain",
-        "task_stage_to_assign__chain",
-        "task_stage_to_assign",
-        "task_stage_email",
+        AutocompleteFilterFactory("Stage to assign Campaign", "task_stage_to_assign__chain__campaign"),
+        AutocompleteFilterFactory("Stage to assign chain", "task_stage_to_assign__chain"),
+        AutocompleteFilterFactory("Stage email Campaign", "task_stage_email__chain__campaign"),
+        AutocompleteFilterFactory("Stage email chain", "task_stage_email__chain"),
+        AutocompleteFilterFactory("Stage to assign", "task_stage_to_assign"),
+        AutocompleteFilterFactory("Stage email", "task_stage_email"),
         "is_id",
     )
 
@@ -856,7 +897,9 @@ class NotificationAdmin(admin.ModelAdmin):
     autocomplete_fields = ("campaign", "rank", "target_user")
     readonly_fields = ("sender_task", "receiver_task", "trigger_go",)
     list_filter = (
-        "campaign", "rank", "importance"
+        AutocompleteFilterFactory("Campaign","campaign"),
+        AutocompleteFilterFactory("Rank","rank"),
+        "importance"
     )
     list_select_related = (
         "campaign",
@@ -925,14 +968,14 @@ class AutoNotificationAdmin(admin.ModelAdmin):
         "recipient_stage__name",
     )
     list_filter = (
-        "trigger_stage__chain__campaign",
-        "trigger_stage__chain",
-        "trigger_stage",
-        "recipient_stage__chain__campaign",
-        "recipient_stage__chain",
-        "recipient_stage",
+        AutocompleteFilterFactory("Trigger Stage Campaign", "trigger_stage__chain__campaign"),
+        AutocompleteFilterFactory("Trigger Stage Chain", "trigger_stage__chain"),
+        AutocompleteFilterFactory("Trigger Stage", "trigger_stage"),
+        AutocompleteFilterFactory("Recipient Stage Campaign", "recipient_stage__chain__campaign"),
+        AutocompleteFilterFactory("Recipient Stage Chain", "recipient_stage__chain"),
+        AutocompleteFilterFactory("Recipient Stage", "recipient_stage"),
         "go",
-        "notification__title",
+        AutocompleteFilterFactory("Notification", "notification",),
     )
     list_select_related = (
         "trigger_stage",
@@ -954,14 +997,17 @@ class AutoNotificationAdmin(admin.ModelAdmin):
 
 class DatetimeSortAdmin(admin.ModelAdmin):
     model = DatetimeSort
-    list_display = ('id',
-                    'stage',
-                    'start_time',
-                    'end_time',
-                    'created_at',
-                    'updated_at'
-                    )
-    autocomplete_fields = ('stage', )
+    list_display = (
+        "id",
+        "stage",
+        "start_time",
+        "end_time",
+        "created_at",
+        "updated_at"
+    )
+    autocomplete_fields = (
+        "stage",
+    )
 
     def get_queryset(self, request):
         queryset = super(DatetimeSortAdmin, self).get_queryset(request)
@@ -979,7 +1025,10 @@ class ErrorItemAdmin(admin.ModelAdmin):
         'details',
         'data',
         'created_at', )
-    list_filter = ('campaign', 'group', )
+    list_filter = (
+        AutocompleteFilterFactory("Campaign", "campaign"),
+        AutocompleteFilterFactory("Group", "group"),
+    )
 
     def has_add_permission(self, request, obj=None):
         return False
