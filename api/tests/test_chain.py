@@ -121,7 +121,7 @@ class ChainTest(GigaTurnipTestHelper):
         self.chain.is_individual = True
         self.chain.save()
 
-        self.initial_stage.json_schema = '{"type": "object","properties": {"firstName": {"type": "string"}}}'
+        self.initial_stage.json_schema = {"type": "object","properties": {"firstName": {"type": "string"}}}
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(TaskStage(
@@ -129,7 +129,7 @@ class ChainTest(GigaTurnipTestHelper):
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage,
         ))
-        second_stage.json_schema = '{"type": "object","properties": {"lastName": {"type": "string"}}}'
+        second_stage.json_schema = {"type": "object","properties": {"lastName": {"type": "string"}}}
         second_stage.save()
 
         third_stage = second_stage.add_stage(TaskStage(
@@ -137,7 +137,7 @@ class ChainTest(GigaTurnipTestHelper):
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage,
         ))
-        third_stage.json_schema = '{"type": "object","properties": {"phoneNumber": {"type": "string"}}}'
+        third_stage.json_schema = {"type": "object","properties": {"phoneNumber": {"type": "string"}}}
         third_stage.save()
 
         # Adjust copy name in second stage
@@ -227,7 +227,7 @@ class ChainTest(GigaTurnipTestHelper):
     def test_forking_chain_happy(self):
         self.initial_stage.json_schema = {"type": "object",
                                           "properties": {"1": {"enum": ["a", "b", "c", "d"], "type": "string"}}}
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.json_schema = self.initial_stage.json_schema
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(TaskStage(

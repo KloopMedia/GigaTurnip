@@ -12,7 +12,7 @@ from api.tests import GigaTurnipTestHelper, to_json
 class TaskTest(GigaTurnipTestHelper):
 
     def test_answers_validation(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "price": {"type": "number"},
@@ -20,7 +20,7 @@ class TaskTest(GigaTurnipTestHelper):
                 "name": {"type": "string"},
             },
             "required": ['price', 'name']
-        })
+        }
         self.initial_stage.save()
 
         task = self.create_initial_task()
@@ -35,7 +35,7 @@ class TaskTest(GigaTurnipTestHelper):
 
     def test_public_task(self):
         self.initial_stage.is_public = True
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {
@@ -46,7 +46,7 @@ class TaskTest(GigaTurnipTestHelper):
             "required": [
                 "answer"
             ]
-        })
+        }
         self.initial_stage.save()
 
         task = self.create_initial_task()
@@ -65,13 +65,13 @@ class TaskTest(GigaTurnipTestHelper):
         self.check_task_manual_creation(task, self.initial_stage)
 
     def test_initial_task_completion(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
@@ -80,13 +80,13 @@ class TaskTest(GigaTurnipTestHelper):
         self.check_task_completion(task, self.initial_stage, responses)
 
     def test_initial_task_update_and_completion(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
@@ -100,13 +100,13 @@ class TaskTest(GigaTurnipTestHelper):
             new_responses)
 
     def test_initial_task_update_and_completion_no_responses(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}
@@ -205,10 +205,9 @@ class TaskTest(GigaTurnipTestHelper):
         self.assertEqual(len(content['results']), 0)
 
     def test_get_next_task_after_autocomplete_stage(self):
-        self.initial_stage.json_schema = json.dumps(
-            {"type": "object", "properties": {"answer": {"type": "string"}}}
-        )
+        self.initial_stage.json_schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
         self.initial_stage.save()
+
         # fourth ping pong
         autocomplete_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -237,7 +236,7 @@ class TaskTest(GigaTurnipTestHelper):
                           "next_direct_id": task.id+2})
 
     def test_post_json_filter_json_fields(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "name": {
@@ -247,8 +246,8 @@ class TaskTest(GigaTurnipTestHelper):
                     "type": "integer"
                 }
             }
-        })
-        self.initial_stage.ui_schema = '{"ui:order": ["name", "age"]}'
+        }
+        self.initial_stage.ui_schema = {"ui:order": ["name", "age"]}
         self.initial_stage.save()
         second_stage = self.initial_stage.add_stage(TaskStage())
         self.client = self.prepare_client(second_stage, self.user)

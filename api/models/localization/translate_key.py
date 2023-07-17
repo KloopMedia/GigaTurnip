@@ -1,6 +1,5 @@
 import hashlib
-import json
-from typing import Any
+from typing  import Any
 
 from django.apps import apps
 from django.db import models
@@ -138,7 +137,7 @@ class TranslateKey(models.Model):
 
     @classmethod
     def generate_keys_from_stage(cls, stage):
-        texts = cls.get_keys_from_schema(json.loads(stage.get_json_schema()))
+        texts = cls.get_keys_from_schema(stage.json_schema)
         return cls.create_from_list(stage.get_campaign(), texts)
 
     @classmethod
@@ -172,7 +171,7 @@ class TranslateKey(models.Model):
         :return: translated schema
         """
 
-        schema = json.loads(stage.get_json_schema())
+        schema = stage.json_schema
         all_fields = cls.get_keys_from_schema(schema)
         translations = apps.get_model("api.translation").objects.filter(
             key__key__in=list(all_fields.keys()),
@@ -198,7 +197,7 @@ class TranslateKey(models.Model):
         if lang:
             json_schema = cls.get_translated_schema_by_stage(
                 instance, lang.code)
-            instance.json_schema = json.dumps(json_schema, ensure_ascii=False)
+            instance.json_schema = json_schema
 
         return instance
 

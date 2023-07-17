@@ -109,7 +109,7 @@ class NotificationTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(

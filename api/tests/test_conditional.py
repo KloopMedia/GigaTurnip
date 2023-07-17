@@ -92,7 +92,7 @@ class ConditionalTest(GigaTurnipTestHelper):
                         "properties": {
                             "newInput1": {"title": "Hi!", "type": "integer"}},
                         "dependencies": {}, "required": []}
-        self.initial_stage.json_schema = json.dumps(first_schema)
+        self.initial_stage.json_schema = first_schema
         self.initial_stage.save()
 
         # create conditional stages and limits
@@ -139,7 +139,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         finish_water = conditional_water.add_stage(
             TaskStage(
                 name='Цена воды',
-                json_schema='{"type":"object","title":"цена воды такая-то"}',
+                json_schema={"type":"object","title":"цена воды такая-то"},
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
@@ -147,7 +147,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         finish_gas = conditional_gas.add_stage(
             TaskStage(
                 name='Цена газа',
-                json_schema='{"type":"object","title":"цена газа такая-то"}',
+                json_schema={"type":"object","title":"цена газа такая-то"},
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
@@ -155,7 +155,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         finish_cheburek = conditional_cheburek.add_stage(
             TaskStage(
                 name='Цена чебуреков',
-                json_schema='{"type":"object","title":"цена чебуреков такая-то"}',
+                json_schema={"type":"object","title":"цена чебуреков такая-то"},
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
@@ -183,7 +183,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertEqual(Task.objects.filter(assignee=self.user).count(), 6)
 
     def test_passing_conditional(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "verified": {
@@ -191,7 +191,7 @@ class ConditionalTest(GigaTurnipTestHelper):
                     "type": "string"}
             },
             "required": ["verified"]
-        })
+        }
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(
@@ -208,7 +208,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.check_task_auto_creation(new_task, last_task_stage, initial_task)
 
     def test_failing_conditional(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "verified": {
@@ -217,7 +217,7 @@ class ConditionalTest(GigaTurnipTestHelper):
                 }
             },
             "required": ["verified"]
-        })
+        }
         self.initial_stage.save()
 
         conditional_stage = ConditionalStage()
@@ -236,13 +236,13 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertFalse(new_task)
 
     def test_pingpong(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         self.initial_stage.save()
 
         verification_task_stage = self.initial_stage \
@@ -317,13 +317,13 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertIsNone(final_task.assignee)
 
     def test_pingpong_first_pass(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         self.initial_stage.save()
 
         verification_task_stage = self.initial_stage \
@@ -334,7 +334,7 @@ class ConditionalTest(GigaTurnipTestHelper):
                      "condition": "=="}],
                 pingpong=True)
         ).add_stage(TaskStage())
-        verification_task_stage.json_schema = json.dumps({
+        verification_task_stage.json_schema = {
             "type": "object",
             "properties": {
                 "verified": {
@@ -343,7 +343,7 @@ class ConditionalTest(GigaTurnipTestHelper):
                 }
             },
             "required": ["verified"]
-        })
+        }
         verification_task_stage.save()
 
         final_task_stage = verification_task_stage.add_stage(TaskStage())
@@ -387,7 +387,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertFalse(final_task.assignee)
 
     def test_conditional_ping_pong_pass(self):
-        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.json_schema = {"type":"object","properties":{"answer":{"type":"string"}}}
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(
@@ -399,7 +399,7 @@ class ConditionalTest(GigaTurnipTestHelper):
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
             name="Verification task stage",
-            json_schema='{"type":"object","properties":{"verified":{"type":"string"}}}'
+            json_schema={"type":"object","properties":{"verified":{"type":"string"}}}
 
         ))
 
@@ -439,7 +439,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertEqual(final_task.assignee, self.user)
 
     def test_conditional_ping_pong_copy_input_if_task_returned_again(self):
-        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.json_schema = {"type":"object","properties":{"answer":{"type":"string"}}}
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(
@@ -451,7 +451,7 @@ class ConditionalTest(GigaTurnipTestHelper):
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
             name="Verification task stage",
-            json_schema='{"type":"object","properties":{"answer":{"type":"string"},"verified":{"type":"string"}}}',
+            json_schema={"type":"object","properties":{"answer":{"type":"string"},"verified":{"type":"string"}}},
             copy_input=True
         ))
 
@@ -516,7 +516,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertEqual(final_task.assignee, self.user)
 
     def test_conditional_ping_pong_doesnt_pass(self):
-        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.json_schema = {"type":"object","properties":{"answer":{"type":"string"}}}
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(
@@ -528,7 +528,7 @@ class ConditionalTest(GigaTurnipTestHelper):
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
             name="Verification task stage",
-            json_schema='{"type":"object","properties":{"answer":{"type":"string"},"verified":{"type":"string"}}}'
+            json_schema={"type":"object","properties":{"answer":{"type":"string"},"verified":{"type":"string"}}}
 
         ))
 
@@ -578,7 +578,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertEqual(final_task.assignee, self.user)
 
     def test_conditional_ping_pong_copy_field_if_task_returned_again(self):
-        self.initial_stage.json_schema = '{"type":"object","properties":{"answer":{"type":"string"}}}'
+        self.initial_stage.json_schema = {"type":"object","properties":{"answer":{"type":"string"}}}
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(
@@ -590,7 +590,7 @@ class ConditionalTest(GigaTurnipTestHelper):
 
         verification_task_stage = conditional_stage.add_stage(TaskStage(
             name="Verification task stage",
-            json_schema='{"type":"object","properties":{"answerField":{"type":"string"}, "verified":{"enum":["yes", "no"],"type":"string"}}}'
+            json_schema={"type":"object","properties":{"answerField":{"type":"string"}, "verified":{"enum":["yes", "no"],"type":"string"}}}
         ))
 
         final_task_stage = verification_task_stage.add_stage(TaskStage(
@@ -688,7 +688,6 @@ class ConditionalTest(GigaTurnipTestHelper):
     def test_forking_chain_with_conditional_happy(self):
         self.initial_stage.json_schema = {"type": "object",
                                           "properties": {"1": {"enum": ["a", "b", "c", "d"], "type": "string"}}}
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
         self.initial_stage.save()
 
         first_cond_stage = self.initial_stage.add_stage(
@@ -750,7 +749,6 @@ class ConditionalTest(GigaTurnipTestHelper):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
         self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
@@ -771,7 +769,6 @@ class ConditionalTest(GigaTurnipTestHelper):
         final = conditional_one.add_stage(TaskStage(
             name='Final stage',
             assign_user_by=TaskStageConstants.AUTO_COMPLETE,
-            json_schema='{}'
         ))
 
         notification = Notification.objects.create(
@@ -797,9 +794,8 @@ class ConditionalTest(GigaTurnipTestHelper):
         self.assertEqual(self.user.notifications.all()[0].trigger_go, auto_notification.go)
 
     def test_return_task_after_conditional(self):
-        self.initial_stage.json_schema = json.dumps(
-            {"type": "object", "properties": {"answer": {"type": "string"}}}
-        )
+        self.initial_stage.json_schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
+
         self.initial_stage.save()
         # fourth ping pong
         conditional_stage = self.initial_stage.add_stage(
@@ -815,7 +811,7 @@ class ConditionalTest(GigaTurnipTestHelper):
             name='Final stage',
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage,
-            json_schema='{}'
+            json_schema={}
         ))
 
         task = self.create_initial_task()

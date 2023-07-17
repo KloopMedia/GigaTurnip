@@ -4,15 +4,16 @@ from api.models import BaseDatesModel
 
 
 class SchemaProvider(models.Model):
-    json_schema = models.TextField(
+    json_schema = models.JSONField(
         null=True,
         blank=True,
         help_text="Defines the underlying data to be shown in the UI "
                   "(objects, properties, and their types)"
     )
-    ui_schema = models.TextField(
+    ui_schema = models.JSONField(
         null=True,
         blank=True,
+        default=dict(),
         help_text="Defines how JSON data is rendered as a form, "
                   "e.g. the order of controls, their visibility, "
                   "and the layout"

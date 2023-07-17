@@ -12,14 +12,14 @@ from api.tests import GigaTurnipTestHelper, to_json
 class RankLimitTest(GigaTurnipTestHelper):
 
     def test_closed_submission(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "dependencies": {},
             "required": ["answer"]
-        })
+        }
         self.initial_stage.save()
         task = self.create_initial_task()
         responses = {"answer": "check"}

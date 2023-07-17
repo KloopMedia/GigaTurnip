@@ -94,8 +94,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_response_flattener_create_row(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}
@@ -111,8 +111,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_response_flattener_flatten_all(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"properties":{"opening":{"15_c":{}, "16_c":{}, "17_c":{}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["opening"]}'
+        self.initial_stage.json_schema = {"properties":{"opening":{"15_c":{}, "16_c":{}, "17_c":{}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["opening"]}
         self.initial_stage.save()
 
         answers = {"opening": {"15_c": "secured", "16_c": "no", "17_c": "no"}}
@@ -128,8 +128,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_response_flattener_regex_happy(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}
@@ -147,8 +147,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_response_flattener_regex_wrong(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}
@@ -166,8 +166,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_get_response_flattener_success(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik__uik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik__uik"]}
         self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}
@@ -186,8 +186,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_response_flattener_unique_success(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}
@@ -209,8 +209,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_response_flattener_get_tasks_success(self):
         tasks = self.create_initial_tasks(5)
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}
@@ -234,8 +234,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_get_response_flattener_copy_whole_response_success(self):
         task = self.create_task(self.initial_stage)
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column1": "First", "column2": "SecondColumn", "oik": {"uik1": {"uik1": [322, 123, 23]}}}
@@ -249,8 +249,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_get_response_flattener_generate_file_url(self):
 
         task = self.create_task(self.initial_stage)
-        self.initial_stage.ui_schema = '{"AAA":{"ui:widget":"customfile"},"ui:order": ["AAA"]}'
-        self.initial_stage.json_schema = '{"properties":{"AAA": {"AAA":{}}}}'
+        self.initial_stage.ui_schema = {"AAA":{"ui:widget":"customfile"},"ui:order": ["AAA"]}
+        self.initial_stage.json_schema = {"properties":{"AAA": {"AAA":{}}}}
         self.initial_stage.save()
 
         responses = {"AAA": '{"i":"public/img.jpg"}'}
@@ -264,8 +264,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
     def test_get_response_flattener_order_columns(self):
 
         task = self.create_task(self.initial_stage)
-        self.initial_stage.ui_schema = '{"ui:order": [ "col2", "col3", "col1"]}'
-        self.initial_stage.json_schema = '{"properties":{"col1": {"col1_1":{}}, "col2": {"col2_1":{}}, "col3": {"properties": {"d": {"properties": {"d": {}}}}}}}'
+        self.initial_stage.ui_schema = {"ui:order": [ "col2", "col3", "col1"]}
+        self.initial_stage.json_schema = {"properties":{"col1": {"col1_1":{}}, "col2": {"col2_1":{}}, "col3": {"properties": {"d": {"properties": {"d": {}}}}}}}
         self.initial_stage.save()
 
         responses = {"col1": "SecondColumn", "col2": "First", "col3": {"d": {"d": 122}}}
@@ -297,8 +297,8 @@ class ResponseFlattenerTest(GigaTurnipTestHelper):
         self.employee.managed_campaigns.add(self.campaign)
         new_client = self.create_client(self.employee)
 
-        self.initial_stage.json_schema = '{"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}'
-        self.initial_stage.ui_schema = '{"ui:order": ["column2", "column1", "oik"]}'
+        self.initial_stage.json_schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
+        self.initial_stage.ui_schema = {"ui:order": ["column2", "column1", "oik"]}
         self.initial_stage.save()
 
         responses = {"column2": "SecondColumn", "oik": {"uik1": "SecondLayer"}}

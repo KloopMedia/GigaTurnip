@@ -23,7 +23,7 @@ class RankTest(GigaTurnipTestHelper):
         )
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
 
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
         task_award_1 = TaskAward.objects.create(
             task_stage_completion=self.initial_stage,
@@ -93,7 +93,7 @@ class RankTest(GigaTurnipTestHelper):
 
     def test_assign_rank_by_parent_rank(self):
         schema = {"type": "object", "properties": {"foo": {"type": "string", "title": "what is ur name"}}}
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         prize_rank_1 = Rank.objects.create(name='GOOD RANK')
         notification = Notification.objects.create(
             title="You achieve new rank",

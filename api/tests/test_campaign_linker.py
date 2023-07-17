@@ -70,13 +70,13 @@ class CampaignLinkerTest(GigaTurnipTestHelper):
             notification=sprite_auto_not
         )
 
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         task = self.create_initial_task()
         task = self.complete_task(task, {"answer": "Hello!"})
         self.assertTrue(task.complete)
@@ -148,13 +148,13 @@ class CampaignLinkerTest(GigaTurnipTestHelper):
             approved=True
         )
 
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {"type": "string"}
             },
             "required": ["answer"]
-        })
+        }
         task = self.create_initial_task()
         response = self.complete_task(task, {"answer": "Hello!"},
                                       whole_response=True)

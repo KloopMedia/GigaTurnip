@@ -11,12 +11,13 @@ from api.tests import GigaTurnipTestHelper, to_json
 class CopyFieldTest(GigaTurnipTestHelper):
     def test_copy_field(self):
         id_chain = Chain.objects.create(name="Chain", campaign=self.campaign)
+        schema = {"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}
         id_stage = TaskStage.objects.create(
             name="ID",
             x_pos=1,
             y_pos=1,
             chain=id_chain,
-            json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}',
+            json_schema=schema,
             is_creatable=True)
         self.client = self.prepare_client(
             id_stage,
@@ -63,11 +64,12 @@ class CopyFieldTest(GigaTurnipTestHelper):
     def test_copy_field_fail_for_different_campaigns(self):
         campaign = Campaign.objects.create(name="Campaign")
         id_chain = Chain.objects.create(name="Chain", campaign=campaign)
+        schema = {"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}
         id_stage = TaskStage.objects.create(
             name="ID",
             x_pos=1,
             y_pos=1,
-            json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}',
+            json_schema=schema,
             chain=id_chain,
             is_creatable=True)
         self.client = self.prepare_client(
@@ -99,7 +101,7 @@ class CopyFieldTest(GigaTurnipTestHelper):
         self.assertIsNone(task.responses)
 
     def test_copy_field_by_case(self):
-        self.initial_stage.json_schema = '{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}'
+        self.initial_stage.json_schema = {"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(
@@ -107,10 +109,11 @@ class CopyFieldTest(GigaTurnipTestHelper):
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage)
         )
+        third_schema = {"type": "object","properties": {"name": {"type": "string"},"phone1": {"type": "integer"},"absent": {"type": "string"}}}
         third_stage = second_stage.add_stage(
             TaskStage(
                 assign_user_by=TaskStageConstants.STAGE,
-                json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone1": {"type": "integer"},"absent": {"type": "string"}}}',
+                json_schema=third_schema,
                 assign_user_from_stage=self.initial_stage)
         )
         CopyField.objects.create(
@@ -132,17 +135,18 @@ class CopyFieldTest(GigaTurnipTestHelper):
         self.assertEqual(task_3.responses["phone1"], task.responses["phone"])
 
     def test_copy_field_by_case_copy_all(self):
-        self.initial_stage.json_schema = '{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}'
+        self.initial_stage.json_schema = {"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}
         self.initial_stage.save()
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage)
         )
+        third_schema = {"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}
         third_stage = second_stage.add_stage(
             TaskStage(
                 assign_user_by=TaskStageConstants.STAGE,
-                json_schema='{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}',
+                json_schema=third_schema,
                 assign_user_from_stage=self.initial_stage)
         )
         CopyField.objects.create(

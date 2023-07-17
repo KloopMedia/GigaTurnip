@@ -455,10 +455,10 @@ def process_updating_schema_answers(task_stage, case=None, responses=dict()):
     if case:
         case = Case.objects.get(id=case)
 
-    schema = json.loads(task_stage.get_json_schema())
+    schema = task_stage.json_schema if task_stage.json_schema else {}
     dynamic_properties = task_stage.dynamic_jsons_target.all()
 
-    if dynamic_properties and task_stage.json_schema:
+    if dynamic_properties and schema:
         for dynamic_json in dynamic_properties:
             previous_responses = {}
             if not case and dynamic_json.source:
@@ -495,7 +495,7 @@ def update_schema_dynamic_answers(dynamic_json, schema, responses=dict(), previo
     by_main_filter = 'responses__'
     c = 'pk'
     if dynamic_json.source:
-        available_by_main.append(len(json.loads(dynamic_json.source.json_schema)['properties'][main_key]['enum']))
+        available_by_main.append(len(dynamic_json.source.json_schema['properties'][main_key]['enum']))
         by_main_filter = 'in_tasks__' + by_main_filter
         c = 'in_tasks'
     elif not dynamic_json.source:

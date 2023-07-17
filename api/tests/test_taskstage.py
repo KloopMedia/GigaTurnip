@@ -261,7 +261,7 @@ class TaskStageTest(GigaTurnipTestHelper):
         schema = {"type": "object", "properties": {
             "name": {"type": "string"}, "phone": {"type": "integer"},
             "address": {"type": "string"}}}
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(
@@ -308,8 +308,8 @@ class TaskStageTest(GigaTurnipTestHelper):
     def test_task_stage_get_schema_fields(self):
         schema = {"properties":{"column1":{"column1":{}},"column2":{"column2":{}},"oik":{"properties":{"uik1":{}}}}}
         ui_schema = {"ui:order": ["column2", "column1", "oik"]}
-        self.initial_stage.json_schema = json.dumps(schema)
-        self.initial_stage.ui_schema = json.dumps(ui_schema)
+        self.initial_stage.json_schema = schema
+        self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
 
         response = self.get_objects('taskstage-schema-fields',

@@ -11,7 +11,7 @@ from api.tests import GigaTurnipTestHelper, to_json
 class TaskAwardTest(GigaTurnipTestHelper):
 
     def test_task_awards_count_is_equal(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {
@@ -22,13 +22,13 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "answer"
             ]
-        })
+        }
         self.initial_stage.save()
         verification_task_stage = self.initial_stage.add_stage(TaskStage(
             name='verification',
             assign_user_by=TaskStageConstants.RANK
         ))
-        verification_task_stage.json_schema = json.dumps({
+        verification_task_stage.json_schema = {
             "type": "object",
             "properties": {
                 "decision": {
@@ -40,7 +40,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "decision"
             ]
-        })
+        }
         verification_task_stage.save()
 
         verifier_rank = Rank.objects.create(name="verifier")
@@ -93,7 +93,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
         self.assertEqual(user_notifications.count(), 1)
 
     def test_task_awards_count_is_lower(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {
@@ -104,14 +104,14 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "answer"
             ]
-        })
+        }
         self.initial_stage.save()
 
         verification_task_stage = self.initial_stage.add_stage(TaskStage(
             name='verification',
             assign_user_by=TaskStageConstants.RANK
         ))
-        verification_task_stage.json_schema = json.dumps({
+        verification_task_stage.json_schema = {
             "type": "object",
             "properties": {
                 "decision": {
@@ -123,7 +123,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "decision"
             ]
-        })
+        }
         verification_task_stage.save()
 
         verifier_rank = Rank.objects.create(name="verifier")
@@ -177,7 +177,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
         self.assertEqual(user_notifications.count(), 0)
 
     def test_task_awards_count_many_task_stages(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {
@@ -188,7 +188,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "answer"
             ]
-        })
+        }
         self.initial_stage.save()
 
         second_task_stage = self.initial_stage.add_stage(TaskStage(
@@ -200,7 +200,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             name='verification',
             assign_user_by=TaskStageConstants.RANK
         ))
-        verification_task_stage.json_schema = json.dumps({
+        verification_task_stage.json_schema = {
             "type": "object",
             "properties": {
                 "decision": {
@@ -212,7 +212,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "decision"
             ]
-        })
+        }
         verification_task_stage.save()
 
         verifier_rank = Rank.objects.create(name="verifier")
@@ -268,7 +268,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
         self.assertEqual(user_notifications.count(), 1)
 
     def test_task_awards_for_giving_ranks(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {
@@ -279,7 +279,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "answer"
             ]
-        })
+        }
         self.initial_stage.save()
         conditional_stage = ConditionalStage()
         conditional_stage.conditions = [{"field": "answer", "type": "string", "value": "norm", "condition": "=="}]
@@ -288,7 +288,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             name='verification',
             assign_user_by="AU"
         ))
-        verification_task_stage.json_schema = json.dumps({
+        verification_task_stage.json_schema = {
             "type": "object",
             "properties": {
                 "decision": {
@@ -300,7 +300,7 @@ class TaskAwardTest(GigaTurnipTestHelper):
             "required": [
                 "decision"
             ]
-        })
+        }
         verification_task_stage.save()
 
         verifier_rank = Rank.objects.create(name="verifier")

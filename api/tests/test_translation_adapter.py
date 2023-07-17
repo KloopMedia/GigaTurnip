@@ -14,7 +14,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         schema2 = {"type": "object","title": "Please pass your answers on below questions","properties": {"answer": {"title": "Pass something here 2.","type": "string"}},"required": ["answer"]}
         schema3 = {"type": "object","title": "Please pass your answers on below questions 2","properties": {"answer": {"title": "Pass something here.","type": "string"}},"required": ["answer"]}
         schema4 = {"type": "object","title": "Please pass your answers on below questions","properties": {"answer": {"title": "Pass something here.","type": "string"}},"required": ["answer"]}
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
 
         # init second chain and stage
@@ -25,7 +25,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         chain2_stage = TaskStage.objects.create(
             name="Pass last name",
             chain=chain2,
-            json_schema=json.dumps(schema2),
+            json_schema=schema2,
             x_pos=1,
             y_pos=1,
             is_creatable=True,
@@ -43,7 +43,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         chain3_stage = TaskStage.objects.create(
             name="Pass surname",
             chain=chain3,
-            json_schema=json.dumps(schema3),
+            json_schema=schema3,
             x_pos=1,
             y_pos=1,
             is_creatable=True,
@@ -61,7 +61,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
         chain4_stage = TaskStage.objects.create(
             name="Pass surname",
             chain=chain4,
-            json_schema=json.dumps(schema4),
+            json_schema=schema4,
             x_pos=1,
             y_pos=1,
             is_creatable=True,

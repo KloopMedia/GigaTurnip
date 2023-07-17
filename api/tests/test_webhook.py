@@ -13,7 +13,7 @@ class WebhookTest(GigaTurnipTestHelper):
     def test_test_webhook(self):
         task = self.create_initial_task()
 
-        self.initial_stage.json_schema = '{"type": "object","required": ["first_term","second_term"],"properties": {"first_term": {"type": "integer","title": "First term"},"second_term": {"type": "integer","title": "Second term"}}}'
+        self.initial_stage.json_schema = {"type": "object","required": ["first_term","second_term"],"properties": {"first_term": {"type": "integer","title": "First term"},"second_term": {"type": "integer","title": "Second term"}}}
         self.initial_stage.save()
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Second",
@@ -37,7 +37,7 @@ class WebhookTest(GigaTurnipTestHelper):
 
     def test_conditional_ping_pong_with_shuffle_sentence_webhook(self):
         # first book
-        self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
+        self.initial_stage.json_schema = {"type":"object","properties":{"foo":{"type":"string"}}}
         # second creating task
         task_creation_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -50,7 +50,7 @@ class WebhookTest(GigaTurnipTestHelper):
         completion_stage = task_creation_stage.add_stage(
             TaskStage(
                 name='Completion stage',
-                json_schema='{"type": "object","properties": {"exercise": {"title": "Put the words in the correct order", "type": "string"},"answer": {"type": "string"}}}',
+                json_schema={"type": "object","properties": {"exercise": {"title": "Put the words in the correct order", "type": "string"},"answer": {"type": "string"}}},
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
@@ -73,7 +73,7 @@ class WebhookTest(GigaTurnipTestHelper):
         verification_webhook_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Verification stage using webhook',
-                json_schema='{"type":"object","properties":{"is_right":{"type":"string"}}}',
+                json_schema={"type":"object","properties":{"is_right":{"type":"string"}}},
                 webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/shuffle_sentence',
                 webhook_params={"action": "check"}
 
@@ -160,7 +160,7 @@ class WebhookTest(GigaTurnipTestHelper):
         self.assertEqual(task_awards.count * 2 + 1, self.user.notifications.count())
 
     def test_error_creating_for_managers(self):
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "answer": {
@@ -171,7 +171,7 @@ class WebhookTest(GigaTurnipTestHelper):
             "required": [
                 "answer"
             ]
-        })
+        }
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name="Stage with webhook",
@@ -208,14 +208,14 @@ class WebhookTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage,
-            json_schema=json.dumps(js_schema)
+            json_schema=js_schema
         ))
         Webhook.objects.create(
             task_stage=self.initial_stage,

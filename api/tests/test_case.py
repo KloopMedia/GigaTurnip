@@ -24,7 +24,7 @@ class CaseTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(json_schema)
+        self.initial_stage.json_schema = json_schema
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name='Second Task Stage',

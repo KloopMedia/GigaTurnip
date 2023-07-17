@@ -189,8 +189,8 @@ class TaskStage(Stage, SchemaProvider):
 
     def get_columns_from_js_schema(self):
         ordered = {}
-        ui = json.loads(self.get_ui_schema())
-        schema = json.loads(self.get_json_schema())
+        ui = self.ui_schema
+        schema = self.json_schema
         for i, section_name in enumerate(ui.get("ui:order")):
             property = schema['properties'].get(section_name)
             if property:
@@ -208,7 +208,7 @@ class TaskStage(Stage, SchemaProvider):
     def __get_all_columns_and_priority(self, properties, dependencies, key, js, extra_dependencies={}):
         last_key = key.split("__")[-1]
 
-        ui = json.loads(self.ui_schema)
+        ui = self.ui_schema
         if last_key in ui.get("ui:order"):
             priority = ui.get("ui:order").index(last_key) + 1
         else:
@@ -315,11 +315,6 @@ class TaskStage(Stage, SchemaProvider):
                 self.make_1d_arr(i, end_arr)
             else:
                 end_arr.append(i)
-
-    def get_json_schema(self):
-        if not self.json_schema:
-            return '{}'
-        return self.json_schema
 
     def get_ui_schema(self):
         if not self.ui_schema:

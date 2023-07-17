@@ -35,7 +35,7 @@ class QuizTest(GigaTurnipTestHelper):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.json_schema = self.initial_stage.json_schema
         self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
@@ -81,7 +81,7 @@ class QuizTest(GigaTurnipTestHelper):
                 "q_3"
             ]
         }
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.json_schema = self.initial_stage.json_schema
         self.initial_stage.save()
 
         correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
@@ -127,7 +127,7 @@ class QuizTest(GigaTurnipTestHelper):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.json_schema = self.initial_stage.json_schema
         self.initial_stage.save()
 
         task_correct_responses = self.complete_task(
@@ -177,7 +177,7 @@ class QuizTest(GigaTurnipTestHelper):
             "dependencies": {},
             "required": ["1", "2", "3", "4", "5"]
         }
-        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.json_schema = self.initial_stage.json_schema
         self.initial_stage.save()
         task_correct_responses = self.complete_task(
             task_correct_responses,
@@ -230,7 +230,7 @@ class QuizTest(GigaTurnipTestHelper):
                 "q_3"
             ]
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
@@ -313,7 +313,7 @@ class QuizTest(GigaTurnipTestHelper):
                 "q_3"
             ]
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
@@ -386,7 +386,7 @@ class QuizTest(GigaTurnipTestHelper):
                 "q_3"
             ]
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}
@@ -471,7 +471,7 @@ class QuizTest(GigaTurnipTestHelper):
                 "q_3"
             ]
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         correct_responses = {"q_1": "a", "q_2": "b", "q_3": "a"}

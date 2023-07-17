@@ -20,7 +20,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         second_stage_schema = {
@@ -36,7 +36,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Second stage',
                 assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
-                json_schema=json.dumps(second_stage_schema)
+                json_schema=second_stage_schema
             )
         )
 
@@ -63,7 +63,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         second_stage_schema = {
@@ -79,7 +79,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Second stage',
                 assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
-                json_schema=json.dumps(second_stage_schema)
+                json_schema=second_stage_schema
             )
         )
 
@@ -113,7 +113,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(ConditionalStage(
@@ -133,7 +133,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Final stage',
                 assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
-                json_schema=json.dumps(final_stage_schema)
+                json_schema=final_stage_schema
             )
         )
 
@@ -166,7 +166,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(ConditionalStage(
@@ -186,7 +186,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Final stage',
                 assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
-                json_schema=json.dumps(final_stage_schema)
+                json_schema=final_stage_schema
             )
         )
 
@@ -220,7 +220,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         conditional_stage = self.initial_stage.add_stage(ConditionalStage(
@@ -240,7 +240,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Final stage',
                 assign_user_by=TaskStageConstants.PREVIOUS_MANUAL,
-                json_schema=json.dumps(final_stage_schema)
+                json_schema=final_stage_schema
             )
         )
 

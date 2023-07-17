@@ -65,7 +65,7 @@ class Quiz(BaseDatesModel):
     def compare_with_correct_answers(self, responses):
         correct_answers = self.correct_responses_task.responses
         correct = 0
-        questions = eval(self.task_stage.json_schema).get('properties')
+        questions = self.task_stage.json_schema.get('properties')
         incorrect_questions = []
         for key, answer in correct_answers.items():
             if str(responses.get(key)) == str(answer):

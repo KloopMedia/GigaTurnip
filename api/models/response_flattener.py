@@ -45,7 +45,7 @@ class ResponseFlattener(BaseDatesModel, CampaignInterface):
 
     def flatten_response(self, task):
         result = {"id": task.id}
-        ui = json.loads(self.task_stage.get_ui_schema())
+        ui = self.task_stage.ui_schema
         if task.responses and not self.flatten_all:
             if self.copy_first_level:
                 for key, value in task.responses.items():

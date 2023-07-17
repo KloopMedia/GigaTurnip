@@ -23,7 +23,7 @@ class AutoNotificationTest(GigaTurnipTestHelper):
 
     def setUp(self):
         super().setUp()
-        self.initial_stage.json_schema = json.dumps(self.js_schema)
+        self.initial_stage.json_schema = self.js_schema
         self.initial_stage.save()
 
     def test_auto_notification_last_one_option_as_go(self):
@@ -53,20 +53,20 @@ class AutoNotificationTest(GigaTurnipTestHelper):
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.RANK,
-            json_schema=json.dumps(self.js_schema)
+            json_schema=self.js_schema
         ))
         RankLimit.objects.create(rank=rank_verifier, stage=second_stage)
         third_stage = second_stage.add_stage(TaskStage(
             name="Some routine stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=second_stage,
-            json_schema=json.dumps(self.js_schema)
+            json_schema=self.js_schema
         ))
         four_stage = third_stage.add_stage(TaskStage(
             name="Finish stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=third_stage,
-            json_schema=json.dumps(self.js_schema)
+            json_schema=self.js_schema
         ))
 
         notif_1 = Notification.objects.create(
@@ -127,19 +127,19 @@ class AutoNotificationTest(GigaTurnipTestHelper):
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="Get on verification",
             assign_user_by=TaskStageConstants.RANK,
-            json_schema=json.dumps(self.js_schema)
+            json_schema=self.js_schema
         ))
         third_stage = second_stage.add_stage(TaskStage(
             name="Some routine stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=second_stage,
-            json_schema=json.dumps(self.js_schema)
+            json_schema=self.js_schema
         ))
         four_stage = third_stage.add_stage(TaskStage(
             name="Finish stage",
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=third_stage,
-            json_schema=json.dumps(self.js_schema)
+            json_schema=self.js_schema
         ))
 
         notif_1 = Notification.objects.create(
@@ -260,7 +260,7 @@ class AutoNotificationTest(GigaTurnipTestHelper):
     def test_notification_in_response_in_chain(self):
         second_stage = self.initial_stage.add_stage(TaskStage(
             name="second one",
-            json_schema=json.dumps(self.js_schema),
+            json_schema=self.js_schema,
             assign_user_by=TaskStageConstants.STAGE,
             assign_user_from_stage=self.initial_stage
         ))

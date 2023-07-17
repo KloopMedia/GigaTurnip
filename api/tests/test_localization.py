@@ -33,7 +33,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             },
             "required": ["answer","answer2","answer3","answer4"]
         }
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
 
         result = TranslateKey.generate_keys_from_stage(self.initial_stage)
@@ -185,7 +185,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             },
             "required": ["firstName", "lastName"]
         }
-        self.initial_stage.json_schema =  json.dumps(schema)
+        self.initial_stage.json_schema =  schema
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(TaskStage(
@@ -252,7 +252,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             },
             "required": ["answer", "answer2", "answer3", "answer4"]
         }
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
         objects = TranslateKey.generate_keys_from_stage(self.initial_stage)
         self.assertEqual(len(objects), 4)
@@ -284,13 +284,13 @@ class LocalizationTest(GigaTurnipTestHelper):
         response = self.get_objects("taskstage-list", params={"lang": "ru"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
-        self.assertEqual(to_json(response.data["results"][0]["json_schema"]),
+        self.assertEqual(response.data["results"][0]["json_schema"],
                          translated_schema)
 
         response = self.get_objects("taskstage-list", params={"lang": "ky"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
-        self.assertEqual(to_json(response.data["results"][0]["json_schema"]),
+        self.assertEqual(response.data["results"][0]["json_schema"],
                          schema)
 
     def test_translation_schema_substitution_by_lang_through_task(self):
@@ -316,7 +316,7 @@ class LocalizationTest(GigaTurnipTestHelper):
             },
             "required": ["answer", "answer2", "answer3", "answer4"]
         }
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
         objects = TranslateKey.generate_keys_from_stage(self.initial_stage)
         self.assertEqual(len(objects), 4)
@@ -357,12 +357,12 @@ class LocalizationTest(GigaTurnipTestHelper):
         params = {"lang": "ru"}
         response = self.get_objects("task-detail", pk=task.id, params=params)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(to_json(response.data["stage"]["json_schema"]),
+        self.assertEqual(response.data["stage"]["json_schema"],
                          translated_schema)
 
     def test_translation_update_from_dict(self):
         schema = get_schema()
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
         objects = TranslateKey.generate_keys_from_stage(self.initial_stage)
         self.assertEqual(len(objects), 4)

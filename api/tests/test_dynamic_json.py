@@ -13,7 +13,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
     def test_dynamic_json_schema_related_fields(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -27,8 +27,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": time_slots
                 }
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
+        }
+        ui_schema = {"ui:order": ["time"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -56,19 +56,19 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses3)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         del updated_schema['properties']['time']['enum'][0]
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses3['weekday'] = weekdays[1]
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses3)})
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_single_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -77,8 +77,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": weekdays
                 }
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
+        }
+        ui_schema = {"ui:order": ["time"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -107,7 +107,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses3)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         del updated_schema['properties']['weekday']['enum'][0]
         self.assertEqual(response.data['schema'], updated_schema)
 
@@ -120,7 +120,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
 
-        self.initial_stage.json_schema = json.dumps({
+        self.initial_stage.json_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -129,10 +129,10 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": weekdays
                 }
             }
-        })
+        }
         self.initial_stage.save()
 
-        json_schema_time = json.dumps({
+        json_schema_time = {
             "type": "object",
             "properties": {
                 "time": {
@@ -141,14 +141,14 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": time_slots
                 }
             }
-        })
+        }
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name='Complete time',
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage,
                 json_schema=json_schema_time,
-                ui_schema=json.dumps({"ui:order": ["time"]})
+                ui_schema={"ui:order": ["time"]}
             )
         )
 
@@ -174,7 +174,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         t2_next = t2.out_tasks.get()
         response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
                                     params={"current_task": t2_next.id})
-        updated_schema = json.loads(second_stage.json_schema)
+        updated_schema = second_stage.json_schema
         del updated_schema['properties']['time']['enum'][0]
         del updated_schema['properties']['time']['enum'][0]
         del updated_schema['properties']['time']['enum'][0]
@@ -187,12 +187,12 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
                                     params={"current_task": t3_next.id})
 
-        updated_schema = json.loads(second_stage.json_schema)
+        updated_schema = second_stage.json_schema
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_single_unique_field(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -202,8 +202,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                 }
 
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["weekday"]})
+        }
+        ui_schema = {"ui:order": ["weekday"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -229,7 +229,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         task3 = self.create_initial_task()
         responses3 = {'weekday': weekdays[0]}
 
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         del updated_schema['properties']['weekday']['enum'][0]
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -244,7 +244,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
     def test_dynamic_json_schema_related_unique_fields(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -258,8 +258,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": time_slots
                 }
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
+        }
+        ui_schema = {"ui:order": ["time"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -285,7 +285,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         updated_schema['properties']['time']['enum'] = []
         self.assertEqual(response.data['schema'], updated_schema)
 
@@ -293,7 +293,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_three_foreign(self):
@@ -301,7 +301,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
         doctors = ['Rinat', 'Aizirek', 'Aigerim', 'Beka']
         alphabet = ['a', 'b', 'c', 'd']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -325,8 +325,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": alphabet
                 }
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
+        }
+        ui_schema = {"ui:order": ["time"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -347,7 +347,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
 
         task = self.create_initial_task()
         responses = {'weekday': weekdays[0], 'time': time_slots[0], 'doctor': doctors[0]}
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         del updated_schema['properties']['alphabet']['enum'][0]
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
@@ -357,25 +357,25 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         responses = {'weekday': weekdays[0], 'time': time_slots[0], 'doctor': doctors[1]}
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses = {'weekday': weekdays[1], 'time': time_slots[0], 'doctor': doctors[0]}
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses = {'weekday': weekdays[0], 'time': time_slots[1], 'doctor': doctors[0]}
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_many(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         day_parts = ['12:00 - 13:00', '13:00 - 14:00', '14:00 - 15:00']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -390,8 +390,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                 },
 
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
+        }
+        ui_schema = {"ui:order": ["time"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -429,7 +429,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
 
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = json.loads(js_schema)
+        updated_schema = js_schema
         del updated_schema['properties']['weekday']['enum'][0]
         del updated_schema['properties']['day_part']['enum'][0]
         self.assertEqual(response.data['schema'], updated_schema)
@@ -449,7 +449,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
     def test_dynamic_json_schema_try_to_complete_occupied_answer(self):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
-        js_schema = json.dumps({
+        js_schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -463,8 +463,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                     "enum": time_slots
                 }
             }
-        })
-        ui_schema = json.dumps({"ui:order": ["time"]})
+        }
+        ui_schema = {"ui:order": ["time"]}
         self.initial_stage.json_schema = js_schema
         self.initial_stage.ui_schema = ui_schema
         self.initial_stage.save()
@@ -519,7 +519,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
             x_pos=1,
             y_pos=1,
             is_creatable=True,
-            json_schema='{"type": "object","properties": {"choose_name": {"type": "string", "enum":[]}}}'
+            json_schema={"type": "object","properties": {"choose_name": {"type": "string", "enum":[]}}}
         )
         RankLimit.objects.create(
             open_limit=0,

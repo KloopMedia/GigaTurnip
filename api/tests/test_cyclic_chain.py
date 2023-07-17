@@ -19,7 +19,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         second_stage_schema = {
@@ -34,7 +34,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name="Test pronunciation",
-                json_schema=json.dumps(second_stage_schema),
+                json_schema=second_stage_schema,
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage
             )
@@ -62,7 +62,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Final stage',
                 assign_user_by=TaskStageConstants.STAGE,
-                json_schema=json.dumps(final_stage_schema)
+                json_schema=final_stage_schema
             )
         )
 
@@ -110,7 +110,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
                 }
             }
         }
-        self.initial_stage.json_schema = json.dumps(js_schema)
+        self.initial_stage.json_schema = js_schema
         self.initial_stage.save()
 
         second_stage_schema = {
@@ -130,7 +130,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
         second_stage = self.initial_stage.add_stage(
             TaskStage(
                 name="Test pronunciation",
-                json_schema=json.dumps(second_stage_schema),
+                json_schema=second_stage_schema,
                 assign_user_by=TaskStageConstants.RANK,
             )
         )
@@ -166,7 +166,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
             TaskStage(
                 name='Final stage',
                 assign_user_by=TaskStageConstants.STAGE,
-                json_schema=json.dumps(final_stage_schema)
+                json_schema=final_stage_schema
             )
         )
 
@@ -195,7 +195,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
 
     def test_conditional_ping_pong_cyclic_chain(self):
         # first book
-        self.initial_stage.json_schema = '{"type":"object","properties":{"foo":{"type":"string"}}}'
+        self.initial_stage.json_schema = {"type":"object","properties":{"foo":{"type":"string"}}}
         # second creating task
         task_creation_stage = self.initial_stage.add_stage(
             TaskStage(
@@ -208,7 +208,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
         completion_stage = task_creation_stage.add_stage(
             TaskStage(
                 name='Completion stage',
-                json_schema='{"type": "object","properties": {"expression": {"title": "Expression", "type": "string"},"answer": {"type": "integer"}}}',
+                json_schema={"type": "object","properties": {"expression": {"title": "Expression", "type": "string"},"answer": {"type": "integer"}}},
                 assign_user_by=TaskStageConstants.STAGE,
                 assign_user_from_stage=self.initial_stage,
                 copy_input=True
@@ -226,7 +226,7 @@ class CyclicChainTest(GigaTurnipTestHelper):
         verification_webhook_stage = conditional_stage.add_stage(
             TaskStage(
                 name='Verification stage using webhook',
-                json_schema='{"type":"object","properties":{"is_right":{"type":"string"}}}',
+                json_schema={"type":"object","properties":{"is_right":{"type":"string"}}},
                 webhook_address='https://us-central1-journal-bb5e3.cloudfunctions.net/random_int_between_0_9',
                 copy_input=True,
                 webhook_params={"action": "check"}

@@ -17,7 +17,7 @@ class IntegrationTest(GigaTurnipTestHelper):
                 "oik": {"type": "integer"},
                 "data": {"type": "string"}}
         }
-        self.initial_stage.json_schema = json.dumps(schema)
+        self.initial_stage.json_schema = schema
         self.initial_stage.save()
 
         second_stage = self.initial_stage.add_stage(TaskStage())

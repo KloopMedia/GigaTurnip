@@ -1,5 +1,3 @@
-import json
-
 from django.apps import apps
 from django.db import models, transaction
 from django.db.models import F
@@ -50,7 +48,7 @@ class TranslationAdapter(BaseDatesModel):
             if not st.get("schema"):
                 continue
             new_phrases = TranslateKey.get_keys_from_schema(
-                json.loads(st.get("schema"))
+                st.get("schema")
             )
 
             all_keys.update(new_phrases)
