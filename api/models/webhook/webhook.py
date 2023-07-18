@@ -163,10 +163,10 @@ class Webhook(BaseDatesModel):
                 else:
                     task.responses = self._extract_data(response, self.response_field)
             if self.target_schema:
-                if task.schema:
-                    task.schema.update(self._extract_data(response, self.schema_field))
+                if task.json_schema:
+                    task.json_schema.update(self._extract_data(response, self.schema_field))
                 else:
-                    task.schema = self._extract_data(response, self.schema_field)
+                    task.json_schema = self._extract_data(response, self.schema_field)
             if self.target_ui_schema:
                 if task.ui_schema:
                     task.ui_schema.update(self._extract_data(response, self.ui_schema_field))

@@ -3,9 +3,10 @@ from django.db.models import UniqueConstraint, Q
 
 from api.constans import TaskStageConstants
 from api.models import BaseDatesModel, CampaignInterface
+from api.models.stage.schema_provider import SchemaProvider
 
 
-class Task(BaseDatesModel, CampaignInterface):
+class Task(BaseDatesModel, CampaignInterface, SchemaProvider):
     assignee = models.ForeignKey(
         "CustomUser",
         on_delete=models.CASCADE,  # TODO Change deletion
@@ -69,18 +70,6 @@ class Task(BaseDatesModel, CampaignInterface):
         blank=True,
         null=True,
         help_text='the time until which this task is available'
-    )
-    schema = models.JSONField(
-        null=True,
-        blank=True,
-        default=None,
-        help_text="JSON schema for responses that will supersede schema from Stage."
-    )
-    ui_schema = models.JSONField(
-        null=True,
-        blank=True,
-        default=None,
-        help_text="JSON ui schema for responses that will supersede ui schema from Stage."
     )
 
     class Meta:

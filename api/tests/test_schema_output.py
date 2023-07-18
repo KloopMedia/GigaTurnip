@@ -31,7 +31,7 @@ class DanceVocabreTest(GigaTurnipTestHelper):
         self.initial_stage.save()
 
         task = self.create_initial_task()
-        task.schema = task_schema
+        task.json_schema = task_schema
         task.ui_schema = task_ui_schema
         task.save()
 
@@ -66,7 +66,7 @@ class DanceVocabreTest(GigaTurnipTestHelper):
         self.initial_stage.save()
 
         task = self.create_initial_task()
-        task.schema = task_schema
+        task.json_schema = task_schema
         task.ui_schema = task_ui_schema
         task.save()
 

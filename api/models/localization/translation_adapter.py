@@ -123,7 +123,7 @@ class TranslationAdapter(BaseDatesModel):
                         Task(
                             stage=self.stage,
                             case=c,
-                            schema=TranslateKey.generate_schema_by_fields(
+                            json_schema=TranslateKey.generate_schema_by_fields(
                                 available_keys, self.target.name)
 
                         )

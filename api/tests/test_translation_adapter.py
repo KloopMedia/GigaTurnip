@@ -169,9 +169,9 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
             {'type': 'object','title': 'Translate this phrases on French','properties': {'fe02973b5a58a89f8ba943d54611a181a5941160abb5380b31e897727e2ee87f': {'type': 'string','title': 'Pass something here 2.'}}},
             {'type': 'object','title': 'Translate this phrases on French','properties': {'19bf0b4cc72b2da0b08ccff59137ec0b0e292e4df777860ceea4de755042409c': {'type': 'string','title': 'Please pass your answers on below questions 2'}}}
         ]
-        actual_ru_schemas = [i for i in ru_tasks_to_translate.values_list("schema", flat=True)]
-        actual_ky_schemas = [i for i in ky_tasks_to_translate.values_list("schema", flat=True)]
-        actual_fr_schemas = [i for i in fr_tasks_to_translate.values_list("schema", flat=True)]
+        actual_ru_schemas = [i for i in ru_tasks_to_translate.values_list("json_schema", flat=True)]
+        actual_ky_schemas = [i for i in ky_tasks_to_translate.values_list("json_schema", flat=True)]
+        actual_fr_schemas = [i for i in fr_tasks_to_translate.values_list("json_schema", flat=True)]
         self.assertEqual(actual_ru_schemas, expecting_ru_schemas)
         self.assertEqual(actual_ky_schemas, expecting_ky_schemas)
         self.assertEqual(actual_fr_schemas, expecting_fr_schemas)
@@ -202,7 +202,7 @@ class TranslationAdapterTest(GigaTurnipTestHelper):
 
         # START COMPLETING TRANSLATIONS
         translate_phrases = {k: str(i) for i, k in
-                             enumerate(task_to_translate.schema[
+                             enumerate(task_to_translate.json_schema[
                                            "properties"].keys())}
         task_to_translate = self.complete_task(task_to_translate,
                                                responses=translate_phrases)
