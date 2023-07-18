@@ -2,8 +2,6 @@ import csv
 import json
 from datetime import datetime
 from datetime import timedelta
-from itertools import chain
-import re
 
 import requests
 from django.contrib.postgres.aggregates import ArrayAgg
@@ -16,6 +14,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -1709,3 +1708,20 @@ class UserStatisticViewSet(GenericViewSet):
         if exclude_managers == "true":
             return qs.exclude(id__in=managers)
         return qs
+
+
+# Custom view to generate a new token or return an existing one
+class AuthViewSet(viewsets.GenericViewSet):
+    @action(detail=False, methods=["GET"])
+    def my_token(self, request, *args, **kwargs):
+        print("hrlejrlkwejlkajfldkjas;ldfjasldkjlk;asjdl;kjafsjkl")
+        user = request.user
+
+        # Check if a token already exists for the user
+        token, created = Token.objects.get_or_create(user=user)
+
+        # If token doesn't exist, generate a new one
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+
+        return Response({'token': token.key}, status=status_code)
+
