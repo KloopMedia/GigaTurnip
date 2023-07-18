@@ -16,7 +16,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.9  # Replace with your desired Python version
+          python-version: 3.9  
+
+      - name: Install Pipenv
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
 
       - name: Install dependencies
         run: pipenv install --dev
@@ -25,4 +30,4 @@ jobs:
         run: pipenv shell
 
       - name: Run tests
-        run: python manage.py test  # Replace with your tests execution command
+        run: python manage.py test
