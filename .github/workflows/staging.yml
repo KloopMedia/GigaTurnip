@@ -1,0 +1,28 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9  # Replace with your desired Python version
+
+      - name: Install dependencies
+        run: pipenv install --dev
+
+      - name: Activate virtual environment
+        run: pipenv shell
+
+      - name: Run tests
+        run: python manage.py test  # Replace with your tests execution command
