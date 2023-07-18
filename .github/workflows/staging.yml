@@ -26,8 +26,5 @@ jobs:
       - name: Install dependencies
         run: pipenv install --dev
 
-      - name: Activate virtual environment
-        run: pipenv shell
-
       - name: Run tests
-        run: python manage.py test
+        run: pipenv run python manage.py test
