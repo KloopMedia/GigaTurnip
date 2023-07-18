@@ -1,3 +1,4 @@
+import copy
 import hashlib
 from typing  import Any
 
@@ -171,13 +172,12 @@ class TranslateKey(models.Model):
         :return: translated schema
         """
 
-        schema = stage.json_schema
+        schema = copy.deepcopy(stage.json_schema)
         all_fields = cls.get_keys_from_schema(schema)
         translations = apps.get_model("api.translation").objects.filter(
             key__key__in=list(all_fields.keys()),
             language__code=lang_code
         )
-
         cls.substitute_values(schema, translations)
         return schema
 

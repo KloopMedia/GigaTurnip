@@ -1,3 +1,4 @@
+import copy
 import json
 
 from rest_framework import status
@@ -56,14 +57,14 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses3)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         del updated_schema['properties']['time']['enum'][0]
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses3['weekday'] = weekdays[1]
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses3)})
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_single_field(self):
@@ -120,7 +121,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         weekdays = ['mon', 'tue', 'wed', 'thu', 'fri']
         time_slots = ['10:00', '11:00', '12:00', '13:00', '14:00']
 
-        self.initial_stage.json_schema = {
+        schema = {
             "type": "object",
             "properties": {
                 "weekday": {
@@ -130,6 +131,8 @@ class DynamicJsonTest(GigaTurnipTestHelper):
                 }
             }
         }
+
+        self.initial_stage.json_schema = copy.deepcopy(schema)
         self.initial_stage.save()
 
         json_schema_time = {
@@ -174,7 +177,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         t2_next = t2.out_tasks.get()
         response = self.get_objects('taskstage-load-schema-answers', pk=second_stage.id,
                                     params={"current_task": t2_next.id})
-        updated_schema = second_stage.json_schema
+        updated_schema = copy.deepcopy(second_stage.json_schema)
         del updated_schema['properties']['time']['enum'][0]
         del updated_schema['properties']['time']['enum'][0]
         del updated_schema['properties']['time']['enum'][0]
@@ -229,7 +232,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         task3 = self.create_initial_task()
         responses3 = {'weekday': weekdays[0]}
 
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         del updated_schema['properties']['weekday']['enum'][0]
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -285,7 +288,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         updated_schema['properties']['time']['enum'] = []
         self.assertEqual(response.data['schema'], updated_schema)
 
@@ -347,7 +350,7 @@ class DynamicJsonTest(GigaTurnipTestHelper):
 
         task = self.create_initial_task()
         responses = {'weekday': weekdays[0], 'time': time_slots[0], 'doctor': doctors[0]}
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         del updated_schema['properties']['alphabet']['enum'][0]
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
@@ -357,19 +360,19 @@ class DynamicJsonTest(GigaTurnipTestHelper):
         responses = {'weekday': weekdays[0], 'time': time_slots[0], 'doctor': doctors[1]}
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses = {'weekday': weekdays[1], 'time': time_slots[0], 'doctor': doctors[0]}
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
         responses = {'weekday': weekdays[0], 'time': time_slots[1], 'doctor': doctors[0]}
         response = self.get_objects('taskstage-load-schema-answers', pk=self.initial_stage.id,
                                     params={'responses': json.dumps(responses)})
-        updated_schema = js_schema
+        updated_schema = copy.deepcopy(js_schema)
         self.assertEqual(response.data['schema'], updated_schema)
 
     def test_dynamic_json_schema_many(self):
