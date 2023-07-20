@@ -54,7 +54,8 @@ from api.serializer import (
     NumberRankSerializer, UserDeleteSerializer, TaskListSerializer,
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
     LanguageListSerializer, ChainIndividualsSerializer,
-    RankGroupedByTrackSerializer, TaskPublicSerializer
+    RankGroupedByTrackSerializer, TaskPublicSerializer,
+    TaskUserSelectableSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -719,8 +720,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             return qs
 
     def get_serializer_class(self):
-        if self.action in ['list', 'user_relevant', 'user_selectable']:
+        if self.action in ['list', 'user_relevant']:
             return TaskListSerializer
+        elif self.action == "user_selectable":
+            return TaskUserSelectableSerializer
         elif self.action == 'create':
             return TaskAutoCreateSerializer
         elif self.action in ['update', 'partial_update']:
@@ -923,25 +926,26 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request.user)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
 
-        qs = by_datetime.annotate(
-            stage_data=JSONObject(
-                id='stage__id',
-                name="stage__name",
-                chain="stage__chain",
-                campaign="stage__chain__campaign",
-                card_json_schema="stage__card_json_schema",
-                card_ui_schema="stage__card_ui_schema",
-            )
-        ).values('id',
-                 'complete',
-                 'force_complete',
-                 'created_at',
-                 'reopened',
-                 'responses',
-                 'stage_data'
-                 )
+        # qs = by_datetime.annotate(
+        #     stage_data=JSONObject(
+        #         id='stage__id',
+        #         name="stage__name",
+        #         chain="stage__chain",
+        #         campaign="stage__chain__campaign",
+        #         card_json_schema="stage__card_json_schema",
+        #         card_ui_schema="stage__card_ui_schema",
+        #     )
+        # )\
+        # qs = by_datetime.values('id',
+        #          'complete',
+        #          'force_complete',
+        #          'created_at',
+        #          'reopened',
+        #          'responses',
+        #          'stage_data'
+        #          )
 
-        return qs
+        return by_datetime
 
     @paginate
     @action(detail=False)
