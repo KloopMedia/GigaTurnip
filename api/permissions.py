@@ -264,8 +264,7 @@ class TaskAccessPolicy(AccessPolicy):
             "principal": "*",
             "effect": "allow",
             "condition_expression": "is_assignee or is_stage_public "
-                                    "is_manager or "
-                                    "can_user_request_assignment"
+                                    "or is_manager or can_user_request_assignment"
         },
         {
             "action": ["create"],
@@ -354,7 +353,7 @@ class TaskAccessPolicy(AccessPolicy):
         queryset = Task.objects.filter(id=view.get_object().id)
         return bool(utils.filter_for_user_selectable_tasks(
             queryset,
-            request))
+            request.user))
 
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()

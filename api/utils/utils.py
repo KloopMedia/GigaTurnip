@@ -66,11 +66,11 @@ def filter_for_user_creatable_stages(queryset, request, ranks=None):
         .select_related("chain", "assign_user_from_stage")
 
 
-def filter_for_user_selectable_tasks(queryset, request):
+def filter_for_user_selectable_tasks(queryset, user):
     tasks = queryset \
         .filter(complete=False) \
         .filter(assignee__isnull=True) \
-        .filter(stage__ranks__users=request.user.id) \
+        .filter(stage__ranks__users=user.id) \
         .filter(stage__ranklimits__is_selection_open=True) \
         .filter(stage__ranklimits__is_listing_allowed=True) \
         .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR) \

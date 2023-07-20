@@ -505,7 +505,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         tasks = Task.objects.all().select_related('stage')
         tasks = TaskAccessPolicy.scope_queryset(request, tasks)
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
-                                                                  request)
+                                                                  request.user)
         qs = self.filter_queryset(self.get_queryset())
         qs = qs.filter(id__in=tasks_selectable.values("stage").distinct())
 
@@ -920,8 +920,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                     ).values('out_tasks')
                 )
             )
-        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
-                                                                  request)
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request.user)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
 
         qs = by_datetime.annotate(
@@ -1714,7 +1713,6 @@ class UserStatisticViewSet(GenericViewSet):
 class AuthViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=["GET"])
     def my_token(self, request, *args, **kwargs):
-        print("hrlejrlkwejlkajfldkjas;ldfjasldkjlk;asjdl;kjafsjkl")
         user = request.user
 
         # Check if a token already exists for the user

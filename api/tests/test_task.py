@@ -11,6 +11,35 @@ from api.tests import GigaTurnipTestHelper, to_json
 
 class TaskTest(GigaTurnipTestHelper):
 
+    def test_retrieve_assigned_task(self):
+        task = self.create_task(self.initial_stage)
+
+        response = self.get_objects("task-detail", pk=task.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve_unassigned_task(self):
+        self.employee_client = self.prepare_client(
+            self.initial_stage,
+            self.employee,
+            RankLimit(is_creation_open=True))
+        task = self.create_task(self.initial_stage, self.employee_client)
+
+        response = self.get_objects("task-detail", pk=task.id)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_retrieve_user_selectable_free_task(self):
+        second_stage = self.initial_stage.add_stage(TaskStage())
+        self.client = self.prepare_client(second_stage, self.user)
+        task_1 = self.create_initial_task()
+        task_1 = self.complete_task(task_1)
+        task_2 = task_1.out_tasks.first() # task is user selectable
+
+        response = self.get_objects("task-detail", pk=task_2.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_answers_validation(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
