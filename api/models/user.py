@@ -23,6 +23,10 @@ class CustomUser(AbstractUser, BaseDatesModel):
         blank=True,
         help_text='Users phone number'
     )
+    sms_relay = models.BooleanField(
+        default=False,
+        help_text="Is user sms relay."
+    )
     deleted = models.BooleanField(
         default=False,
         help_text="Is user deleted."

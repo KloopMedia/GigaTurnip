@@ -6,6 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from jsonschema import validate
 from rest_framework import serializers
+from rest_framework.authtoken.models import Token
 from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
@@ -19,6 +20,7 @@ from api.models import Campaign, Chain, TaskStage, \
     TaskAward, DynamicJson, TestWebhook, Category, Language, Country, SMSTask, \
     TranslateKey
 from api.permissions import ManagersOnlyAccessPolicy
+from api.utils import cryptography as crypto_utils
 
 
 base_model_fields = ['id', 'name', 'description']
@@ -265,6 +267,41 @@ class CaseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class SMSDataSerializer(serializers.Serializer):
+    responses = serializers.JSONField(required=True)
+    complete = serializers.BooleanField(default=False, required=False)
+    user_token = serializers.IntegerField(min_value=0, required=False)
+    stage_id = serializers.IntegerField(min_value=0, required=True)
+    task_id = serializers.IntegerField(min_value=0, required=True)
+
+    def validate_stage(self, value):
+        return get_object_or_404(TaskStage.objects.filter(id=value), **{})
+
+    def validate_user_token(self, value):
+        return get_object_or_404(Token.objects.filter(key=value), **{}).user
+
+    def create(self, validated_data):
+        task = None
+        if validated_data["task_id"] > 0:
+
+            task = Task.objects.get_or_create(id=validated_data["task_id"])
+
+        if task:
+            task = task.first()
+            task.responses = validated_data["responses"]
+            task.complete = validated_data["complete"]
+            task.save()
+        else:
+            task = Task.objects.create(
+                assignee=validated_data["user_token"],
+                responses=validated_data["responses"],
+                complete=validated_data["complete"],
+                stage=validated_data["stage_id"]
+            )
+
+        return task
+
+
 class SMSTaskCreateSerializer(serializers.ModelSerializer):
     sms_text = serializers.CharField(required=True)
     phone = serializers.CharField(required=True)
@@ -274,13 +311,32 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
         fields = ["sms_text", "phone"]
 
     def create(self, validated_data):
+        print('serializer 1')
         sms_text = validated_data["sms_text"]
+        print('serializer 2')
         sms_task = SMSTask.objects.create(
             sms_text=sms_text,
             phone=validated_data["phone"],
             decompressed=SMSTask.text_decompression(sms_text),
             decrypted=SMSTask.text_decryption(sms_text),
+            source=sms_text
         )
+
+        """
+        responses: dict,
+        complete: bool (если true я буду сохранять таск и процессить его. если false - просто сохранять ответы)
+        stage_id: int
+        user_token: str
+        task_id: int | None (если есть - значит я обновлю таск)
+        }
+        """
+        print('serializer 3')
+        decompressed = None
+        try:
+            decompressed = json.loads(sms_task.decompressed)
+        except Exception as e:
+            raise serializers.ValidationError("Incorrect format")
+        print('serializer 4')
 
         if "id" in sms_task.decrypted_dict:
             pass

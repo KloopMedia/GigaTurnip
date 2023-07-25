@@ -18,6 +18,12 @@ class SMSTask(BaseDatesModel):
         help_text="Text of the task."
     )
 
+    source = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Accepted data."
+    )
+
     decrypted = models.TextField(
         null=True,
         blank=True,
@@ -38,6 +44,7 @@ class SMSTask(BaseDatesModel):
         null=True,
         help_text="Task that have been created based on task."
     )
+
 
     @staticmethod
     def text_decryption(text):
