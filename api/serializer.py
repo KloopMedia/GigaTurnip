@@ -297,6 +297,35 @@ class TaskListSerializer(serializers.ModelSerializer):
         return obj['stage_data']
 
 
+class TaskUserSelectableSerializer(serializers.ModelSerializer):
+    stage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'complete',
+            'force_complete',
+            'reopened',
+            'responses',
+            'stage',
+            'created_at'
+        ]
+
+    def get_stage(self, obj):
+        displayed_prev_tasks = TaskUserSelectableSerializer(obj.in_tasks.filter(stage__in=obj.stage.displayed_prev_stages.all()), many=True)
+        result = {
+            "id": obj.stage.id,
+            "name": obj.stage.name,
+            "chain": obj.stage.chain.id,
+            "campaign": obj.stage.chain.campaign.id,
+            "card_json_schema": obj.stage.card_json_schema,
+            "card_ui_schema": obj.stage.card_ui_schema,
+            "displayed_prev_stages": displayed_prev_tasks.data,
+        }
+        return result
+
+
 class TaskEditSerializer(serializers.ModelSerializer):
 
     # def validate(self, attrs):
