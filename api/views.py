@@ -1381,6 +1381,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
     #     'updated_at': ['lte', 'gte']
     # }
     permission_classes = (NotificationAccessPolicy,)
+    filterset_fields = {
+        "campaign": ["exact"],
+        "rank": ["exact"],
+        "title": ["icontains"],
+        "text": ["icontains"],
+        "importance": ["exact"],
+        "trigger_go": ["exact"],
+        "target_user": ["exact"],
+        "sender_task": ["exact"],
+        "receiver_task": ["exact"],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+    }
 
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update', 'update', 'retrieve']:
