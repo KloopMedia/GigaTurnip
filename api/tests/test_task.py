@@ -85,6 +85,7 @@ class TaskTest(GigaTurnipTestHelper):
         self.assertEqual(displayed_prev_tasks[0]["force_complete"], task_1.force_complete)
         self.assertEqual(displayed_prev_tasks[0]["reopened"], task_1.reopened)
         self.assertEqual(displayed_prev_tasks[0]["responses"], task_1.responses)
+
     def test_answers_validation(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
@@ -474,3 +475,34 @@ class TaskTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 2)
 
+    def test_task_user_relevant(self):
+        individual_chain = Chain.objects.create(
+            name="Individual chain",
+            campaign=self.campaign,
+            is_individual=True
+        )
+        new_stage = TaskStage.objects.create(
+            name="Individual",
+            x_pos=1,
+            y_pos=1,
+            chain=individual_chain,
+            is_creatable=True
+        )
+
+        RankLimit.objects.create(
+                rank=self.user.ranks.first(),
+                stage=new_stage,
+                open_limit=0,
+                total_limit=0,
+                is_listing_allowed=True,
+                is_creation_open=True
+        )
+
+        tasks = [self.create_task(new_stage) for i in range(3)]
+        [self.complete_task(i) for i in tasks]
+
+        self.assertTrue(all(list(Task.objects.values_list("complete", flat=True))))
+
+        response = self.get_objects("task-user-relevant")
+
+        self.assertEqual(response.data['count'], 0)
