@@ -303,23 +303,27 @@ class SMSDataSerializer(serializers.Serializer):
 
 
 class SMSTaskCreateSerializer(serializers.ModelSerializer):
-    sms_text = serializers.CharField(required=True)
+    ciphertext = serializers.CharField(required=True)
+    encrypted_aes_key = serializers.CharField(required=True)
     phone = serializers.CharField(required=True)
 
     class Meta:
         model = SMSTask
-        fields = ["sms_text", "phone"]
+        fields = ["ciphertext", "encrypted_aes_key", "phone"]
 
     def create(self, validated_data):
         print('serializer 1')
-        sms_text = validated_data["sms_text"]
+        ciphertext = validated_data["ciphertext"]
+        encrypted_aes_key = validated_data["encrypted_aes_key"]
+        phone = validated_data["phone"]
+
+        decrypted_text = crypto_utils.decrypt_large_text(encrypted_aes_key, ciphertext, phone)
         print('serializer 2')
         sms_task = SMSTask.objects.create(
-            sms_text=sms_text,
+            sms_text=ciphertext,
             phone=validated_data["phone"],
-            decompressed=SMSTask.text_decompression(sms_text),
-            decrypted=SMSTask.text_decryption(sms_text),
-            source=sms_text
+            decrypted=decrypted_text,
+            source=validated_data
         )
 
         """

@@ -42,9 +42,11 @@ class SmsTaskTest(GigaTurnipTestHelper):
              "stage_id": self.initial_stage.id,
              "user_token": Token.objects.create(user=self.employee).key,
          }
+        encrypted_aes_key, ciphertext = crypto_utils.encrypt_large_text(json.dumps(data), self.public_key)
 
         payload = {
-            "sms_text": crypto_utils.rsa_encrypt(self.public_key, json.dumps(data).encode()),
+            "ciphertext": ciphertext,
+            "encrypted_aes_key": encrypted_aes_key,
             "phone": "+996555000000"
         }
 
