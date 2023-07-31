@@ -32,6 +32,7 @@ def get_private_key(path=None):
     private_key = RSA.importKey(p.decode())
     return private_key
 
+
 def rsa_encrypt(public_key, message):
     rsa_cipher = PKCS1_OAEP.new(public_key)
     encrypted_text = rsa_cipher.encrypt(message)
@@ -39,12 +40,12 @@ def rsa_encrypt(public_key, message):
     return encrypted_text
 
 
-
 def rsa_decrypt(private_key, encrypted_text):
     rsa_private_key = PKCS1_OAEP.new(private_key)
     decrypted_text = rsa_private_key.decrypt(encrypted_text)
 
     return decrypted_text
+
 
 def encrypt_large_text(large_text, public_key):
     # Generate a random symmetric key (AES)
