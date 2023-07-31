@@ -252,3 +252,71 @@ class ChainTest(GigaTurnipTestHelper):
             response.data.get('next_direct_id'),
             task.out_tasks.values_list('id', flat=True)
         )
+
+    def test_chain_individuals(self):
+        self.chain.is_individual = True
+        self.chain.save()
+        individual_chain_1 = Chain.objects.create(
+            name="Not individual chain 1",
+            is_individual=True,
+            campaign=self.campaign,
+        )
+        individual_chain_2 = Chain.objects.create(
+            name="Not individual chain 2",
+            is_individual=True,
+            campaign=self.campaign,
+        )
+
+        # create stages
+        stage_1 = TaskStage.objects.create(
+            chain=individual_chain_1,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True
+        )
+        stage_2 = TaskStage.objects.create(
+            chain=individual_chain_2,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True
+        )
+
+        [self.prepare_client(i, user=self.user) for i in [stage_1, stage_2]]
+
+        # complete tasks
+        case_initial = Case.objects.create()
+        task_initial = Task.objects.create(
+            stage=self.initial_stage,
+            case=case_initial,
+            assignee=self.user,
+            responses={},
+            complete=False
+        )
+        case_1 = Case.objects.create()
+        task_1 = Task.objects.create(
+            stage=stage_1,
+            case=case_1,
+            assignee=self.user,
+            responses={},
+            complete=True
+        )
+        case_2 = Case.objects.create()
+        task_2 = Task.objects.create(
+            stage=stage_2,
+            case=case_2,
+            assignee=self.user,
+            responses={},
+            complete=True
+        )
+
+        response_all = self.get_objects("chain-individuals")
+        response_completed = self.get_objects("chain-individuals", params={"completed": True})
+        response_not_completed = self.get_objects("chain-individuals", params={"completed": False})
+
+        self.assertEqual(response_all.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_completed.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_not_completed.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response_all.data["count"], 3)
+        self.assertEqual(response_completed.data["count"], 2)
+        self.assertEqual(response_not_completed.data["count"], 1)

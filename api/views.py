@@ -60,8 +60,10 @@ from api.serializer import (
 from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
-from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter, \
-    CategoryInFilter
+from .filters import (
+    ResponsesContainsFilter, TaskResponsesContainsFilter,
+    CategoryInFilter, IndividualChainCompleteFilter,
+)
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
@@ -282,7 +284,10 @@ class ChainViewSet(viewsets.ModelViewSet):
         "campaign": ["exact"],
         "is_individual": ["exact"]
     }
-
+    filter_backends = [
+        DjangoFilterBackend,
+        IndividualChainCompleteFilter,
+    ]
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
             self.request, Chain.objects.all()
@@ -874,7 +879,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         qs = self.filter_queryset(self.get_queryset())
         qs = qs.filter(assignee=request.user) \
-            .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
+            .exclude(
+            stage__assign_user_by=TaskStageConstants.INTEGRATOR,
+        ).exclude(stage__chain__is_individual=True)
 
         tasks = qs.annotate(
             stage_data=JSONObject(

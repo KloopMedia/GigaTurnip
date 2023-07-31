@@ -1,10 +1,12 @@
 from django.apps import apps
+from django.db.models import Subquery, OuterRef
 from rest_framework import filters
 from rest_framework.filters import BaseFilterBackend
 
 from api.api_exceptions import CustomApiException
 from api.constans import DjangoORMConstants, ConditionalStageConstants
 from api.serializer import PostJSONFilterSerializer, TaskResponsesFilterSerializer
+from api.utils.django_expressions import ArraySubquery
 
 
 class BasePostJSONFilter(filters.BaseFilterBackend):
@@ -103,4 +105,41 @@ class CategoryInFilter(BaseFilterBackend):
         params = params.replace('\x00', '')  # strip null characters
         params = params.replace(',', ' ')
         return params
+
+
+class IndividualChainCompleteFilter(BaseFilterBackend):
+    search_param = "completed"
+
+    def filter_queryset(self, request, queryset, view):
+        completed_param = request.query_params.get(self.search_param, '').lower()
+
+        if completed_param not in ['true', 'false']:
+            return queryset
+
+        completed_filter_param = (completed_param == 'true')
+
+        Task = apps.get_model(app_label="api", model_name="Task")
+        user_tasks_by_chain = Task.objects.filter(assignee=request.user,
+            stage__chain_id=OuterRef("id")
+        )
+        annotated_chains = queryset.filter(stages__isnull=False).values("id").annotate(
+            stage_tasks=ArraySubquery(
+                user_tasks_by_chain.values("complete")
+            )
+        )
+
+        not_completed = set()
+        completed = set()
+        for chain in annotated_chains:
+            if len(chain["stage_tasks"]) > 0 and all(chain["stage_tasks"]):
+                completed.add(chain["id"])
+            else:
+                not_completed.add(chain["id"])
+
+        if completed_filter_param:
+            queryset = queryset.filter(id__in=completed)
+        else:
+            queryset = queryset.filter(id__in=not_completed)
+
+        return queryset
 
