@@ -2,16 +2,31 @@ from abc import ABCMeta, abstractmethod
 
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
-from api.models import TaskStage, Task, RankLimit, CampaignManagement
+from api.models import (
+    TaskStage, Task, RankLimit, CampaignManagement,
+    CustomUser, Campaign,
+)
 from api.utils import utils
 
+def available_campaigns(user, queryset):
+    return queryset.filter(
+            Q(id__in=user.ranks.values("track__campaign"))
+            | Q(open=True)
+            | Q(id__in=user.managed_campaigns.all())
+        )
 
 class CampaignAccessPolicy(AccessPolicy):
     statements = [
         {
-            "action": ["list", "retrieve"],
+            "action": ["list"],
             "principal": ["*"],
             "effect": "allow",
+        },
+        {
+            "action": ["retrieve"],
+            "principal": ["*"],
+            "effect": "allow",
+            "condition": "is_accessible",
         },
         {
             "action": ["list_user_campaigns",
@@ -44,11 +59,7 @@ class CampaignAccessPolicy(AccessPolicy):
             return qs.filter(open=True)
 
 
-        return qs.filter(
-            Q(id__in=request.user.ranks.values("track__campaign"))
-            | Q(open=True)
-            | Q(id__in=request.user.managed_campaigns.all())
-        ).distinct()
+        return available_campaigns(request.user, qs).distinct()
 
     def is_manager(self, request, view, action) -> bool:
         campaign = view.get_object()
@@ -56,6 +67,13 @@ class CampaignAccessPolicy(AccessPolicy):
 
         return request.user in managers
 
+    def is_accessible(self, request, view, action) -> bool:
+        qs = Campaign.objects.filter(id=view.get_object().id)
+
+        if qs.first().open:
+            return True
+
+        return bool(available_campaigns(request.user, qs).distinct())
 
 class UserAccessPolicy(AccessPolicy):
     statements = [
