@@ -1,5 +1,6 @@
 import json
 from abc import ABCMeta, ABC
+from datetime import datetime
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
@@ -128,7 +129,7 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
         return result
 
     def order_by_created_at(self, stages):
-        pass
+        return sorted(stages, key=lambda x: datetime.strptime(x["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z"))
 
     def order_by_graph_flow(self, stages, conditionals):
         nodes = {i["id"]: i for i in stages}
@@ -168,12 +169,12 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
         return [nodes[i] for i in stack[::-1]]
 
     def order_by_order(self, stages):
-        pass
+        return sorted(stages, key=lambda x: x["order"])
 
     def filter_stages(self, stages):
         result = []
         for st in stages:
-            if st["skip_empty_individual_tasks"] and (st["total_count"] and st["complete_count"]):
+            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
                 continue
             if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
                 continue
@@ -186,7 +187,7 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
         order_type = instance["order_in_individuals"]
         if order_type == ChainConstants.CHRONOLOGICALLY:
             data = self.order_by_created_at(instance["data"])
-        elif order_type == ChainConstants.GRAPH_ORDER:
+        elif order_type == ChainConstants.GRAPH_FLOW:
             data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
         elif order_type == ChainConstants.ORDER:
             data = self.order_by_order(instance["data"])

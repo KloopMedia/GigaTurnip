@@ -3,7 +3,7 @@ from django.db import models
 
 class ChainConstants:
     CHRONOLOGICALLY = "CH"
-    GRAPH_ORDER = "GR"
+    GRAPH_FLOW = "GR"
     ORDER = "OR"
 
 

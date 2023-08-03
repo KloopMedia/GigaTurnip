@@ -17,7 +17,7 @@ class Chain(BaseModel, CampaignInterface):
 
     ORDER_TYPE_CHOICES = [
         (ChainConstants.CHRONOLOGICALLY, 'Chronologically'),
-        (ChainConstants.GRAPH_ORDER, 'By Graph order'),
+        (ChainConstants.GRAPH_FLOW, 'By Graph order'),
         (ChainConstants.ORDER, 'By manually order'),
     ]
     order_in_individuals = models.CharField(
