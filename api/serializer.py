@@ -10,8 +10,11 @@ from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants, \
-    TaskStageSchemaSourceConstants
+from api.constans import (
+    NotificationConstants, ConditionalStageConstants,
+    JSONFilterConstants,
+    TaskStageSchemaSourceConstants, ChainConstants, TaskStageConstants,
+)
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
@@ -124,14 +127,17 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
             result.extend(self.next_to_conditionals(out_stage_id, nodes))
         return result
 
-    def to_representation(self, instance):
-        nodes = {i["id"]:i for i in instance["data"]}
-        for node in instance["conditionals"]:
+    def order_by_created_at(self, stages):
+        pass
+
+    def order_by_graph_flow(self, stages, conditionals):
+        nodes = {i["id"]: i for i in stages}
+        for node in conditionals:
             nodes[node["id"]] = node
             nodes[node["id"]]["type"] = "COND"
 
         for key, value in nodes.items():
-            result_out_stages =[]
+            result_out_stages = []
             for idx, out_stage_id in enumerate(value["out_stages"]):
                 if out_stage_id is None:
                     continue
@@ -139,13 +145,14 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
                     result_out_stages.append(out_stage_id)
                     continue
 
-                result_out_stages.extend(self.next_to_conditionals(out_stage_id, nodes))
+                result_out_stages.extend(
+                    self.next_to_conditionals(out_stage_id, nodes))
             nodes[key]["out_stages"] = result_out_stages
 
-        ts_nodes = {i["id"]: nodes[i["id"]] for i in instance["data"]}
+        ts_nodes = {i["id"]: nodes[i["id"]] for i in stages}
         first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
         if not first_stage:
-            return super(ChainIndividualsSerializer, self).to_representation(instance)
+            return stages
         first_stage = first_stage[0]
 
         # Initialize visited dictionary to keep track of visited nodes during DFS
@@ -158,7 +165,35 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
         stack.append(first_stage["id"])
 
-        instance["data"] = [nodes[i] for i in stack[::-1]]
+        return [nodes[i] for i in stack[::-1]]
+
+    def order_by_order(self, stages):
+        pass
+
+    def filter_stages(self, stages):
+        result = []
+        for st in stages:
+            if st["skip_empty_individual_tasks"] and (st["total_count"] and st["complete_count"]):
+                continue
+            if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
+                continue
+            result.append(st)
+        return result
+
+    def to_representation(self, instance):
+
+        data = None
+        order_type = instance["order_in_individuals"]
+        if order_type == ChainConstants.CHRONOLOGICALLY:
+            data = self.order_by_created_at(instance["data"])
+        elif order_type == ChainConstants.GRAPH_ORDER:
+            data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
+        elif order_type == ChainConstants.ORDER:
+            data = self.order_by_order(instance["data"])
+
+        data = self.filter_stages(data)
+
+        instance["data"] = data
 
         return super(ChainIndividualsSerializer, self).to_representation(instance)
 

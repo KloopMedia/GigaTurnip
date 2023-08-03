@@ -163,6 +163,11 @@ class TaskStage(Stage, SchemaProvider):
             help_text="If the Task Stage accept tasks via sms."
     )
 
+    skip_empty_individual_tasks = models.BooleanField(
+        default=False,
+        help_text="If in individuals chains this stage don't have any tasks - it wouldn't be returned in chain individuals."
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration

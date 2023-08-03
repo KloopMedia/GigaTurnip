@@ -1,6 +1,12 @@
 from django.db import models
 
 
+class ChainConstants:
+    CHRONOLOGICALLY = "CH"
+    GRAPH_ORDER = "GR"
+    ORDER = "OR"
+
+
 class TaskStageConstants:
     RANK = 'RA'
     STAGE = 'ST'
