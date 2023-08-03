@@ -131,9 +131,6 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
             result.extend(self.next_to_conditionals(out_stage_id, nodes))
         return result
 
-    def order_by_created_at(self, stages):
-        return sorted(stages, key=lambda x: datetime.strptime(x["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z"))
-
     def order_by_graph_flow(self, stages, conditionals):
         nodes = {i["id"]: i for i in stages}
         for node in conditionals:
@@ -186,11 +183,11 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
 
-        data = None
+        data = instance["data"]
         order_type = instance["order_in_individuals"]
-        if order_type == ChainConstants.CHRONOLOGICALLY:
-            data = self.order_by_created_at(instance["data"])
-        elif order_type == ChainConstants.GRAPH_FLOW:
+        # if order_type == ChainConstants.CHRONOLOGICALLY:
+        #     data = self.order_by_created_at(instance["data"])
+        if order_type == ChainConstants.GRAPH_FLOW:
             data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
         elif order_type == ChainConstants.ORDER:
             data = self.order_by_order(instance["data"])
