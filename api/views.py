@@ -332,9 +332,9 @@ class ChainViewSet(viewsets.ModelViewSet):
             .annotate(
                 all_out_stages=ArrayAgg("out_stages", distinct=True),
                 all_in_stages=ArrayAgg("in_stages", distinct=True),
-                completed=ArraySubquery(user_tasks.filter(complete=True).values_list("id", flat=True)),
-                opened=ArraySubquery(user_tasks.filter(reopened=False).values_list("id", flat=True)),
-                reopened=ArraySubquery(user_tasks.filter(reopened=True).values_list("id", flat=True)),
+                completed=ArraySubquery(user_tasks.filter(stage=OuterRef("id"), complete=True).values_list("id", flat=True)),
+                opened=ArraySubquery(user_tasks.filter(stage=OuterRef("id"), reopened=False).values_list("id", flat=True)),
+                reopened=ArraySubquery(user_tasks.filter(stage=OuterRef("id"), reopened=True).values_list("id", flat=True)),
                 total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
                 complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
         )
