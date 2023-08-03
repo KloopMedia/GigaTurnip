@@ -183,6 +183,8 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
 
+        user = self.context["request"].user
+
         data = instance["data"]
         order_type = instance["order_in_individuals"]
         # if order_type == ChainConstants.CHRONOLOGICALLY:
@@ -195,6 +197,33 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
         data = self.filter_stages(data)
 
         instance["data"] = data
+
+        stages = dict()
+        for i in data:
+            if i["total_count"] == 0 and i["complete_count"] == 0:
+                continue
+
+            stages[i["id"]] = {
+                "completed": [],
+                "reopened": [],
+                "opened": [],
+            }
+
+        tasks = user.tasks.filter(stage__in=list(stages.keys())).values("id", "stage", "reopened", "complete")
+        for task in tasks:
+            if task["reopened"]:
+                stages[task["stage"]]["reopened"].append(task["id"])
+
+            if task["complete"]:
+                stages[task["stage"]]["completed"].append(task["id"])
+            else:
+                stages[task["stage"]]["opened"].append(task["id"])
+
+        for st in instance["data"]:
+            if st["id"] in stages:
+                st.update(stages[st["id"]])
+            else:
+                st.update({"completed": [],"reopened": [],"opened": [],})
 
         return super(ChainIndividualsSerializer, self).to_representation(instance)
 
