@@ -322,26 +322,21 @@ class ChainViewSet(viewsets.ModelViewSet):
                     "stage__chain")
             )
 
-        cases = Task.objects.filter(
-            assignee=user,
-            stage__chain__in=qs) \
-            .values("case").distinct()
-
         user_tasks = Task.objects.filter(
-            case__in=cases,
-            stage=OuterRef("id"),
-        )
+            assignee=user,
+            stage__chain__in=qs,
+            stage__chain__is_individual=True)
 
-        # .exclude(assign_user_by=TaskStageConstants.AUTO_COMPLETE) \
-        task_stages_query = TaskStage.objects.filter(chain=OuterRef("id")) \
+        task_stages_query = TaskStage.objects.select_related("out_stages",
+            "in_stages", "tasks").filter(chain=OuterRef("id")) \
             .annotate(
                 all_out_stages=ArrayAgg("out_stages", distinct=True),
                 all_in_stages=ArrayAgg("in_stages", distinct=True),
                 completed=ArraySubquery(user_tasks.filter(complete=True).values_list("id", flat=True)),
                 opened=ArraySubquery(user_tasks.filter(reopened=False).values_list("id", flat=True)),
                 reopened=ArraySubquery(user_tasks.filter(reopened=True).values_list("id", flat=True)),
-                total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
-                complete_count=Count("tasks", filter=Q(tasks__case__in=cases, tasks__complete=True))
+                total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
+                complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
         )
 
         qs = qs.values("id", "name", "order_in_individuals").annotate(
