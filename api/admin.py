@@ -231,8 +231,15 @@ class TokenAdmin(admin.ModelAdmin):
 
 
 class ChainAdmin(admin.ModelAdmin):
-    list_display = ("name", "campaign",)
+    list_display = (
+        "name",
+        "campaign",
+        "is_individual",
+        "order_in_individuals",
+    )
     list_filter = (
+        "is_individual",
+        "order_in_individuals",
         AutocompleteFilterFactory("Campaign", "campaign"),
     )
     autocomplete_fields = ("campaign",)
