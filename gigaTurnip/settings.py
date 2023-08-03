@@ -112,7 +112,7 @@ DATABASES = {
     #         'USER': os.getenv('GOOGLE_CLOUD_DB_USER', ''),
     #         'PASSWORD': os.getenv('GOOGLE_CLOUD_DB_PASS', ''),
     #         'HOST': 'localhost',
-    #         'PORT': '3306',
+    #         'PORT': '3307',
     #     }
 }
 

@@ -103,6 +103,66 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "stages_data"]
 
 
+    def find_order(self, node, visited, stack, nodes):
+        visited[node["id"]] = True
+        for neighbor in node["out_stages"]:
+            if neighbor is None:
+                continue
+            if not visited[neighbor]:
+                self.find_order(nodes[neighbor], visited, stack, nodes)
+
+            stack.append(neighbor)
+
+    def next_to_conditionals(self, stage_id, nodes):
+        result = []
+        for out_stage_id in nodes[stage_id]["out_stages"]:
+            if out_stage_id is None:
+                continue
+            if nodes[out_stage_id].get("type", None) != "COND":
+                result.append(out_stage_id)
+                continue
+            result.extend(self.next_to_conditionals(out_stage_id, nodes))
+        return result
+
+    def to_representation(self, instance):
+        nodes = {i["id"]:i for i in instance["data"]}
+        for node in instance["conditionals"]:
+            nodes[node["id"]] = node
+            nodes[node["id"]]["type"] = "COND"
+
+        for key, value in nodes.items():
+            result_out_stages =[]
+            for idx, out_stage_id in enumerate(value["out_stages"]):
+                if out_stage_id is None:
+                    continue
+                if nodes[out_stage_id].get("type", None) != "COND":
+                    result_out_stages.append(out_stage_id)
+                    continue
+
+                result_out_stages.extend(self.next_to_conditionals(out_stage_id, nodes))
+            nodes[key]["out_stages"] = result_out_stages
+
+        ts_nodes = {i["id"]: nodes[i["id"]] for i in instance["data"]}
+        first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
+        if not first_stage:
+            return super(ChainIndividualsSerializer, self).to_representation(instance)
+        first_stage = first_stage[0]
+
+        # Initialize visited dictionary to keep track of visited nodes during DFS
+        visited = {node_id: False for node_id in ts_nodes.keys()}
+
+        # Initialize the stack to store the sorted nodes
+        stack = []
+
+        self.find_order(first_stage, visited, stack, ts_nodes)
+
+        stack.append(first_stage["id"])
+
+        instance["data"] = [nodes[i] for i in stack[::-1]]
+
+        return super(ChainIndividualsSerializer, self).to_representation(instance)
+
+
 class ConditionalStageSerializer(serializers.ModelSerializer,
                                  CampaignValidationCheck):
     queryset = ConditionalStage.objects.all() \

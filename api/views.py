@@ -348,6 +348,19 @@ class ChainViewSet(viewsets.ModelViewSet):
                         complete_count="complete_count"
                     )
                 )
+            ),
+            conditionals=ArraySubquery(
+                ConditionalStage.objects.filter(chain=OuterRef("id")).annotate(
+                    all_out_stages=ArrayAgg("out_stages", distinct=True),
+                    all_in_stages=ArrayAgg("in_stages", distinct=True),
+                ).values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        out_stages="all_out_stages",
+                        in_stages="all_in_stages",
+                    )
+                )
             )
         )
 
