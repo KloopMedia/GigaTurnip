@@ -1,5 +1,6 @@
 import json
 from abc import ABCMeta, ABC
+from datetime import datetime
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
@@ -10,8 +11,11 @@ from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants, \
-    TaskStageSchemaSourceConstants
+from api.constans import (
+    NotificationConstants, ConditionalStageConstants,
+    JSONFilterConstants,
+    TaskStageSchemaSourceConstants, ChainConstants, TaskStageConstants,
+)
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
@@ -101,6 +105,98 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chain
         fields = ["id", "name", "stages_data"]
+
+
+    def find_order(self, node, visited, stack, nodes):
+        visited[node["id"]] = True
+        for neighbor in node["out_stages"]:
+            if neighbor is None:
+                continue
+            if not visited[neighbor]:
+                self.find_order(nodes[neighbor], visited, stack, nodes)
+
+            stack.append(neighbor)
+
+    def next_to_conditionals(self, stage_id, nodes):
+        result = []
+        for out_stage_id in nodes[stage_id]["out_stages"]:
+            if out_stage_id is None:
+                continue
+            if nodes[out_stage_id].get("type", None) != "COND":
+                result.append(out_stage_id)
+                continue
+            result.extend(self.next_to_conditionals(out_stage_id, nodes))
+        return result
+
+    def order_by_created_at(self, stages):
+        return sorted(stages, key=lambda x: datetime.strptime(x["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z"))
+
+    def order_by_graph_flow(self, stages, conditionals):
+        nodes = {i["id"]: i for i in stages}
+        for node in conditionals:
+            nodes[node["id"]] = node
+            nodes[node["id"]]["type"] = "COND"
+
+        for key, value in nodes.items():
+            result_out_stages = []
+            for idx, out_stage_id in enumerate(value["out_stages"]):
+                if out_stage_id is None:
+                    continue
+                if nodes[out_stage_id].get("type", None) != "COND":
+                    result_out_stages.append(out_stage_id)
+                    continue
+
+                result_out_stages.extend(
+                    self.next_to_conditionals(out_stage_id, nodes))
+            nodes[key]["out_stages"] = result_out_stages
+
+        ts_nodes = {i["id"]: nodes[i["id"]] for i in stages}
+        first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
+        if not first_stage:
+            return stages
+        first_stage = first_stage[0]
+
+        # Initialize visited dictionary to keep track of visited nodes during DFS
+        visited = {node_id: False for node_id in ts_nodes.keys()}
+
+        # Initialize the stack to store the sorted nodes
+        stack = []
+
+        self.find_order(first_stage, visited, stack, ts_nodes)
+
+        stack.append(first_stage["id"])
+
+        return [nodes[i] for i in stack[::-1]]
+
+    def order_by_order(self, stages):
+        return sorted(stages, key=lambda x: x["order"])
+
+    def filter_stages(self, stages):
+        result = []
+        for st in stages:
+            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
+                continue
+            if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
+                continue
+            result.append(st)
+        return result
+
+    def to_representation(self, instance):
+
+        data = None
+        order_type = instance["order_in_individuals"]
+        if order_type == ChainConstants.CHRONOLOGICALLY:
+            data = self.order_by_created_at(instance["data"])
+        elif order_type == ChainConstants.GRAPH_FLOW:
+            data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
+        elif order_type == ChainConstants.ORDER:
+            data = self.order_by_order(instance["data"])
+
+        data = self.filter_stages(data)
+
+        instance["data"] = data
+
+        return super(ChainIndividualsSerializer, self).to_representation(instance)
 
 
 class ConditionalStageSerializer(serializers.ModelSerializer,

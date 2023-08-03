@@ -327,25 +327,44 @@ class ChainViewSet(viewsets.ModelViewSet):
             stage__chain__in=qs) \
             .values("case").distinct()
 
-        qs = qs.values("id", "name").annotate(
+        # .exclude(assign_user_by=TaskStageConstants.AUTO_COMPLETE) \
+        task_stages_query = TaskStage.objects.filter(chain=OuterRef("id")) \
+            .annotate(
+                all_out_stages=ArrayAgg("out_stages", distinct=True),
+                all_in_stages=ArrayAgg("in_stages", distinct=True),
+                total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
+                complete_count=Count("tasks", filter=Q(tasks__case__in=cases, tasks__complete=True))
+        )
+
+        qs = qs.values("id", "name", "order_in_individuals").annotate(
             data=ArraySubquery(
-                TaskStage.objects.filter(chain=OuterRef("id")).annotate(
-                    all_out_stages=ArrayAgg("out_stages", distinct=True),
-                    all_in_stages=ArrayAgg("in_stages", distinct=True),
-                    total_count=Count("tasks",
-                                      filter=Q(tasks__case__in=cases)),
-                    complete_count=Count("tasks",
-                                         filter=Q(tasks__case__in=cases,
-                                                  tasks__complete=True))
-                ).values(
+                task_stages_query.values(
                     info=JSONObject(
                         id="id",
                         name="name",
+                        order="order",
+                        created_at="created_at",
+                        skip_empty_individual_tasks="skip_empty_individual_tasks",
                         assign_type="assign_user_by",
                         out_stages="all_out_stages",
                         in_stages="all_in_stages",
                         total_count="total_count",
                         complete_count="complete_count"
+                    )
+                )
+            ),
+            conditionals=ArraySubquery(
+                ConditionalStage.objects.filter(chain=OuterRef("id")).annotate(
+                    all_out_stages=ArrayAgg("out_stages", distinct=True),
+                    all_in_stages=ArrayAgg("in_stages", distinct=True),
+                ).values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        order="order",
+                        created_at="created_at",
+                        out_stages="all_out_stages",
+                        in_stages="all_in_stages",
                     )
                 )
             )
