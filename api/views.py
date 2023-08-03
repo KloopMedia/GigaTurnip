@@ -327,11 +327,19 @@ class ChainViewSet(viewsets.ModelViewSet):
             stage__chain__in=qs) \
             .values("case").distinct()
 
+        user_tasks = Task.objects.filter(
+            case__in=cases,
+            stage=OuterRef("id"),
+        )
+
         # .exclude(assign_user_by=TaskStageConstants.AUTO_COMPLETE) \
         task_stages_query = TaskStage.objects.filter(chain=OuterRef("id")) \
             .annotate(
                 all_out_stages=ArrayAgg("out_stages", distinct=True),
                 all_in_stages=ArrayAgg("in_stages", distinct=True),
+                completed=ArraySubquery(user_tasks.filter(complete=True).values_list("id", flat=True)),
+                opened=ArraySubquery(user_tasks.filter(reopened=False).values_list("id", flat=True)),
+                reopened=ArraySubquery(user_tasks.filter(reopened=True).values_list("id", flat=True)),
                 total_count=Count("tasks", filter=Q(tasks__case__in=cases)),
                 complete_count=Count("tasks", filter=Q(tasks__case__in=cases, tasks__complete=True))
         )
@@ -346,6 +354,9 @@ class ChainViewSet(viewsets.ModelViewSet):
                         created_at="created_at",
                         skip_empty_individual_tasks="skip_empty_individual_tasks",
                         assign_type="assign_user_by",
+                        completed="completed",
+                        opened="opened",
+                        reopened="reopened",
                         out_stages="all_out_stages",
                         in_stages="all_in_stages",
                         total_count="total_count",
@@ -369,7 +380,6 @@ class ChainViewSet(viewsets.ModelViewSet):
                 )
             )
         )
-
         return qs
 
 

@@ -95,6 +95,9 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     assign_type = serializers.CharField()
     in_stages = serializers.ListField(child=serializers.IntegerField())
     out_stages = serializers.ListField(child=serializers.IntegerField())
+    completed = serializers.ListField(child=serializers.IntegerField())
+    opened = serializers.ListField(child=serializers.IntegerField())
+    reopened = serializers.ListField(child=serializers.IntegerField())
     total_count = serializers.IntegerField()
     complete_count = serializers.IntegerField()
 
