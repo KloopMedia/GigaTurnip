@@ -311,7 +311,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
         qs = self.filter_queryset(self.get_queryset()) \
-            .filter(is_individual=True)
+            .filter(is_individual=True).prefetch_related("stages")
         user = request.user
 
         # filter by highest user ranks
@@ -323,15 +323,18 @@ class ChainViewSet(viewsets.ModelViewSet):
             )
 
         user_tasks = Task.objects.filter(
-            assignee=user,
-            stage__chain__in=qs,
-            stage__chain__is_individual=True)
+            assignee_id=user.id,
+            stage__in=qs.values("stages")
+        ).select_related("stage")
 
-        task_stages_query = TaskStage.objects.select_related("out_stages",
-            "in_stages", "tasks").filter(chain=OuterRef("id")) \
+        task_stages_query = TaskStage.objects.prefetch_related("out_stages",
+            "in_stages").select_related("tasks").filter(chain=OuterRef("id")) \
             .annotate(
                 all_out_stages=ArrayAgg("out_stages", distinct=True),
                 all_in_stages=ArrayAgg("in_stages", distinct=True),
+                completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=True).values_list("id", flat=True)),
+                opened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
+                reopened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False, reopened=True).values_list("id", flat=True)),
                 total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
                 complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
         )
@@ -345,6 +348,9 @@ class ChainViewSet(viewsets.ModelViewSet):
                         order="order",
                         created_at="created_at",
                         skip_empty_individual_tasks="skip_empty_individual_tasks",
+                        completed="completed",
+                        opened="opened",
+                        reopened="reopened",
                         assign_type="assign_user_by",
                         out_stages="all_out_stages",
                         in_stages="all_in_stages",
@@ -447,7 +453,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         # return stages where user can create new task
-        stages = self.filter_queryset(self.get_queryset())
+        q = self.get_queryset()
+        stages = self.filter_queryset(q)
 
         # filter by highest user ranks
         ranks = request.user.ranks.all()
