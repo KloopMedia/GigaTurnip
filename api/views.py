@@ -286,7 +286,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     }
     filter_backends = [
         DjangoFilterBackend,
-        IndividualChainCompleteFilter,
+        # IndividualChainCompleteFilter,
     ]
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
@@ -310,7 +310,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
-        qs = self.filter_queryset(self.get_queryset()) \
+        qs = self.get_queryset()
+        qs = self.filter_queryset(qs.select_related("campaign")) \
             .filter(is_individual=True).prefetch_related("stages")
         user = request.user
 
@@ -552,23 +553,23 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
         stages_by_ranks = RankLimit.objects.filter(
             rank__in=request.user.ranks.values("id")
-        ).values_list('stage', flat=True).distinct()
+        ).values_list('stage', flat=True)
 
         qs = qs.filter(id__in=stages_by_ranks)
 
-        used = set()
-        to_parse = set(qs)
+        # used = set()
+        # to_parse = set(qs)
+        #
+        # while to_parse:
+        #     current = to_parse.pop()
+        #
+        #     new = current.assign_user_to_stages.exclude(id__in=used)
+        #     qs |= new
+        #
+        #     used.add(current.id)
+        #     to_parse.update(new.exclude(id__in=used))
 
-        while to_parse:
-            current = to_parse.pop()
-
-            new = current.assign_user_to_stages.exclude(id__in=used)
-            qs |= new
-
-            used.add(current.id)
-            to_parse.update(new.exclude(id__in=used))
-
-        return qs.distinct()
+        return qs#.distinct()
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
