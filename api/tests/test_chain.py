@@ -274,13 +274,15 @@ class ChainTest(GigaTurnipTestHelper):
             chain=individual_chain_1,
             x_pos=1,
             y_pos=1,
-            is_creatable=True
+            is_creatable=True,
+            complete_individual_chain=True
         )
         stage_2 = TaskStage.objects.create(
             chain=individual_chain_2,
             x_pos=1,
             y_pos=1,
-            is_creatable=True
+            is_creatable=True,
+            complete_individual_chain=True
         )
 
         [self.prepare_client(i, user=self.user) for i in [stage_1, stage_2]]

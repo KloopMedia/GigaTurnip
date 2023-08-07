@@ -120,12 +120,11 @@ class IndividualChainCompleteFilter(BaseFilterBackend):
 
         Task = apps.get_model(app_label="api", model_name="Task")
         user_tasks_by_chain = Task.objects.filter(assignee=request.user,
-            stage__chain_id=OuterRef("id")
+            stage__chain_id=OuterRef("id"),
+            complete=True,
         )
-        annotated_chains = queryset.filter(stages__isnull=False).values("id").annotate(
-            stage_tasks=ArraySubquery(
-                user_tasks_by_chain.values("complete")
-            )
+        annotated_chains = queryset.values("id").filter(stages__taskstage__complete_individual_chain=True).annotate(
+            completed=Subquery(user_tasks_by_chain)
         )
 
         not_completed = set()

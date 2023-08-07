@@ -168,6 +168,11 @@ class TaskStage(Stage, SchemaProvider):
         help_text="If in individuals chains this stage don't have any tasks - it wouldn't be returned in chain individuals."
     )
 
+    complete_individual_chain = models.BooleanField(
+        default=False,
+        help_text="If true and user have tasks on this chain - so chain will be considered as completed."
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
