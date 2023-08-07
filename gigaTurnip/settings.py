@@ -188,7 +188,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',
     'https://kloopmedia.github.io',
-    'https://talaybekovna.github.io'
+    'https://talaybekovna.github.io',
+    'https://atna-lab.github.io/'
 ]
 
 REST_FRAMEWORK = {
