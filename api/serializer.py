@@ -336,12 +336,14 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaskStage
-        fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign', 'stage_type',
-                  'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params', 'dynamic_jsons_source', 'dynamic_jsons_target',
-                  'webhook_response_field', 'allow_go_back', 'allow_release']
+        fields = base_model_fields + stage_fields + schema_provider_fields + [
+            "copy_input", "allow_multiple_files", "is_creatable", "external_metadata",
+            "displayed_prev_stages", "assign_user_by", "ranks", "campaign", "stage_type",
+            "assign_user_from_stage", "rich_text", "webhook_address",
+            "webhook_payload_field", "webhook_params", "dynamic_jsons_source", "dynamic_jsons_target",
+            "webhook_response_field", "allow_go_back", "allow_release",
+            "available_from", "available_to",
+            ]
 
     def get_campaign(self, obj):
         return obj.get_campaign().id
@@ -358,11 +360,12 @@ class TaskStageSerializer(serializers.ModelSerializer,
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by',
-                  'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params', 'stage_type',
-                  'webhook_response_field', 'allow_go_back', 'allow_release']
+                 ["copy_input", "allow_multiple_files", "is_creatable", "external_metadata",
+                  "displayed_prev_stages", "assign_user_by",
+                  "available_from", "available_to",
+                  "assign_user_from_stage", "rich_text", "webhook_address",
+                  "webhook_payload_field", "webhook_params", "stage_type",
+                  "webhook_response_field", "allow_go_back", "allow_release"]
 
     def validate_chain(self, value):
         """
@@ -378,10 +381,15 @@ class TaskStageSerializer(serializers.ModelSerializer,
 class TaskStagePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
-        fields = ['id', 'name', 'description', 'json_schema', 'ui_schema', 'external_metadata',
-                  'stage_type', 'library', 'rich_text', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
-                            'library', 'rich_text', 'created_at', 'updated_at']
+        fields = [
+            "id", "name", "description", "json_schema", "ui_schema", "external_metadata",
+            "stage_type", "library", "rich_text", "created_at", "updated_at",
+            "available_from", "available_to",
+        ]
+        read_only_fields = [
+            "id", "name", "description", "json_schema", "ui_schema", "library",
+            "rich_text", "created_at", "updated_at",
+        ]
 
 
 class CaseSerializer(serializers.ModelSerializer):
