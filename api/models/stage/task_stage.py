@@ -167,6 +167,14 @@ class TaskStage(Stage, SchemaProvider):
         default=False,
         help_text="If in individuals chains this stage don't have any tasks - it wouldn't be returned in chain individuals."
     )
+    available_from = models.DateTimeField(
+        null=True,
+        help_text="Available from."
+    )
+    available_to = models.DateTimeField(
+        null=True,
+        help_text="Available to."
+    )
 
     def get_integration(self):
         if hasattr(self, 'integration'):
