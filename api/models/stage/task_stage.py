@@ -169,10 +169,12 @@ class TaskStage(Stage, SchemaProvider):
     )
     available_from = models.DateTimeField(
         null=True,
+        blank=True,
         help_text="Available from."
     )
     available_to = models.DateTimeField(
         null=True,
+        blank=True,
         help_text="Available to."
     )
 
