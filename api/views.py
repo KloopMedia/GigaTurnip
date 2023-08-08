@@ -288,7 +288,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     }
     filter_backends = [
         DjangoFilterBackend,
-        # IndividualChainCompleteFilter,
+        IndividualChainCompleteFilter,
     ]
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
