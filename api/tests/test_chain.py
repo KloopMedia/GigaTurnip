@@ -268,8 +268,15 @@ class ChainTest(GigaTurnipTestHelper):
             is_individual=True,
             campaign=self.campaign,
         )
+        individual_chain_3 = Chain.objects.create(
+            name="Not individual chain 3",
+            is_individual=True,
+            campaign=self.campaign,
+        )
 
         # create stages
+        self.initial_stage.complete_individual_chain = True
+        self.initial_stage.save()
         stage_1 = TaskStage.objects.create(
             chain=individual_chain_1,
             x_pos=1,
@@ -284,8 +291,15 @@ class ChainTest(GigaTurnipTestHelper):
             is_creatable=True,
             complete_individual_chain=True
         )
+        stage_3 = TaskStage.objects.create(
+            chain=individual_chain_3,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True,
+            complete_individual_chain=True
+        )
 
-        [self.prepare_client(i, user=self.user) for i in [stage_1, stage_2]]
+        [self.prepare_client(i, user=self.user) for i in [stage_1, stage_2, stage_3]]
 
         # complete tasks
         case_initial = Case.objects.create()
@@ -321,9 +335,17 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(response_completed.status_code, status.HTTP_200_OK)
         self.assertEqual(response_not_completed.status_code, status.HTTP_200_OK)
 
-        self.assertEqual(response_all.data["count"], 3)
+        stages = [self.chain.id, individual_chain_1.id, individual_chain_2.id, individual_chain_3.id]
+        self.assertEqual(response_all.data["count"], 4)
+        self.assertEqual(stages, [i["id"] for i in response_all.data["results"]])
+
+        stages = [individual_chain_1.id, individual_chain_2.id]
         self.assertEqual(response_completed.data["count"], 2)
-        self.assertEqual(response_not_completed.data["count"], 1)
+        self.assertEqual(stages, [i["id"] for i in response_completed.data["results"]])
+
+        stages = [self.chain.id, individual_chain_3.id]
+        self.assertEqual(response_not_completed.data["count"], 2)
+        self.assertEqual(stages, [i["id"] for i in response_not_completed.data["results"]])
 
     def test_chain_individuals_order_by_created_at(self):
         self.chain.is_individual = True

@@ -1,5 +1,5 @@
 from django.apps import apps
-from django.db.models import Subquery, OuterRef
+from django.db.models import Subquery, OuterRef, Q
 from rest_framework import filters
 from rest_framework.filters import BaseFilterBackend
 
@@ -119,26 +119,18 @@ class IndividualChainCompleteFilter(BaseFilterBackend):
         completed_filter_param = (completed_param == 'true')
 
         Task = apps.get_model(app_label="api", model_name="Task")
-        user_tasks_by_chain = Task.objects.filter(assignee=request.user,
-            stage__chain_id=OuterRef("id"),
-            complete=True,
-        )
-        annotated_chains = queryset.values("id").filter(stages__taskstage__complete_individual_chain=True).annotate(
-            completed=Subquery(user_tasks_by_chain)
-        )
+        user_task_for_stage = Task.objects.filter(assignee=request.user,
+                stage_id=OuterRef("stages__taskstage"),
+            ).order_by("-created_at").values("complete")
 
-        not_completed = set()
-        completed = set()
-        for chain in annotated_chains:
-            if len(chain["stage_tasks"]) > 0 and all(chain["stage_tasks"]):
-                completed.add(chain["id"])
-            else:
-                not_completed.add(chain["id"])
+        annotated_chains = queryset.values("id", "stages__taskstage").filter(stages__taskstage__complete_individual_chain=True).annotate(
+            completed=Subquery(user_task_for_stage)
+        )
 
         if completed_filter_param:
-            queryset = queryset.filter(id__in=completed)
+            queryset = queryset.filter(id__in=annotated_chains.filter(completed=True).values("id"))
         else:
-            queryset = queryset.filter(id__in=not_completed)
+            queryset = queryset.filter(id__in=annotated_chains.filter(Q(completed=False) | Q(completed__isnull=True)).values("id"))
 
         return queryset
 
