@@ -81,7 +81,7 @@ class GigaTurnipTestHelper(APITestCase):
         if not c:
             c = [self.country]
 
-        campaign = Campaign.objects.create(name=name)
+        campaign = Campaign.objects.create(name=name, visible=True)
         campaign.languages.add(*l)
         campaign.countries.set(c)
         default_track = Track.objects.create(

@@ -188,7 +188,7 @@ class CampaignLinkerTest(GigaTurnipTestHelper):
         # response = self.employee_client.get(
         #     reverse("campaign-join-campaign", kwargs={"pk": self.campaign.id})
         # )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # check that employee joined
         response = self.get_objects(

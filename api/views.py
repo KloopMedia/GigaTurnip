@@ -232,19 +232,21 @@ class CampaignViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(
             self.get_queryset()
-        ).prefetch_related("managers", "notifications")
+        ).filter(visible=True).prefetch_related("managers", "notifications")
         return qs
 
     @action(detail=True, methods=['post', 'get'])
     def join_campaign(self, request, pk=None):
-        rank_record, created = self.get_object().join(request)
+        campaign = self.get_object()
+        if not campaign.open:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        rank_record, created = campaign.join(request)
         rank_record_json = RankRecordSerializer(instance=rank_record).data
         if rank_record and created:
-            return Response({'status': status.HTTP_201_CREATED,
-                             'rank_record': rank_record_json})
+            return Response({"rank_record": rank_record_json}, status=status.HTTP_201_CREATED)
         elif rank_record and not created:
-            return Response({'status': status.HTTP_200_OK,
-                             'rank_record': rank_record_json})
+            return Response({"rank_record": rank_record_json})
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 

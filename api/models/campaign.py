@@ -34,6 +34,9 @@ class Campaign(BaseModel, CampaignInterface):
 
     open = models.BooleanField(default=False,
                                help_text="If True, users can join")
+    visible = models.BooleanField(default=False, help_text="If true - campaigns is visible in the all endpoints. "
+                                                           "Otherwise it invisible but users can join it."
+    )
 
     sms_login_allow = models.BooleanField(
         default=False,

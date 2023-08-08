@@ -75,6 +75,43 @@ class CampaignTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
 
+    def test_list(self):
+        pepsi_data = self.generate_new_basic_campaign(name="Pepsi")
+        pepsi_data["campaign"].visible = False
+        pepsi_data["campaign"].open = True
+        pepsi_data["campaign"].save()
+
+        response = self.get_objects("campaign-list")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.campaign.id)
+
+    def test_join_invisible_and_open_campaign(self):
+        pepsi_data = self.generate_new_basic_campaign(name="Pepsi")
+        pepsi_data["campaign"].visible = False
+        pepsi_data["campaign"].open = True
+        pepsi_data["campaign"].save()
+
+
+        response = self.employee_client.get(
+            reverse("campaign-join-campaign", kwargs={"pk": pepsi_data["campaign"].id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_join_invisible_and_not_open_campaign(self):
+        pepsi_data = self.generate_new_basic_campaign(name="Pepsi")
+        pepsi_data["campaign"].visible = False
+        pepsi_data["campaign"].open = False
+        pepsi_data["campaign"].save()
+
+
+        response = self.employee_client.get(
+            reverse("campaign-join-campaign", kwargs={"pk": pepsi_data["campaign"].id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_list_campaign_serializer(self):
         # join employee to campaign
@@ -83,7 +120,7 @@ class CampaignTest(GigaTurnipTestHelper):
         response = self.employee_client.get(
             reverse("campaign-join-campaign", kwargs={"pk": self.campaign.id})
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         Notification.objects.create(
             title="title",
@@ -108,7 +145,7 @@ class CampaignTest(GigaTurnipTestHelper):
         response = self.client.get(
             reverse("campaign-join-campaign", kwargs={"pk": self.campaign.id})
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         response = self.get_objects("campaign-list")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
