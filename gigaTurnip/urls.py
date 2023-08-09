@@ -96,6 +96,9 @@ router.register(api_v1 + r'languages',
 router.register(api_v1 + r'countries',
                 turnip_app.CountryViewSet,
                 basename='country')
+router.register(api_v1 + r'auth',
+                turnip_app.AuthViewSet,
+                basename='auth')
 
 urlpatterns = [
                   path('admin/', admin.site.urls),

@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'drf_firebase_auth',
     'rest_framework.authtoken',
     'django_filters',
-    'django_q'
+    'django_q',
+    'admin_auto_filters',
 ]
 
 MIDDLEWARE = [
@@ -89,6 +90,28 @@ WSGI_APPLICATION = 'gigaTurnip.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
+#
+# LOGGING = {
+#     'version': 1,
+#     'filters': {
+#         'require_debug_true': {
+#             '()': 'django.utils.log.RequireDebugTrue',
+#         }
+#     },
+#     'handlers': {
+#         'console': {
+#             'level': 'DEBUG',
+#             'filters': ['require_debug_true'],
+#             'class': 'logging.StreamHandler',
+#         }
+#     },
+#     'loggers': {
+#         'django.db.backends': {
+#             'level': 'DEBUG',
+#             'handlers': ['console'],
+#         }
+#     }
+# }
 
 DATABASES = {
     # 'default': {
@@ -111,7 +134,7 @@ DATABASES = {
     #         'USER': os.getenv('GOOGLE_CLOUD_DB_USER', ''),
     #         'PASSWORD': os.getenv('GOOGLE_CLOUD_DB_PASS', ''),
     #         'HOST': 'localhost',
-    #         'PORT': '3306',
+    #         'PORT': '3307',
     #     }
 }
 

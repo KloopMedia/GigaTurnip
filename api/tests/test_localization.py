@@ -224,8 +224,8 @@ class LocalizationTest(GigaTurnipTestHelper):
         response = self.get_objects("taskstage-available-stages")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Stage.objects.count(), 5)
-        self.assertEqual(response.data["count"], 3)
-        all_stage = [self.initial_stage.id, second_stage.id, third_stage.id]
+        self.assertEqual(response.data["count"], 1)
+        all_stage = [self.initial_stage.id]
         response_stages = [i["id"] for i in response.data["results"]]
         self.assertEqual(all_stage, response_stages)
 

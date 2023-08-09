@@ -31,6 +31,10 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         blank=True,
         help_text="List of previous id stages"
     )
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Order of the stage in chain."
+    )
 
     def get_campaign(self):
         return self.chain.campaign

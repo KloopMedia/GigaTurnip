@@ -16,6 +16,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -57,13 +58,16 @@ from api.serializer import (
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
     LanguageListSerializer, ChainIndividualsSerializer,
     SMSTaskCreateSerializer, LanguageListSerializer, ChainIndividualsSerializer,
-    RankGroupedByTrackSerializer, TaskPublicSerializer
+    RankGroupedByTrackSerializer, TaskPublicSerializer,
+    TaskUserSelectableSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
-from .filters import ResponsesContainsFilter, TaskResponsesContainsFilter, \
-    CategoryInFilter
+from .filters import (
+    ResponsesContainsFilter, TaskResponsesContainsFilter,
+    CategoryInFilter, IndividualChainCompleteFilter,
+)
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
 
@@ -232,19 +236,21 @@ class CampaignViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(
             self.get_queryset()
-        ).prefetch_related("managers", "notifications")
+        ).filter(visible=True).prefetch_related("managers", "notifications")
         return qs
 
     @action(detail=True, methods=['post', 'get'])
     def join_campaign(self, request, pk=None):
-        rank_record, created = self.get_object().join(request)
+        campaign = self.get_object()
+        if not campaign.open:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        rank_record, created = campaign.join(request)
         rank_record_json = RankRecordSerializer(instance=rank_record).data
         if rank_record and created:
-            return Response({'status': status.HTTP_201_CREATED,
-                             'rank_record': rank_record_json})
+            return Response({"rank_record": rank_record_json}, status=status.HTTP_201_CREATED)
         elif rank_record and not created:
-            return Response({'status': status.HTTP_200_OK,
-                             'rank_record': rank_record_json})
+            return Response({"rank_record": rank_record_json})
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -284,7 +290,10 @@ class ChainViewSet(viewsets.ModelViewSet):
         "campaign": ["exact"],
         "is_individual": ["exact"]
     }
-
+    filter_backends = [
+        DjangoFilterBackend,
+        IndividualChainCompleteFilter,
+    ]
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
             self.request, Chain.objects.all()
@@ -307,8 +316,9 @@ class ChainViewSet(viewsets.ModelViewSet):
     @paginate
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
-        qs = self.filter_queryset(self.get_queryset()) \
-            .filter(is_individual=True)
+        qs = self.get_queryset()
+        qs = self.filter_queryset(qs.select_related("campaign")) \
+            .filter(is_individual=True).prefetch_related("stages")
         user = request.user
 
         # filter by highest user ranks
@@ -319,30 +329,55 @@ class ChainViewSet(viewsets.ModelViewSet):
                     "stage__chain")
             )
 
-        cases = Task.objects.filter(
-            assignee=user,
-            stage__chain__in=qs) \
-            .values("case").distinct()
+        user_tasks = Task.objects.filter(
+            assignee_id=user.id,
+            stage__in=qs.values("stages")
+        ).select_related("stage")
 
-        qs = qs.values("id", "name").annotate(
+        task_stages_query = TaskStage.objects.prefetch_related("out_stages",
+            "in_stages").select_related("tasks").filter(chain=OuterRef("id")) \
+            .annotate(
+                all_out_stages=ArrayAgg("out_stages", distinct=True),
+                all_in_stages=ArrayAgg("in_stages", distinct=True),
+                completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=True).values_list("id", flat=True)),
+                opened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
+                reopened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False, reopened=True).values_list("id", flat=True)),
+                total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
+                complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
+        )
+
+        qs = qs.values("id", "name", "order_in_individuals").annotate(
             data=ArraySubquery(
-                TaskStage.objects.filter(chain=OuterRef("id")).annotate(
-                    all_out_stages=ArrayAgg("out_stages", distinct=True),
-                    all_in_stages=ArrayAgg("in_stages", distinct=True),
-                    total_count=Count("tasks",
-                                      filter=Q(tasks__case__in=cases)),
-                    complete_count=Count("tasks",
-                                         filter=Q(tasks__case__in=cases,
-                                                  tasks__complete=True))
-                ).values(
+                task_stages_query.values(
                     info=JSONObject(
                         id="id",
                         name="name",
+                        order="order",
+                        created_at="created_at",
+                        skip_empty_individual_tasks="skip_empty_individual_tasks",
+                        completed="completed",
+                        opened="opened",
+                        reopened="reopened",
                         assign_type="assign_user_by",
                         out_stages="all_out_stages",
                         in_stages="all_in_stages",
                         total_count="total_count",
                         complete_count="complete_count"
+                    )
+                )
+            ),
+            conditionals=ArraySubquery(
+                ConditionalStage.objects.filter(chain=OuterRef("id")).annotate(
+                    all_out_stages=ArrayAgg("out_stages", distinct=True),
+                    all_in_stages=ArrayAgg("in_stages", distinct=True),
+                ).values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        order="order",
+                        created_at="created_at",
+                        out_stages="all_out_stages",
+                        in_stages="all_in_stages",
                     )
                 )
             )
@@ -426,7 +461,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def user_relevant(self, request):
         # return stages where user can create new task
-        stages = self.filter_queryset(self.get_queryset())
+        q = self.get_queryset()
+        stages = self.filter_queryset(q)
 
         # filter by highest user ranks
         ranks = request.user.ranks.all()
@@ -524,23 +560,23 @@ class TaskStageViewSet(viewsets.ModelViewSet):
 
         stages_by_ranks = RankLimit.objects.filter(
             rank__in=request.user.ranks.values("id")
-        ).values_list('stage', flat=True).distinct()
+        ).values_list('stage', flat=True)
 
         qs = qs.filter(id__in=stages_by_ranks)
 
-        used = set()
-        to_parse = set(qs)
+        # used = set()
+        # to_parse = set(qs)
+        #
+        # while to_parse:
+        #     current = to_parse.pop()
+        #
+        #     new = current.assign_user_to_stages.exclude(id__in=used)
+        #     qs |= new
+        #
+        #     used.add(current.id)
+        #     to_parse.update(new.exclude(id__in=used))
 
-        while to_parse:
-            current = to_parse.pop()
-
-            new = current.assign_user_to_stages.exclude(id__in=used)
-            qs |= new
-
-            used.add(current.id)
-            to_parse.update(new.exclude(id__in=used))
-
-        return qs.distinct()
+        return qs#.distinct()
 
 class ConditionalStageViewSet(viewsets.ModelViewSet):
     """
@@ -722,8 +758,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             return qs
 
     def get_serializer_class(self):
-        if self.action in ['list', 'user_relevant', 'user_selectable']:
+        if self.action in ['list', 'user_relevant']:
             return TaskListSerializer
+        elif self.action == "user_selectable":
+            return TaskUserSelectableSerializer
         elif self.action == 'create':
             return TaskAutoCreateSerializer
         elif self.action in ['update', 'partial_update']:
@@ -874,7 +912,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         qs = self.filter_queryset(self.get_queryset())
         qs = qs.filter(assignee=request.user) \
-            .exclude(stage__assign_user_by=TaskStageConstants.INTEGRATOR)
+            .exclude(
+            stage__assign_user_by=TaskStageConstants.INTEGRATOR,
+        ).exclude(stage__chain__is_individual=True)
 
         tasks = qs.annotate(
             stage_data=JSONObject(
@@ -923,35 +963,35 @@ class TaskViewSet(viewsets.ModelViewSet):
                     ).values('out_tasks')
                 )
             )
-        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
-                                                                  request)
+        tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request.user)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
 
-        qs = by_datetime.annotate(
-            stage_data=JSONObject(
-                id='stage__id',
-                name="stage__name",
-                chain="stage__chain",
-                campaign="stage__chain__campaign",
-                card_json_schema="stage__card_json_schema",
-                card_ui_schema="stage__card_ui_schema",
-            )
-        ).values('id',
-                 'complete',
-                 'force_complete',
-                 'created_at',
-                 'reopened',
-                 'responses',
-                 'stage_data'
-                 )
+        # qs = by_datetime.annotate(
+        #     stage_data=JSONObject(
+        #         id='stage__id',
+        #         name="stage__name",
+        #         chain="stage__chain",
+        #         campaign="stage__chain__campaign",
+        #         card_json_schema="stage__card_json_schema",
+        #         card_ui_schema="stage__card_ui_schema",
+        #     )
+        # )\
+        # qs = by_datetime.values('id',
+        #          'complete',
+        #          'force_complete',
+        #          'created_at',
+        #          'reopened',
+        #          'responses',
+        #          'stage_data'
+        #          )
 
-        return qs
+        return by_datetime
 
     @paginate
     @action(detail=False)
     def user_activity(self, request):
         tasks = self.filter_queryset(self.get_queryset()) \
-            .select_related('stage') \
+            .select_related('stage', ) \
             .prefetch_related('stage__ranks', 'stage__in_stages',
                               'stage__out_stages')
         groups = tasks.values('stage').annotate(
@@ -1397,6 +1437,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
     #     'updated_at': ['lte', 'gte']
     # }
     permission_classes = (NotificationAccessPolicy,)
+    filterset_fields = {
+        "campaign": ["exact"],
+        "rank": ["exact"],
+        "title": ["icontains"],
+        "text": ["icontains"],
+        "importance": ["exact"],
+        "trigger_go": ["exact"],
+        "target_user": ["exact"],
+        "sender_task": ["exact"],
+        "receiver_task": ["exact"],
+        'created_at': ['lte', 'gte', 'lt', 'gt'],
+    }
 
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update', 'update', 'retrieve']:
@@ -1727,3 +1779,19 @@ class UserStatisticViewSet(GenericViewSet):
         if exclude_managers == "true":
             return qs.exclude(id__in=managers)
         return qs
+
+
+# Custom view to generate a new token or return an existing one
+class AuthViewSet(viewsets.GenericViewSet):
+    @action(detail=False, methods=["GET"])
+    def my_token(self, request, *args, **kwargs):
+        user = request.user
+
+        # Check if a token already exists for the user
+        token, created = Token.objects.get_or_create(user=user)
+
+        # If token doesn't exist, generate a new one
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+
+        return Response({'token': token.key}, status=status_code)
+

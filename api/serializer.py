@@ -1,5 +1,6 @@
 import json
 from abc import ABCMeta, ABC
+from datetime import datetime
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
@@ -11,8 +12,11 @@ from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
 from api.asyncstuff import process_updating_schema_answers
-from api.constans import NotificationConstants, ConditionalStageConstants, JSONFilterConstants, \
-    TaskStageSchemaSourceConstants
+from api.constans import (
+    NotificationConstants, ConditionalStageConstants,
+    JSONFilterConstants,
+    TaskStageSchemaSourceConstants, ChainConstants, TaskStageConstants,
+)
 from api.models import Campaign, Chain, TaskStage, \
     ConditionalStage, Case, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
@@ -93,6 +97,9 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     assign_type = serializers.CharField()
     in_stages = serializers.ListField(child=serializers.IntegerField())
     out_stages = serializers.ListField(child=serializers.IntegerField())
+    completed = serializers.ListField(child=serializers.IntegerField())
+    opened = serializers.ListField(child=serializers.IntegerField())
+    reopened = serializers.ListField(child=serializers.IntegerField())
     total_count = serializers.IntegerField()
     complete_count = serializers.IntegerField()
 
@@ -103,6 +110,124 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chain
         fields = ["id", "name", "stages_data"]
+
+
+    def find_order(self, node, visited, stack, nodes):
+        visited[node["id"]] = True
+        for neighbor in node["out_stages"]:
+            if neighbor is None:
+                continue
+            if not visited[neighbor]:
+                self.find_order(nodes[neighbor], visited, stack, nodes)
+
+            stack.append(neighbor)
+
+    def next_to_conditionals(self, stage_id, nodes):
+        result = []
+        for out_stage_id in nodes[stage_id]["out_stages"]:
+            if out_stage_id is None:
+                continue
+            if nodes[out_stage_id].get("type", None) != "COND":
+                result.append(out_stage_id)
+                continue
+            result.extend(self.next_to_conditionals(out_stage_id, nodes))
+        return result
+
+    def order_by_graph_flow(self, stages, conditionals):
+        nodes = {i["id"]: i for i in stages}
+        for node in conditionals:
+            nodes[node["id"]] = node
+            nodes[node["id"]]["type"] = "COND"
+
+        for key, value in nodes.items():
+            result_out_stages = []
+            for idx, out_stage_id in enumerate(value["out_stages"]):
+                if out_stage_id is None:
+                    continue
+                if nodes[out_stage_id].get("type", None) != "COND":
+                    result_out_stages.append(out_stage_id)
+                    continue
+
+                result_out_stages.extend(
+                    self.next_to_conditionals(out_stage_id, nodes))
+            nodes[key]["out_stages"] = result_out_stages
+
+        ts_nodes = {i["id"]: nodes[i["id"]] for i in stages}
+        first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
+        if not first_stage:
+            return stages
+        first_stage = first_stage[0]
+
+        # Initialize visited dictionary to keep track of visited nodes during DFS
+        visited = {node_id: False for node_id in ts_nodes.keys()}
+
+        # Initialize the stack to store the sorted nodes
+        stack = []
+
+        self.find_order(first_stage, visited, stack, ts_nodes)
+
+        stack.append(first_stage["id"])
+
+        return [nodes[i] for i in stack[::-1]]
+
+    def order_by_order(self, stages):
+        return sorted(stages, key=lambda x: x["order"])
+
+    def filter_stages(self, stages):
+        result = []
+        for st in stages:
+            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
+                continue
+            if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
+                continue
+            result.append(st)
+        return result
+
+    def to_representation(self, instance):
+
+        user = self.context["request"].user
+
+        data = instance["data"]
+        order_type = instance["order_in_individuals"]
+        # if order_type == ChainConstants.CHRONOLOGICALLY:
+        #     data = self.order_by_created_at(instance["data"])
+        if order_type == ChainConstants.GRAPH_FLOW:
+            data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
+        elif order_type == ChainConstants.ORDER:
+            data = self.order_by_order(instance["data"])
+
+        data = self.filter_stages(data)
+
+        instance["data"] = data
+
+        # stages = dict()
+        # for i in data:
+        #     if i["total_count"] == 0 and i["complete_count"] == 0:
+        #         continue
+        #
+        #     stages[i["id"]] = {
+        #         "completed": [],
+        #         "reopened": [],
+        #         "opened": [],
+        #     }
+        #
+        # tasks = user.tasks.filter(stage__in=list(stages.keys())).values("id", "stage", "reopened", "complete")
+        # for task in tasks:
+        #     if task["reopened"]:
+        #         stages[task["stage"]]["reopened"].append(task["id"])
+        #
+        #     if task["complete"]:
+        #         stages[task["stage"]]["completed"].append(task["id"])
+        #     else:
+        #         stages[task["stage"]]["opened"].append(task["id"])
+        #
+        # for st in instance["data"]:
+        #     if st["id"] in stages:
+        #         st.update(stages[st["id"]])
+        #     else:
+        #         st.update({"completed": [],"reopened": [],"opened": [],})
+
+        return super(ChainIndividualsSerializer, self).to_representation(instance)
 
 
 class ConditionalStageSerializer(serializers.ModelSerializer,
@@ -213,12 +338,14 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaskStage
-        fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by', 'ranks', 'campaign', 'stage_type',
-                  'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params', 'dynamic_jsons_source', 'dynamic_jsons_target',
-                  'webhook_response_field', 'allow_go_back', 'allow_release']
+        fields = base_model_fields + stage_fields + schema_provider_fields + [
+            "copy_input", "allow_multiple_files", "is_creatable", "external_metadata",
+            "displayed_prev_stages", "assign_user_by", "ranks", "campaign", "stage_type",
+            "assign_user_from_stage", "rich_text", "webhook_address",
+            "webhook_payload_field", "webhook_params", "dynamic_jsons_source", "dynamic_jsons_target",
+            "webhook_response_field", "allow_go_back", "allow_release",
+            "available_from", "available_to",
+            ]
 
     def get_campaign(self, obj):
         return obj.get_campaign().id
@@ -235,11 +362,12 @@ class TaskStageSerializer(serializers.ModelSerializer,
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + \
-                 ['copy_input', 'allow_multiple_files', 'is_creatable', 'external_metadata',
-                  'displayed_prev_stages', 'assign_user_by',
-                  'assign_user_from_stage', 'rich_text', 'webhook_address',
-                  'webhook_payload_field', 'webhook_params', 'stage_type',
-                  'webhook_response_field', 'allow_go_back', 'allow_release']
+                 ["copy_input", "allow_multiple_files", "is_creatable", "external_metadata",
+                  "displayed_prev_stages", "assign_user_by",
+                  "available_from", "available_to",
+                  "assign_user_from_stage", "rich_text", "webhook_address",
+                  "webhook_payload_field", "webhook_params", "stage_type",
+                  "webhook_response_field", "allow_go_back", "allow_release"]
 
     def validate_chain(self, value):
         """
@@ -255,10 +383,15 @@ class TaskStageSerializer(serializers.ModelSerializer,
 class TaskStagePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskStage
-        fields = ['id', 'name', 'description', 'json_schema', 'ui_schema', 'external_metadata',
-                  'stage_type', 'library', 'rich_text', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'name', 'description', 'json_schema', 'ui_schema',
-                            'library', 'rich_text', 'created_at', 'updated_at']
+        fields = [
+            "id", "name", "description", "json_schema", "ui_schema", "external_metadata",
+            "stage_type", "library", "rich_text", "created_at", "updated_at",
+            "available_from", "available_to",
+        ]
+        read_only_fields = [
+            "id", "name", "description", "json_schema", "ui_schema", "library",
+            "rich_text", "created_at", "updated_at",
+        ]
 
 
 class CaseSerializer(serializers.ModelSerializer):
@@ -384,32 +517,61 @@ class TaskListSerializer(serializers.ModelSerializer):
         return obj['stage_data']
 
 
+class TaskUserSelectableSerializer(serializers.ModelSerializer):
+    stage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'complete',
+            'force_complete',
+            'reopened',
+            'responses',
+            'stage',
+            'created_at'
+        ]
+
+    def get_stage(self, obj):
+        displayed_prev_tasks = TaskUserSelectableSerializer(obj.in_tasks.filter(stage__in=obj.stage.displayed_prev_stages.all()), many=True)
+        result = {
+            "id": obj.stage.id,
+            "name": obj.stage.name,
+            "chain": obj.stage.chain.id,
+            "campaign": obj.stage.chain.campaign.id,
+            "card_json_schema": obj.stage.card_json_schema,
+            "card_ui_schema": obj.stage.card_ui_schema,
+            "displayed_prev_stages": displayed_prev_tasks.data,
+        }
+        return result
+
+
 class TaskEditSerializer(serializers.ModelSerializer):
 
-    def validate(self, attrs):
-        if attrs.get('complete') == True:
-            instance = self.root.instance
-            stage = instance.stage
-            try:
-                old_responses = instance.responses
-                if not old_responses:
-                    old_responses = {}
-
-                update_responses = attrs.get('responses')
-                if not update_responses:
-                    update_responses = {}
-
-                old_responses.update(update_responses)
-                schema = process_updating_schema_answers(stage, instance.case.id, update_responses)
-
-                validate(instance=old_responses, schema=schema)
-                return attrs
-            except Exception as exc:
-                raise serializers.ValidationError({
-                    "message": "Your answers are non-compliance with the standard",
-                    "pass": list(exc.schema_path)
-                })
-        return attrs
+    # def validate(self, attrs):
+    #     if attrs.get('complete') == True:
+    #         instance = self.root.instance
+    #         stage = instance.stage
+    #         try:
+    #             old_responses = instance.responses
+    #             if not old_responses:
+    #                 old_responses = {}
+    #
+    #             update_responses = attrs.get('responses')
+    #             if not update_responses:
+    #                 update_responses = {}
+    #
+    #             old_responses.update(update_responses)
+    #             schema = process_updating_schema_answers(stage, instance.case.id, update_responses)
+    #
+    #             validate(instance=old_responses, schema=schema)
+    #             return attrs
+    #         except Exception as exc:
+    #             raise serializers.ValidationError({
+    #                 "message": "Your answers are non-compliance with the standard",
+    #                 "pass": list(exc.schema_path)
+    #             })
+    #     return attrs
 
     class Meta:
         model = Task

@@ -2,8 +2,10 @@ import json
 
 from rest_framework import status
 
-from api.constans import AutoNotificationConstants, TaskStageConstants, \
-    CopyFieldConstants
+from api.constans import (
+    AutoNotificationConstants, TaskStageConstants,
+    CopyFieldConstants, ChainConstants,
+)
 from api.models import *
 from api.tests import GigaTurnipTestHelper, to_json
 
@@ -252,3 +254,249 @@ class ChainTest(GigaTurnipTestHelper):
             response.data.get('next_direct_id'),
             task.out_tasks.values_list('id', flat=True)
         )
+
+    def test_chain_individuals(self):
+        self.chain.is_individual = True
+        self.chain.save()
+        individual_chain_1 = Chain.objects.create(
+            name="Not individual chain 1",
+            is_individual=True,
+            campaign=self.campaign,
+        )
+        individual_chain_2 = Chain.objects.create(
+            name="Not individual chain 2",
+            is_individual=True,
+            campaign=self.campaign,
+        )
+        individual_chain_3 = Chain.objects.create(
+            name="Not individual chain 3",
+            is_individual=True,
+            campaign=self.campaign,
+        )
+
+        # create stages
+        self.initial_stage.complete_individual_chain = True
+        self.initial_stage.save()
+        stage_1 = TaskStage.objects.create(
+            chain=individual_chain_1,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True,
+            complete_individual_chain=True
+        )
+        stage_2 = TaskStage.objects.create(
+            chain=individual_chain_2,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True,
+            complete_individual_chain=True
+        )
+        stage_3 = TaskStage.objects.create(
+            chain=individual_chain_3,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True,
+            complete_individual_chain=True
+        )
+
+        [self.prepare_client(i, user=self.user) for i in [stage_1, stage_2, stage_3]]
+
+        # complete tasks
+        case_initial = Case.objects.create()
+        task_initial = Task.objects.create(
+            stage=self.initial_stage,
+            case=case_initial,
+            assignee=self.user,
+            responses={},
+            complete=False
+        )
+        case_1 = Case.objects.create()
+        task_1 = Task.objects.create(
+            stage=stage_1,
+            case=case_1,
+            assignee=self.user,
+            responses={},
+            complete=True
+        )
+        case_2 = Case.objects.create()
+        task_2 = Task.objects.create(
+            stage=stage_2,
+            case=case_2,
+            assignee=self.user,
+            responses={},
+            complete=True
+        )
+
+        response_all = self.get_objects("chain-individuals")
+        response_completed = self.get_objects("chain-individuals", params={"completed": True})
+        response_not_completed = self.get_objects("chain-individuals", params={"completed": False})
+
+        self.assertEqual(response_all.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_completed.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_not_completed.status_code, status.HTTP_200_OK)
+
+        stages = [self.chain.id, individual_chain_1.id, individual_chain_2.id, individual_chain_3.id]
+        self.assertEqual(response_all.data["count"], 4)
+        self.assertEqual(stages, [i["id"] for i in response_all.data["results"]])
+
+        stages = [individual_chain_1.id, individual_chain_2.id]
+        self.assertEqual(response_completed.data["count"], 2)
+        self.assertEqual(stages, [i["id"] for i in response_completed.data["results"]])
+
+        stages = [self.chain.id, individual_chain_3.id]
+        self.assertEqual(response_not_completed.data["count"], 2)
+        self.assertEqual(stages, [i["id"] for i in response_not_completed.data["results"]])
+
+    def test_chain_individuals_order_by_created_at(self):
+        self.chain.is_individual = True
+        self.chain.save()
+
+        # create stages
+        stage_2 = self.initial_stage.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage
+            )
+        )
+        stage_3 = stage_2.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=stage_2
+            )
+        )
+
+        response = self.get_objects("chain-individuals")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], 1)
+
+        actual_order_ids = [i["id"] for i in response.data["results"][0]["stages_data"]]
+        expected_order_ids = [self.initial_stage.id, stage_2.id, stage_3.id]
+        self.assertEqual(actual_order_ids, expected_order_ids)
+
+    def test_chain_individuals_order_by_order(self):
+        self.chain.is_individual = True
+        self.chain.order_in_individuals = ChainConstants.ORDER
+        self.chain.save()
+
+        # create stages
+        stage_2 = self.initial_stage.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                is_creatable=True,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage,
+                order=15
+            )
+        )
+        stage_3 = stage_2.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                is_creatable=True,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=stage_2,
+                order=1,
+            )
+        )
+
+        response = self.get_objects("chain-individuals")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], 1)
+
+        actual_order_ids = [i["id"] for i in response.data["results"][0]["stages_data"]]
+        expected_order_ids = [self.initial_stage.id, stage_3.id, stage_2.id]
+        self.assertEqual(actual_order_ids, expected_order_ids)
+
+    def test_chain_individuals_order_by_chain_flow(self):
+        self.chain.is_individual = True
+        self.chain.order_in_individuals = ChainConstants.GRAPH_FLOW
+        self.chain.save()
+
+        # create stages
+        stage_2 = self.initial_stage.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                is_creatable=True,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage,
+            )
+        )
+        conditional = stage_2.add_stage(
+            ConditionalStage(
+                name='Check',
+                conditions=[{"type": "integer", "field": "newInput1", "value": 1,"condition": ">"}]
+            )
+        )
+        stage_3 = conditional.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                is_creatable=True,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=stage_2,
+            )
+        )
+
+        response = self.get_objects("chain-individuals")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], 1)
+
+        actual_order_ids = [i["id"] for i in response.data["results"][0]["stages_data"]]
+        expected_order_ids = [self.initial_stage.id, stage_2.id, stage_3.id]
+        self.assertEqual(actual_order_ids, expected_order_ids)
+
+    def test_chain_individuals_filter_stages_individuals(self):
+        self.chain.is_individual = True
+        self.chain.order_in_individuals = ChainConstants.GRAPH_FLOW
+        self.chain.save()
+
+        # create stages
+        stage_2 = self.initial_stage.add_stage(
+            TaskStage(
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                is_creatable=True,
+                assign_user_by=TaskStageConstants.AUTO_COMPLETE,
+            )
+        )
+        stage_3 = stage_2.add_stage(
+            TaskStage(
+                name="stage to skip",
+                chain=self.chain,
+                x_pos=1,
+                y_pos=1,
+                is_creatable=True,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=stage_2,
+                skip_empty_individual_tasks=True
+            )
+        )
+
+        response = self.get_objects("chain-individuals")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], 1)
+
+        actual_order_ids = [i["id"] for i in response.data["results"][0]["stages_data"]]
+        expected_order_ids = [self.initial_stage.id]
+        self.assertEqual(actual_order_ids, expected_order_ids)
