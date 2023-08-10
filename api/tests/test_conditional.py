@@ -29,7 +29,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         }
 
         response = self.client.post(reverse(url), data=conditional)
-        self.assertEqual(response.data['message'],
+        self.assertEqual(response.data['detail'],
                          'Invalid data in 1 index. Please, provide \'type\' field')
 
         conditional = {
@@ -38,7 +38,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         }
 
         response = self.client.post(reverse(url), data=conditional)
-        self.assertEqual(response.data['message'],
+        self.assertEqual(response.data['detail'],
                          'Invalid data in 1 index. Please, provide valid type')
 
         conditional = {
@@ -70,7 +70,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         response = self.client.post(reverse('conditionalstage-list'),
                                     data=conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'],
+        self.assertEqual(response.data['detail'],
                          "Invalid data in 1 index. Please, provide 'type' field")
 
         conditions[0]['type'] = 'number'
@@ -78,7 +78,7 @@ class ConditionalTest(GigaTurnipTestHelper):
         response = self.client.post(reverse('conditionalstage-list'),
                                     data=conditional_stage)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'],
+        self.assertEqual(response.data['detail'],
                          "Invalid data in 1 index. 'Нет' is not of type 'number'")
 
         conditions[0]['value'] = 15

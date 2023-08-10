@@ -1,3 +1,4 @@
+import base64
 import json
 from abc import ABCMeta, ABC
 from datetime import datetime
@@ -446,17 +447,23 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         print('serializer 1')
-        ciphertext = validated_data["ciphertext"]
-        encrypted_aes_key = validated_data["encrypted_aes_key"]
+        encrypted_aes_key = base64.b64decode(validated_data["encrypted_aes_key"])
+        ciphertext = base64.b64decode(validated_data["ciphertext"])
         phone = validated_data["phone"]
+        private_key = crypto_utils.get_private_key()
 
-        decrypted_text = crypto_utils.decrypt_large_text(encrypted_aes_key, ciphertext, phone)
+        decrypted_text = crypto_utils.decrypt_large_text(encrypted_aes_key, ciphertext, private_key).strip()
+        decrypted_text = decrypted_text[:-decrypted_text[::-1].index("}")]
+        print('decrypted text')
+        print(decrypted_text)
+
         print('serializer 2')
         sms_task = SMSTask.objects.create(
             sms_text=ciphertext,
-            phone=validated_data["phone"],
+            aes_key=encrypted_aes_key,
+            phone=phone,
             decrypted=decrypted_text,
-            source=validated_data
+            source=json.dumps(validated_data),
         )
 
         """
@@ -470,17 +477,38 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
         print('serializer 3')
         decompressed = None
         try:
-            decompressed = json.loads(sms_task.decompressed)
+            decompressed = json.loads(decrypted_text)
+            sms_task.decompressed = json.dumps(decompressed)
+            sms_task.save()
         except Exception as e:
             raise serializers.ValidationError("Incorrect format")
         print('serializer 4')
 
-        if "id" in sms_task.decrypted_dict:
-            pass
-            # update task
+        token = Token.objects.filter(key=decompressed["user_token"])
+        if not token:
+            return sms_task
+
+        token = token.first()
+
+        print(token)
+        if "id" in decompressed:
+            task = Task.objects.get(id=decompressed['id'], assignee=token.user)
+            task.complete = decompressed["complete"]
+            task.responses = decompressed["responses"]
+            sms_task.task = task
+            task.save()
         else:
-            pass
-            # create a new task
+            case = Case.objects.create()
+            task = Task.objects.create(
+                assignee=token.user,
+                case=case,
+                stage_id=decompressed["stage_id"],
+                complete=decompressed["complete"],
+                responses=decompressed["responses"]
+            )
+
+        sms_task.task = task
+        sms_task.save()
 
         return sms_task
 

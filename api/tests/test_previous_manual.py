@@ -51,7 +51,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
         bad_response = self.complete_task(task, responses)
 
         self.assertEqual(bad_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(bad_response.data['message'], 'User is not in the campaign.')
+        self.assertEqual(bad_response.data['detail'], 'User is not in the campaign.')
 
     def test_assign_by_previous_manual_user_with_rank_of_campaign(self):
         js_schema = {
@@ -202,7 +202,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
 
         task = Task.objects.get(id=task.id)
 
-        self.assertEqual(bad_response.data['message'], 'User is not in the campaign.')
+        self.assertEqual(bad_response.data['detail'], 'User is not in the campaign.')
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)
@@ -256,7 +256,7 @@ class PreviousManualTest(GigaTurnipTestHelper):
 
         task = Task.objects.get(id=task.id)
 
-        self.assertEqual(bad_response.data['message'], 'User employe@email.com doesn\'t exist.')
+        self.assertEqual(bad_response.data['detail'], 'User employe@email.com doesn\'t exist.')
         self.assertTrue(task.reopened)
         self.assertFalse(task.complete)
         self.assertEqual(Task.objects.count(), 1)

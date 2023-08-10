@@ -544,7 +544,7 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         tasks = Task.objects.all().select_related('stage')
         tasks = TaskAccessPolicy.scope_queryset(request, tasks)
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks,
-                                                                  request)
+                                                                  request.user)
         qs = self.filter_queryset(self.get_queryset())
         qs = qs.filter(id__in=tasks_selectable.values("stage").distinct())
 

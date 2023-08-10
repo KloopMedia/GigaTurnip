@@ -30,6 +30,12 @@ class SMSTask(BaseDatesModel):
         help_text="Decreed sms_text."
     )
 
+    aes_key = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Aes decryption key"
+    )
+
     decompressed = models.TextField(
         null=True,
         blank=True,

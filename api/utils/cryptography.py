@@ -24,11 +24,8 @@ def save_keys(path, public_key, private_key):
         p.write(private_key.exportKey('PEM'))
 
 
-def get_private_key(path=None):
-    p = path
-    if p is None:
-        p = os.getenv("PRIVATE_KEY")
-
+def get_private_key():
+    p = os.getenv("PRIVATE_KEY", '')
     private_key = RSA.importKey(p.decode())
     return private_key
 
