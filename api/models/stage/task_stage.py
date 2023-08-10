@@ -136,7 +136,8 @@ class TaskStage(Stage, SchemaProvider):
     )
     STAGE_TYPES = (
         ("PR", "Proactive"),
-        ("AC", "Active")
+        ("AC", "Reactive"),
+        ("PB", "Proactive buttons"),
     )
     stage_type = models.CharField(
         choices=STAGE_TYPES,
