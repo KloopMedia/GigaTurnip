@@ -41,7 +41,6 @@ class SmsTaskTest(GigaTurnipTestHelper):
         self.initial_stage.sms_complete_task_allow = True
         self.initial_stage.save()
 
-        print("creating data")
         data = {
             "responses": {"answer": "hello world!"},
              "complete": False,
@@ -49,20 +48,15 @@ class SmsTaskTest(GigaTurnipTestHelper):
              "user_token": Token.objects.create(user=self.employee).key,
          }
         encrypted_aes_key, ciphertext = crypto_utils.encrypt_large_text(json.dumps(data), self.public_key)
-        print("encrypting data")
 
         payload = {
             "ciphertext": base64.b64encode(ciphertext),
             "encrypted_aes_key": base64.b64encode(encrypted_aes_key),
             "phone": "+996555000000"
         }
-        print("here si payload")
-        print(payload)
 
-        print("sending request")
         response = self.client.post(reverse("smstask-list"), data=payload, format="json")
 
-        print("print here is answer")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(SMSTask.objects.count(), 1)
         sms_task = SMSTask.objects.first()
@@ -95,7 +89,6 @@ class SmsTaskTest(GigaTurnipTestHelper):
             complete=False,
         )
 
-        print("creating data")
         data = {
             "id": task.id,
             "responses": {"answer": "updated"},
@@ -104,20 +97,15 @@ class SmsTaskTest(GigaTurnipTestHelper):
             "user_token": Token.objects.create(user=self.employee).key,
          }
         encrypted_aes_key, ciphertext = crypto_utils.encrypt_large_text(json.dumps(data), self.public_key)
-        print("encrypting data")
 
         payload = {
             "ciphertext": base64.b64encode(ciphertext),
             "encrypted_aes_key": base64.b64encode(encrypted_aes_key),
             "phone": "+996555000000"
         }
-        print("here si payload")
-        print(payload)
 
-        print("sending request")
         response = self.client.post(reverse("smstask-list"), data=payload, format="json")
 
-        print("print here is answer")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(SMSTask.objects.count(), 1)
         sms_task = SMSTask.objects.first()

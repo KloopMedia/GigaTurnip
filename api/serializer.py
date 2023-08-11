@@ -446,7 +446,6 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
         fields = ["ciphertext", "encrypted_aes_key", "phone"]
 
     def create(self, validated_data):
-        print('serializer 1')
         encrypted_aes_key = base64.b64decode(validated_data["encrypted_aes_key"])
         ciphertext = base64.b64decode(validated_data["ciphertext"])
         phone = validated_data["phone"]
@@ -454,10 +453,7 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
 
         decrypted_text = crypto_utils.decrypt_large_text(encrypted_aes_key, ciphertext, private_key).strip()
         decrypted_text = decrypted_text[:-decrypted_text[::-1].index("}")]
-        print('decrypted text')
-        print(decrypted_text)
 
-        print('serializer 2')
         sms_task = SMSTask.objects.create(
             sms_text=ciphertext,
             aes_key=encrypted_aes_key,
@@ -474,15 +470,12 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
         task_id: int | None (если есть - значит я обновлю таск)
         }
         """
-        print('serializer 3')
-        decompressed = None
         try:
             decompressed = json.loads(decrypted_text)
             sms_task.decompressed = json.dumps(decompressed)
             sms_task.save()
         except Exception as e:
             raise serializers.ValidationError("Incorrect format")
-        print('serializer 4')
 
         token = Token.objects.filter(key=decompressed["user_token"])
         if not token:
@@ -490,7 +483,6 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
 
         token = token.first()
 
-        print(token)
         if "id" in decompressed:
             task = Task.objects.get(id=decompressed['id'], assignee=token.user)
             task.complete = decompressed["complete"]
