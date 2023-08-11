@@ -1181,13 +1181,9 @@ class SMSTaskViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             return SMSTaskCreateSerializer
 
     def create(self, request, *args, **kwargs):
-        print("1")
         serializer = self.get_serializer(data=request.data, many=False)
-        print('2')
         serializer.is_valid(raise_exception=True)
-        print('3')
         serializer.save()
-        print("4")
         return Response(status=status.HTTP_201_CREATED)
 
 #         tasks = self.get_object().tasks.all()

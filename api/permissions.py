@@ -420,7 +420,6 @@ class SMSTaskAccessPolicy(AccessPolicy):
     ]
 
     def is_user_sms_relay(self, request, view, action):
-        print("im here")
         return request.user.sms_relay
 
 

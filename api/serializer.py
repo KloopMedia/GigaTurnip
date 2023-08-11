@@ -12,7 +12,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework.generics import get_object_or_404
 
 from api.api_exceptions import CustomApiException
-from api.asyncstuff import process_updating_schema_answers
+from api.asyncstuff import (
+    process_completed_task, process_updating_schema_answers
+)
 from api.constans import (
     NotificationConstants, ConditionalStageConstants,
     JSONFilterConstants,
@@ -498,6 +500,9 @@ class SMSTaskCreateSerializer(serializers.ModelSerializer):
                 complete=decompressed["complete"],
                 responses=decompressed["responses"]
             )
+
+        if decompressed["complete"]:
+            process_completed_task(task)
 
         sms_task.task = task
         sms_task.save()

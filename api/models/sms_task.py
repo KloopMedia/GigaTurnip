@@ -42,7 +42,7 @@ class SMSTask(BaseDatesModel):
         help_text="Decompressed sms_text."
     )
 
-    task = models.OneToOneField(
+    task = models.ForeignKey(
         "Task",
         on_delete=models.SET_NULL,
         related_name="sms_task",
