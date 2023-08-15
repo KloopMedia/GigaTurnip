@@ -23,7 +23,7 @@ class CustomUser(AbstractUser, BaseDatesModel):
         blank=True,
         help_text='Users phone number'
     )
-    deleted = models.BooleanField(
+    is_deleted = models.BooleanField(
         default=False,
         help_text="Is user deleted."
     )
@@ -42,7 +42,8 @@ class CustomUser(AbstractUser, BaseDatesModel):
 
             self.username = first_part
             self.email = first_part + 'email.com'
-            self.deleted = False
+            self.deleted = True
+            self.is_active = False
             self.save()
             return True
         return False
