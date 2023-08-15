@@ -7,7 +7,6 @@ import requests
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import (
     Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,
-    Func
 )
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
@@ -468,6 +467,23 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         )
 
         stages = utils.filter_for_user_creatable_stages(stages, request, ranks)
+
+        stages = stages.annotate(
+            rank_limits=ArraySubquery(
+                RankLimit.objects.filter(
+                    rank__in=ranks,
+                    stage=OuterRef("id"),
+                ).values(
+                    data=JSONObject(
+                        id="rank",
+                        name="rank__name",
+                        open_limit="open_limit",
+                        total_limit="total_limit",
+                    )
+                )
+            )
+        )
+
         return stages
 
     @paginate
