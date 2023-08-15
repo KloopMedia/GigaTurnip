@@ -947,6 +947,12 @@ class TaskViewSet(viewsets.ModelViewSet):
                               'stage__displayed_prev_stages',
                               'stage__ranklimits')
         )
+        """
+        stage id
+        key
+        value
+        condition
+        """
 
         tasks = queryset
         if request.query_params.get(
@@ -960,25 +966,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request.user)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
-
-        # qs = by_datetime.annotate(
-        #     stage_data=JSONObject(
-        #         id='stage__id',
-        #         name="stage__name",
-        #         chain="stage__chain",
-        #         campaign="stage__chain__campaign",
-        #         card_json_schema="stage__card_json_schema",
-        #         card_ui_schema="stage__card_ui_schema",
-        #     )
-        # )\
-        # qs = by_datetime.values('id',
-        #          'complete',
-        #          'force_complete',
-        #          'created_at',
-        #          'reopened',
-        #          'responses',
-        #          'stage_data'
-        #          )
 
         return by_datetime
 
