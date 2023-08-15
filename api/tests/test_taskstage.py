@@ -316,3 +316,40 @@ class TaskStageTest(GigaTurnipTestHelper):
                                     pk=self.initial_stage.id)
         self.assertEqual(response.data['fields'],
                          ['column2', 'column1', 'oik__uik1'])
+
+    def test_stage_max_limits(self):
+        [i.delete() for i in RankLimit.objects.all()]
+        rank_1 = self.user.ranks.first()
+        RankLimit.objects.create(
+            stage=self.initial_stage,
+            rank=rank_1,
+            open_limit=1,
+            total_limit=2,
+        )
+        rank_2 = Rank.objects.create(name="rank 2", track=self.default_track, priority=0)
+        RankRecord.objects.create(
+            user=self.user,
+            rank=rank_2)
+        RankLimit.objects.create(
+            stage=self.initial_stage,
+            rank=rank_2,
+            open_limit=0,
+            total_limit=2,
+        )
+
+        rank_3 = Rank.objects.create(name="rank 2", track=self.default_track, priority=0)
+        RankRecord.objects.create(
+            user=self.user,
+            rank=rank_3)
+        RankLimit.objects.create(
+            stage=self.initial_stage,
+            rank=rank_3,
+            open_limit=0,
+            total_limit=5,
+        )
+
+        response = self.get_objects('taskstage-user-relevant')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        stage = response.data["results"][0]
+        self.assertEqual(stage["rank_limit"], {"open_limit": 0, "total_limit": 5})

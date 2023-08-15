@@ -321,6 +321,13 @@ class ConditionalStageSerializer(serializers.ModelSerializer,
         return obj.out_stages.values_list(flat=True)
 
 
+class RankLimitListSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    open_limit = serializers.IntegerField()
+    total_limit = serializers.IntegerField()
+
+
 class TaskStageReadSerializer(serializers.ModelSerializer):
     dynamic_jsons_target = serializers.SlugRelatedField(
         many=True,
@@ -333,13 +340,14 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
         slug_field='dynamic_fields'
     )
     campaign = serializers.SerializerMethodField()
+    rank_limit = serializers.SerializerMethodField()
 
     class Meta:
         model = TaskStage
         fields = base_model_fields + stage_fields + schema_provider_fields + [
             "copy_input", "allow_multiple_files", "is_creatable", "external_metadata",
             "displayed_prev_stages", "assign_user_by", "ranks", "campaign", "stage_type",
-            "assign_user_from_stage", "rich_text", "webhook_address",
+            "assign_user_from_stage", "rich_text", "webhook_address", "rank_limit",
             "webhook_payload_field", "webhook_params", "dynamic_jsons_source", "dynamic_jsons_target",
             "webhook_response_field", "allow_go_back", "allow_release",
             "available_from", "available_to",
@@ -354,6 +362,20 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
             instance = TranslateKey.to_representation(instance, request)
         return super().to_representation(instance)
 
+    def get_rank_limit(self, obj):
+        if not hasattr(obj, "rank_limits"):
+            return {}
+
+        open_limits = sorted([i["open_limit"] for i in obj.rank_limits])
+        total_limits = sorted([i["total_limit"] for i in obj.rank_limits])
+
+        max_open = 0 if open_limits and open_limits[0] == 0 else open_limits[-1]
+        max_total = 0 if total_limits and total_limits[0] == 0 else total_limits[-1]
+
+        return {
+            "open_limit": max_open,
+            "total_limit": max_total,
+        }
 
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):
