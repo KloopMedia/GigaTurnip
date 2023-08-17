@@ -13,6 +13,13 @@ from django.contrib import messages
 from django.utils.translation import ngettext
 from django.utils import timezone
 
+_operators_orm = {
+    "==": "",
+    "<=": "__le",
+    "<": "__lt",
+    ">=": "__ge",
+    ">": "__gt",
+}
 
 def is_user_campaign_manager(user, campaign_id):
     campaigns = Campaign.objects \
@@ -77,6 +84,26 @@ def filter_for_user_selectable_tasks(queryset, user):
         .distinct()
     return tasks
 
+
+def get_task_responses_filters(schema, values, prefix=None):
+    p = prefix + "__" if prefix else ""
+    filters = []
+    properties = schema["properties"]
+    for k, v in values:
+        if k not in properties:
+            continue
+
+        operator = _operators_orm.get(properties[k]["condition"])
+        stage_id = properties[k]["stage_id"]
+        field_name = properties[k]["field_name"]
+
+        filter = {
+            f"{p}stage_id": stage_id,
+            f"{p}responses__{field_name}{operator}": v
+        }
+        filters.append(Q(**filter))
+
+    return filters
 
 def filter_for_datetime(tasks):
     filtered_tasks = tasks \
