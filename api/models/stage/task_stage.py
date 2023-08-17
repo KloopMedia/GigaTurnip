@@ -184,6 +184,14 @@ class TaskStage(Stage, SchemaProvider):
         help_text="If true and user have tasks on this chain - so chain will be considered as completed."
     )
 
+    filter_fields_schema = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "This filed will store schema for filters."
+        )
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
