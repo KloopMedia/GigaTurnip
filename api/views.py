@@ -963,38 +963,31 @@ class TaskViewSet(viewsets.ModelViewSet):
                               'stage__displayed_prev_stages',
                               'stage__ranklimits')
         )
+        """
+        stage id
+        key
+        value
+        condition
+        """
 
         tasks = queryset
-        if request.query_params.get(
-                'responses_contains') or request.method == "POST":
-            tasks = Task.objects.filter(
-                id__in=Subquery(
-                    queryset.filter(
-                        out_tasks__isnull=False
-                    ).values('out_tasks')
-                )
-            )
+        if request.method == "POST":
+            stage = queryset.first().stage if queryset else None
+            all_tasks = Task.objects.filter(
+                case__in=queryset.values("case"),
+            ).select_related("case")
+
+            filter_vals = list(request.data.items())
+            filters = utils.get_task_responses_filters(stage.filter_fields_schema, filter_vals)
+            cases = Case.objects.none()
+            for i, f in enumerate(filters):
+                cases = all_tasks.filter(f).values_list("case")
+                all_tasks = Task.objects.filter(case__in=cases)
+
+            tasks = tasks.filter(case__in=cases)
+
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request.user)
         by_datetime = utils.filter_for_datetime(tasks_selectable)
-
-        # qs = by_datetime.annotate(
-        #     stage_data=JSONObject(
-        #         id='stage__id',
-        #         name="stage__name",
-        #         chain="stage__chain",
-        #         campaign="stage__chain__campaign",
-        #         card_json_schema="stage__card_json_schema",
-        #         card_ui_schema="stage__card_ui_schema",
-        #     )
-        # )\
-        # qs = by_datetime.values('id',
-        #          'complete',
-        #          'force_complete',
-        #          'created_at',
-        #          'reopened',
-        #          'responses',
-        #          'stage_data'
-        #          )
 
         return by_datetime
 

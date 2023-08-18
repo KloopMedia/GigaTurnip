@@ -40,7 +40,6 @@ class TaskTest(GigaTurnipTestHelper):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-
     def test_retrieve_user_selectable_displayed_prev_stages(self):
         self.initial_stage.json_schema = json.dumps({
             "type": "object",
@@ -311,170 +310,6 @@ class TaskTest(GigaTurnipTestHelper):
                           "is_new_campaign": False,
                           "next_direct_id": task.id+2})
 
-    def test_post_json_filter_json_fields(self):
-        self.initial_stage.json_schema = json.dumps({
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "age": {
-                    "type": "integer"
-                }
-            }
-        })
-        self.initial_stage.ui_schema = '{"ui:order": ["name", "age"]}'
-        self.initial_stage.save()
-        second_stage = self.initial_stage.add_stage(TaskStage())
-        self.client = self.prepare_client(second_stage, self.user)
-
-        tasks = self.create_initial_tasks(5)
-        names = ['Artur', 'Karim', 'Atai', 'Xakim', 'Rinat']
-
-        i = 1
-        for t, n in zip(tasks, names):
-            self.complete_task(t, {"name": n, "age": 10 * i})
-            i += 1
-
-        post_data = {
-            "items_conditions": [
-                {
-                    "conditions": [
-                        {
-                            "operator": "<=",
-                            "value": "20"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                },
-            ],
-            "stage": self.initial_stage.id,
-            "search_stage": second_stage.id
-
-        }
-
-        response = self.client.post(reverse("task-user-selectable") + '?responses_filter_values=Yes', data=post_data, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
-
-        post_data = {
-            "items_conditions": [
-                {
-                    "conditions": [
-                        {
-                            "operator": "<",
-                            "value": "20"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                },
-            ],
-            "stage": self.initial_stage.id,
-            "search_stage": second_stage.id
-
-        }
-
-        response = self.client.post(reverse("task-user-selectable") + '?responses_filter_values=Yes', data=post_data, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 1)
-
-        post_data = {
-            "items_conditions": [
-                {
-                    "conditions": [
-                        {
-                            "operator": "<=",
-                            "value": "50"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                },
-            ],
-            "stage": self.initial_stage.id,
-            "search_stage": second_stage.id
-
-        }
-
-        response = self.client.post(reverse("task-user-selectable") + '?responses_filter_values=Yes', data=post_data, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 5)
-
-        post_data = {
-            "items_conditions": [
-                {
-                    "conditions": [
-                        {
-                            "operator": "<=",
-                            "value": "50"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                },
-                {
-                    "conditions": [
-                        {
-                            "operator": ">",
-                            "value": "20"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                }
-            ],
-            "stage": self.initial_stage.id,
-            "search_stage": second_stage.id
-
-        }
-
-        response = self.client.post(reverse("task-user-selectable") + '?responses_filter_values=Yes', data=post_data, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 3)
-        post_data = {
-            "items_conditions": [
-                {
-                    "conditions": [
-                        {
-                            "operator": "<=",
-                            "value": "50"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                },
-                {
-                    "conditions": [
-                        {
-                            "operator": ">",
-                            "value": "20"
-                        }
-                    ],
-                    "field": "age",
-                    "type": "integer"
-                },
-                {
-                    "conditions": [
-                        {
-                            "operator": "in",
-                            "value": "t"
-                        }
-                    ],
-                    "field": "name",
-                    "type": "string"
-                }
-            ],
-            "stage": self.initial_stage.id,
-            "search_stage": second_stage.id
-
-        }
-
-        response = self.client.post(reverse("task-user-selectable") + '?responses_filter_values=Yes', data=post_data, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
-
     def test_task_user_relevant(self):
         individual_chain = Chain.objects.create(
             name="Individual chain",
@@ -506,3 +341,184 @@ class TaskTest(GigaTurnipTestHelper):
         response = self.get_objects("task-user-relevant")
 
         self.assertEqual(response.data['count'], 0)
+
+    def test_task_user_selectable_filter_by_responses(self):
+        first_schema = {
+            "type": "object",
+            "properties": {
+                "chain_type": {"type": "string"},
+            },
+            "required": ["chain_type"]
+        }
+        self.initial_stage.json_schema = json.dumps(first_schema)
+        self.initial_stage.save()
+
+        second_schema = {
+            "type": "object",
+            "properties": {
+                "price": {"type": "number"},
+                "year": {"type": "number"},
+                "name": {"type": "string"},
+            },
+            "required": ["price", "year", "name"]
+        }
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage,
+                json_schema=json.dumps(second_schema)
+            )
+        )
+        third_schema = {
+            "type": "object",
+            "properties": {
+                "grade": {"type": "number"},
+            },
+            "required": ["last_name", "name"]
+        }
+        filter_fields_schema = {
+            "type": "object",
+            "properties": {
+                "filter_first_stage": {
+                    "type": "string",
+                    "field_name": "chain_type",
+                    "condition": "==",
+                    "stage_id": self.initial_stage.id,
+                    "title": "Filter by type",
+                },
+                "year": {
+                    "type": "integer",
+                    "field_name": "year",
+                    "condition": "==",
+                    "stage_id": second_stage.id,
+                    "title": "Filter by year",
+                },
+                "price": {
+                    "type": "integer",
+                    "field_name": "price",
+                    "condition": "==",
+                    "stage_id": second_stage.id,
+                    "title": "Filter by year",
+                },
+            }
+        }
+        third_stage = second_stage.add_stage(
+            TaskStage(
+                assign_user_by=TaskStageConstants.RANK,
+                json_schema=json.dumps(third_schema),
+                filter_fields_schema=filter_fields_schema
+            )
+        )
+
+        case_1 = Case.objects.create()
+        task_1_1 = Task.objects.create(
+            responses={"chain_type": "math"},
+            assignee=self.employee,
+            case=case_1,
+            stage=self.initial_stage,
+            complete=True
+        )
+        task_1_2 = Task.objects.create(
+            responses={"price": 32, "year": 2012, "name": "Anton"},
+            assignee=self.employee,
+            case=case_1,
+            stage=second_stage,
+            complete=True
+        )
+        task_1_2.in_tasks.add(task_1_1)
+
+        task_1_3 = Task.objects.create(
+            responses={"grade": "2012"},
+            case=case_1,
+            stage=third_stage,
+            complete=False
+        )
+        task_1_3.in_tasks.add(task_1_2)
+
+        case_2 = Case.objects.create()
+        task_2_1 = Task.objects.create(
+            responses={"chain_type": "math"},
+            assignee=self.employee,
+            case=case_2,
+            stage=self.initial_stage,
+            complete=True
+        )
+        task_2_2 = Task.objects.create(
+            responses={"price": 32, "year": 2013, "name": "Anton"},
+            assignee=self.employee,
+            case=case_2,
+            stage=second_stage,
+            complete=True
+        )
+        task_2_2.in_tasks.add(task_2_1)
+
+        task_2_3 = Task.objects.create(
+            responses={"grade": "2012"},
+            case=case_2,
+            stage=third_stage,
+            complete=False
+        )
+        task_2_3.in_tasks.add(task_2_2)
+
+
+        case_3 = Case.objects.create()
+        task_3_1 = Task.objects.create(
+            responses={"chain_type": "botany"},
+            assignee=self.employee,
+            case=case_3,
+            stage=self.initial_stage,
+            complete=True
+        )
+        task_3_2 = Task.objects.create(
+            responses={"price": 33, "year": 2012, "name": "Anton"},
+            assignee=self.employee,
+            case=case_3,
+            stage=second_stage,
+            complete=True
+        )
+        task_3_2.in_tasks.add(task_3_1)
+
+        task_3_3 = Task.objects.create(
+            responses={"grade": "2012"},
+            case=case_3,
+            stage=third_stage,
+            complete=False
+        )
+        task_3_3.in_tasks.add(task_3_2)
+
+
+
+        self.prepare_client(third_stage, user=self.user)
+
+        response = self.get_objects("task-user-selectable")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id, task_3_3.id])
+
+        data = {
+            "filter_first_stage": "math"
+        }
+        response = self.client.post(reverse("task-user-selectable"), data=data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id])
+
+        data = {
+            "filter_first_stage": "math",
+            "year": 2012
+        }
+        response = self.client.post(reverse("task-user-selectable"), data=data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id])
+
+        data = {
+            "filter_first_stage": "math",
+            "year": 2012,
+            "price": 33
+        }
+        response = self.client.post(reverse("task-user-selectable"), data=data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual([i["id"] for i in response.data["results"]], [])
