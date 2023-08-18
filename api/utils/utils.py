@@ -15,9 +15,9 @@ from django.utils import timezone
 
 _operators_orm = {
     "==": "",
-    "<=": "__le",
+    "<=": "__lte",
     "<": "__lt",
-    ">=": "__ge",
+    ">=": "__gte",
     ">": "__gt",
 }
 
@@ -88,22 +88,22 @@ def filter_for_user_selectable_tasks(queryset, user):
 def get_task_responses_filters(schema, values, prefix=None):
     p = prefix + "__" if prefix else ""
     filters = []
-    properties = schema["properties"]
-    for k, v in values:
-        if k not in properties:
+    for f in schema:
+        if f["field_name"] not in values:
             continue
 
-        operator = _operators_orm.get(properties[k]["condition"])
-        stage_id = properties[k]["stage_id"]
-        field_name = properties[k]["field_name"]
+        operator = _operators_orm.get(f["condition"])
+        stage_id = f["stage_id"]
+        field_name = f["field_name"]
 
         filter = {
             f"{p}stage_id": stage_id,
-            f"{p}responses__{field_name}{operator}": v
+            f"{p}responses__{field_name}{operator}": values[field_name]
         }
         filters.append(Q(**filter))
 
     return filters
+
 
 def filter_for_datetime(tasks):
     filtered_tasks = tasks \
