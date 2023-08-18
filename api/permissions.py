@@ -619,7 +619,7 @@ class DynamicJsonAccessPolicy(ManagersOnlyAccessPolicy):
         )
         return queryset \
             .filter(
-            task_stage__in=all_available_tasks.values("stage")
+            target__in=all_available_tasks.values("stage")
         )
 
     def is_available_stage(self, request, view, action) -> bool:
