@@ -382,52 +382,25 @@ class TaskTest(GigaTurnipTestHelper):
                     "type": "string",
                     "field_name": "chain_type",
                     "condition": "==",
-                    "stage_id": 1,
+                    "stage_id": self.initial_stage.id,
                     "title": "Filter by type"
                 },
                 {
                     "type": "integer",
                     "field_name": "year",
                     "condition": ">=",
-                    "stage_id": 2,
+                    "stage_id": second_stage.id,
                     "title": "Filter by year"
                 },
                 {
                     "type": "integer",
                     "field_name": "price",
                     "condition": "==",
-                    "stage_id": 3,
+                    "stage_id": second_stage.id,
                     "title": "Filter by price"
                 }
-            ]
-        """
-        {
-            "type": "object",
-            "properties": {
-                "filter_first_stage": {
-                    "type": "string",
-                    "field_name": "chain_type",
-                    "condition": "==",
-                    "stage_id": self.initial_stage.id,
-                    "title": "Filter by type",
-                },
-                "year": {
-                    "type": "integer",
-                    "field_name": "year",
-                    "condition": "==",
-                    "stage_id": second_stage.id,
-                    "title": "Filter by year",
-                },
-                "price": {
-                    "type": "integer",
-                    "field_name": "price",
-                    "condition": "==",
-                    "stage_id": second_stage.id,
-                    "title": "Filter by year",
-                },
-            }
-        }
-        """
+        ]
+
         third_stage = second_stage.add_stage(
             TaskStage(
                 assign_user_by=TaskStageConstants.RANK,
@@ -511,6 +484,46 @@ class TaskTest(GigaTurnipTestHelper):
             complete=False
         )
         task_3_3.in_tasks.add(task_3_2)
+
+        self.prepare_client(third_stage, user=self.user)
+
+        response = self.get_objects("task-user-selectable")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]),
+            [task_1_3.id, task_2_3.id, task_3_3.id])
+
+        data = {
+            "chain_type": "math"
+        }
+        response = self.client.post(reverse("task-user-selectable"), data=data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual([i["id"] for i in response.data["results"]],
+            [task_1_3.id, task_2_3.id])
+
+        data = {
+            "chain_type": "math",
+            "year": 2012
+        }
+        response = self.client.post(reverse("task-user-selectable"), data=data,
+            format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]),
+            [task_1_3.id, task_2_3.id])
+
+        data = {
+            "chain_type": "math",
+            "year": 2012,
+            "price": 33
+        }
+        response = self.client.post(reverse("task-user-selectable"), data=data,
+            format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual([i["id"] for i in response.data["results"]], [])
 
     def test_task_responses_icontains(self):
         first_schema = {
@@ -679,7 +692,7 @@ class TaskTest(GigaTurnipTestHelper):
         response = self.client.post(f"{url}?{query_dict.urlencode()}", {})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
-        self.assertEqual([i["id"] for i in response.data["results"]], [task_2_3.id, task_3_3.id])
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_2_3.id, task_3_3.id])
 
         params = {
             "responses__icontains": 20,
@@ -689,4 +702,4 @@ class TaskTest(GigaTurnipTestHelper):
         response = self.client.post(f"{url}?{query_dict.urlencode()}", {})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 3)
-        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id, task_3_3.id])
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_1_3.id, task_2_3.id, task_3_3.id])

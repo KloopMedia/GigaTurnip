@@ -957,21 +957,20 @@ class TaskViewSet(viewsets.ModelViewSet):
         tasks = queryset
         while request.method == "POST":
             stage = queryset.first().stage if queryset else None
-            if not stage:
+            if not stage or stage and not stage.filter_fields_schema:
                 break
             all_tasks = Task.objects.filter(
                 case__in=queryset.values("case"),
             ).select_related("case")
 
-            filter_vals = list(request.data.items())
-            # all_tasks.annotate(r=Cast("responses", output_field=TextField())).filter(r__icontains="math").values_list("r", flat=True)
-            filters = []
-            if stage.filter_fields_schema:
-                filters = utils.get_task_responses_filters(stage.filter_fields_schema, filter_vals)
+            filters = utils.get_task_responses_filters(stage.filter_fields_schema, request.data)
 
-            cases = queryset.values("case")
+            if not filters:
+                break
+
+            cases = Case.objects.none()
             for i, f in enumerate(filters):
-                cases = all_tasks.filter(f).values_list("case")
+                cases = all_tasks.filter(f).values("case")
                 all_tasks = Task.objects.filter(case__in=cases)
 
             tasks = tasks.filter(case__in=cases)
