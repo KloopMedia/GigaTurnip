@@ -1,5 +1,6 @@
 from django.apps import apps
-from django.db.models import Subquery, OuterRef, Q
+from django.db.models import Subquery, OuterRef, Q, TextField
+from django.db.models.functions import Cast
 from rest_framework import filters
 from rest_framework.filters import BaseFilterBackend
 
@@ -60,20 +61,33 @@ class BasePostJSONFilter(filters.BaseFilterBackend):
 
 
 class ResponsesContainsFilter(filters.SearchFilter):
-    search_param = "responses_contains"
+    search_param = "responses__icontains"
+    field = "responses"
     template = 'rest_framework/filters/search.html'
     search_title = 'Task Responses Filter if responses contains'
     search_description = "Find tasks by their responses if task contains"
 
 
-class TaskResponsesContainsFilter(BasePostJSONFilter):
-    serializer = TaskResponsesFilterSerializer
-    search_param = "responses_filter_values"
-    field_name = 'responses'
+    def filter_queryset(self, request, queryset, view):
+        term = self.get_search_terms(request)
+        if not term:
+            return queryset
 
-    def prefilter_queryset(self, queryset, data):
-        return queryset.filter(stage=data.get('stage'))
+        Task = apps.get_model(app_label="api", model_name="Task")
 
+        all_tasks = Task.objects.filter(
+            case__in=queryset.values("case"),
+        ).select_related("case")
+        available_cases = all_tasks.annotate(
+            r=Cast(self.field, output_field=TextField())
+        ).filter(r__icontains=term)
+        return queryset.filter(case__in=available_cases.values("case"))
+
+    def get_search_terms(self, request):
+        params = request.query_params.get(self.search_param, '')
+        params = params.replace('\x00', '')  # strip null characters
+        params = params.replace(',', ' ')
+        return params
 
 class CategoryInFilter(BaseFilterBackend):
     search_param = "category_in"

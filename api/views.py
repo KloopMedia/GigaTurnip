@@ -60,7 +60,7 @@ from api.utils import utils
 from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import (
-    ResponsesContainsFilter, TaskResponsesContainsFilter,
+    ResponsesContainsFilter,
     CategoryInFilter, IndividualChainCompleteFilter,
 )
 from api.utils.utils import paginate
@@ -754,7 +754,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [
         DjangoFilterBackend,
         ResponsesContainsFilter,
-        TaskResponsesContainsFilter]
+    ]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
@@ -971,20 +971,26 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
 
         tasks = queryset
-        if request.method == "POST":
+        while request.method == "POST":
             stage = queryset.first().stage if queryset else None
+            if not stage or stage and not stage.filter_fields_schema:
+                break
             all_tasks = Task.objects.filter(
                 case__in=queryset.values("case"),
             ).select_related("case")
 
-            filter_vals = list(request.data.items())
-            filters = utils.get_task_responses_filters(stage.filter_fields_schema, filter_vals)
+            filters = utils.get_task_responses_filters(stage.filter_fields_schema, request.data)
+
+            if not filters:
+                break
+
             cases = Case.objects.none()
             for i, f in enumerate(filters):
-                cases = all_tasks.filter(f).values_list("case")
+                cases = all_tasks.filter(f).values("case")
                 all_tasks = Task.objects.filter(case__in=cases)
 
             tasks = tasks.filter(case__in=cases)
+            break
 
         tasks_selectable = utils.filter_for_user_selectable_tasks(tasks, request.user)
         by_datetime = utils.filter_for_datetime(tasks_selectable)

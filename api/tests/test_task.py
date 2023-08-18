@@ -1,5 +1,6 @@
 import json
 
+from django.http import QueryDict
 from rest_framework import status
 from rest_framework.reverse import reverse
 
@@ -376,32 +377,30 @@ class TaskTest(GigaTurnipTestHelper):
             },
             "required": ["last_name", "name"]
         }
-        filter_fields_schema = {
-            "type": "object",
-            "properties": {
-                "filter_first_stage": {
+        filter_fields_schema = [
+                {
                     "type": "string",
                     "field_name": "chain_type",
                     "condition": "==",
                     "stage_id": self.initial_stage.id,
-                    "title": "Filter by type",
+                    "title": "Filter by type"
                 },
-                "year": {
+                {
                     "type": "integer",
                     "field_name": "year",
-                    "condition": "==",
+                    "condition": ">=",
                     "stage_id": second_stage.id,
-                    "title": "Filter by year",
+                    "title": "Filter by year"
                 },
-                "price": {
+                {
                     "type": "integer",
                     "field_name": "price",
                     "condition": "==",
                     "stage_id": second_stage.id,
-                    "title": "Filter by year",
-                },
-            }
-        }
+                    "title": "Filter by price"
+                }
+        ]
+
         third_stage = second_stage.add_stage(
             TaskStage(
                 assign_user_by=TaskStageConstants.RANK,
@@ -486,39 +485,221 @@ class TaskTest(GigaTurnipTestHelper):
         )
         task_3_3.in_tasks.add(task_3_2)
 
-
-
         self.prepare_client(third_stage, user=self.user)
 
         response = self.get_objects("task-user-selectable")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 3)
-        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id, task_3_3.id])
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]),
+            [task_1_3.id, task_2_3.id, task_3_3.id])
 
         data = {
-            "filter_first_stage": "math"
+            "chain_type": "math"
         }
         response = self.client.post(reverse("task-user-selectable"), data=data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
-        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id])
+        self.assertEqual([i["id"] for i in response.data["results"]],
+            [task_1_3.id, task_2_3.id])
 
         data = {
-            "filter_first_stage": "math",
+            "chain_type": "math",
             "year": 2012
         }
-        response = self.client.post(reverse("task-user-selectable"), data=data, format="json")
+        response = self.client.post(reverse("task-user-selectable"), data=data,
+            format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 1)
-        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id])
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]),
+            [task_1_3.id, task_2_3.id])
 
         data = {
-            "filter_first_stage": "math",
+            "chain_type": "math",
             "year": 2012,
             "price": 33
         }
-        response = self.client.post(reverse("task-user-selectable"), data=data, format="json")
+        response = self.client.post(reverse("task-user-selectable"), data=data,
+            format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 0)
         self.assertEqual([i["id"] for i in response.data["results"]], [])
+
+    def test_task_responses_icontains(self):
+        first_schema = {
+            "type": "object",
+            "properties": {
+                "chain_type": {"type": "string"},
+            },
+            "required": ["chain_type"]
+        }
+        self.initial_stage.json_schema = json.dumps(first_schema)
+        self.initial_stage.save()
+
+        second_schema = {
+            "type": "object",
+            "properties": {
+                "price": {"type": "number"},
+                "year": {"type": "number"},
+                "name": {"type": "string"},
+            },
+            "required": ["price", "year", "name"]
+        }
+        second_stage = self.initial_stage.add_stage(
+            TaskStage(
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage,
+                json_schema=json.dumps(second_schema)
+            )
+        )
+        third_schema = {
+            "type": "object",
+            "properties": {
+                "grade": {"type": "number"},
+            },
+            "required": ["last_name", "name"]
+        }
+        third_stage = second_stage.add_stage(
+            TaskStage(
+                assign_user_by=TaskStageConstants.RANK,
+                json_schema=json.dumps(third_schema),
+            )
+        )
+
+        case_1 = Case.objects.create()
+        task_1_1 = Task.objects.create(
+            responses={"chain_type": "math"},
+            assignee=self.employee,
+            case=case_1,
+            stage=self.initial_stage,
+            complete=True
+        )
+        task_1_2_data = {
+            "price": 32,
+            "year": 2012,
+            "name": "Anton",
+            "description":{
+                "workplace": "hotel"
+            }
+        }
+        task_1_2 = Task.objects.create(
+            responses=task_1_2_data,
+            assignee=self.employee,
+            case=case_1,
+            stage=second_stage,
+            complete=True
+        )
+        task_1_2.in_tasks.add(task_1_1)
+
+        task_1_3 = Task.objects.create(
+            responses={"grade": "2012"},
+            case=case_1,
+            stage=third_stage,
+            complete=False
+        )
+        task_1_3.in_tasks.add(task_1_2)
+
+        case_2 = Case.objects.create()
+        task_2_1 = Task.objects.create(
+            responses={"chain_type": "math"},
+            assignee=self.employee,
+            case=case_2,
+            stage=self.initial_stage,
+            complete=True
+        )
+        task_2_2_data = {
+            "price": 32,
+            "year": 2013,
+            "name": "Anton",
+            "description":{
+                "workplace": "office"
+            }
+        }
+        task_2_2 = Task.objects.create(
+            responses=task_2_2_data,
+            assignee=self.employee,
+            case=case_2,
+            stage=second_stage,
+            complete=True
+        )
+        task_2_2.in_tasks.add(task_2_1)
+
+        task_2_3 = Task.objects.create(
+            responses={"grade": "2012"},
+            case=case_2,
+            stage=third_stage,
+            complete=False
+        )
+        task_2_3.in_tasks.add(task_2_2)
+
+
+        case_3 = Case.objects.create()
+        task_3_1 = Task.objects.create(
+            responses={"chain_type": "botany"},
+            assignee=self.employee,
+            case=case_3,
+            stage=self.initial_stage,
+            complete=True
+        )
+        task_3_2_data = {
+            "price": 32,
+            "year": 2012,
+            "name": "Anton",
+            "description":{
+                "workplace": "new office"
+            }
+        }
+        task_3_2 = Task.objects.create(
+            responses=task_3_2_data,
+            assignee=self.employee,
+            case=case_3,
+            stage=second_stage,
+            complete=True
+        )
+        task_3_2.in_tasks.add(task_3_1)
+
+        task_3_3 = Task.objects.create(
+            responses={"grade": "2012"},
+            case=case_3,
+            stage=third_stage,
+            complete=False
+        )
+        task_3_3.in_tasks.add(task_3_2)
+        self.prepare_client(third_stage, user=self.user)
+
+        response = self.get_objects("task-user-selectable")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_1_3.id, task_2_3.id, task_3_3.id])
+
+        params = {
+            "responses__icontains": "math"
+        }
+        query_dict = QueryDict('', mutable=True)
+        query_dict.update(params)
+        url = reverse("task-user-selectable")
+        response = self.client.post(f"{url}?{query_dict.urlencode()}", {})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id])
+
+        params = {
+            "responses__icontains": "office",
+        }
+        query_dict = QueryDict('', mutable=True)
+        query_dict.update(params)
+        response = self.client.post(f"{url}?{query_dict.urlencode()}", {})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_2_3.id, task_3_3.id])
+
+        params = {
+            "responses__icontains": 20,
+        }
+        query_dict = QueryDict('', mutable=True)
+        query_dict.update(params)
+        response = self.client.post(f"{url}?{query_dict.urlencode()}", {})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_1_3.id, task_2_3.id, task_3_3.id])
