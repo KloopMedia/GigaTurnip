@@ -100,6 +100,13 @@ class Task(BaseDatesModel, CampaignInterface):
     class CompletionInProgress(Exception):
         pass
 
+    class AssigneeInProgress(Exception):
+        pass
+
+
+    class AlreadyAssigned(Exception):
+        pass
+
     def set_complete(self, responses=None, force=False, complete=True):
         if self.complete and not self.stage.chain.is_individual:
             raise Task.AlreadyCompleted
@@ -133,6 +140,21 @@ class Task(BaseDatesModel, CampaignInterface):
                         self.save()
                         return self
         raise Task.ImpossibleToUncomplete
+
+    def set_assignment(self, assignee):
+        with transaction.atomic():
+            try:
+                task = Task.objects.select_for_update(nowait=True).get(pk=self.id)
+            except OperationalError:
+                raise Task.AssigneeInProgress
+            # task = Task.objects.select_for_update().filter(id=self.id)[0]
+            # task.complete = True
+            if task.assignee:
+                raise Task.AlreadyAssigned
+
+            task.assignee = assignee
+            task.save()
+            return task
 
     def get_direct_previous(self):
         in_tasks = self.in_tasks.all()

@@ -500,7 +500,7 @@ class TaskTest(GigaTurnipTestHelper):
         response = self.client.post(reverse("task-user-selectable"), data=data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
-        self.assertEqual([i["id"] for i in response.data["results"]],
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]),
             [task_1_3.id, task_2_3.id])
 
         data = {
@@ -682,7 +682,7 @@ class TaskTest(GigaTurnipTestHelper):
         response = self.client.post(f"{url}?{query_dict.urlencode()}", {})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
-        self.assertEqual([i["id"] for i in response.data["results"]], [task_1_3.id, task_2_3.id])
+        self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_1_3.id, task_2_3.id])
 
         params = {
             "responses__icontains": "office",

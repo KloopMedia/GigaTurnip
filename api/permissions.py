@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
+from django.db import transaction, OperationalError
 from django.db.models import Q
 from rest_access_policy import AccessPolicy
 from api.models import (
@@ -241,7 +242,13 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
         return queryset.distinct()
 
     def is_stage_user_creatable(self, request, view, action) -> bool:
-        queryset = TaskStage.objects.filter(id=view.get_object().id)
+        stage = view.get_object()
+        with transaction.atomic():
+            try:
+                task = Task.objects.select_for_update(nowait=True).filter(stage_id=stage, id=request.user.id).first()
+            except OperationalError:
+                raise Exception("already creating")
+        queryset = TaskStage.objects.filter(id=stage.id)
         return bool(utils.filter_for_user_creatable_stages(queryset, request))
 
     def is_available_stage(self, request, view, action) -> bool:
