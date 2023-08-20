@@ -923,10 +923,10 @@ class TaskViewSet(viewsets.ModelViewSet):
         Return a list of tasks where user is task assignee.
         """
         qs = self.filter_queryset(self.get_queryset())
-        qs = qs.filter(assignee=request.user) \
-            .exclude(
-            stage__assign_user_by=TaskStageConstants.INTEGRATOR,
-        ).exclude(stage__chain__is_individual=True)
+        # qs = qs.filter(assignee=request.user) \
+        #     .exclude(
+        #     stage__assign_user_by=TaskStageConstants.INTEGRATOR,
+        # ).exclude(stage__chain__is_individual=True)
 
         tasks = qs.annotate(
             stage_data=JSONObject(
