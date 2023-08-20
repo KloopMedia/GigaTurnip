@@ -941,6 +941,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                  'complete',
                  'force_complete',
                  'created_at',
+                 'updated_at',
                  'reopened',
                  'responses',
                  'stage_data'
