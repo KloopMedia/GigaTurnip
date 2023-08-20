@@ -505,7 +505,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         if webhook and webhook.is_triggered:
             webhook.trigger(task)
         task.save()
-        return Response({'status': 'New task created', 'id': task.id})
+        serializer = TaskDefaultSerializer(task)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'])
     def schema_fields(self, request, pk=None):
