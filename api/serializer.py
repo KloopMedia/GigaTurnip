@@ -445,7 +445,8 @@ class TaskListSerializer(serializers.ModelSerializer):
             'reopened',
             'responses',
             'stage',
-            'created_at'
+            'created_at',
+            'updated_at',
         ]
 
     def get_stage(self, obj):
