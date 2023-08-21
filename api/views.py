@@ -16,6 +16,7 @@ from rest_framework import viewsets, status, mixins
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -54,7 +55,8 @@ from api.serializer import (
     UserStatisticSerializer, CategoryListSerializer, CountryListSerializer,
     LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer,
-    TaskUserSelectableSerializer
+    TaskUserSelectableSerializer, TaskCreateSerializer,
+    TaskStageCreateTaskSerializer,
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -417,12 +419,14 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         Выбирает нужные сериалайзер (для чтения или обычный).
         """
 
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action in ["create", "update", "partial_update"]:
             return TaskStageSerializer
-        elif self.action == 'public':
+        elif self.action == "public":
             return TaskStagePublicSerializer
+        elif self.action == "create_task":
+            return TaskStageCreateTaskSerializer
         else:
-            if self.request and self.request.query_params.get('ranks_avatars'):
+            if self.request and self.request.query_params.get("ranks_avatars"):
                 return TaskStageFullRankReadSerializer
             return TaskStageReadSerializer
 
@@ -498,9 +502,14 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     def create_task(self, request, pk=None):
         case = Case.objects.create()
         stage = self.get_object()
-        task = Task(stage=stage, assignee=request.user, case=case)
+        responses = dict()
+        if request.method == 'POST':
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            responses = serializer.data["responses"]
+        task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
         for copy_field in stage.copy_fields.all():
-            task.responses = copy_field.copy_response(task)
+            task.responses.update(copy_field.copy_response(task))
         webhook = stage.get_webhook()
         if webhook and webhook.is_triggered:
             webhook.trigger(task)
@@ -755,7 +764,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [
         DjangoFilterBackend,
         ResponsesContainsFilter,
+        OrderingFilter,
     ]
+    ordering_fields = ["created_at", "updated_at"]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):

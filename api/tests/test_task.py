@@ -703,3 +703,41 @@ class TaskTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 3)
         self.assertEqual(sorted([i["id"] for i in response.data["results"]]), [task_1_3.id, task_2_3.id, task_3_3.id])
+
+    def test_task_no_override_responses(self):
+        new_chain = Chain.objects.create(
+            name="Profile chain",
+            campaign=self.campaign,
+        )
+        second_stage = TaskStage.objects.create(
+            name="User profile",
+            chain=new_chain,
+            assign_user_by=TaskStageConstants.RANK,
+            x_pos=1,
+            y_pos=1,
+        )
+        case = Case.objects.create()
+        profile_task = Task.objects.create(
+            stage=second_stage,
+            assignee=self.user,
+            case=case,
+            responses={"username": "CJ"},
+            complete=True,
+        )
+
+        CopyField.objects.create(
+            copy_by=CopyFieldConstants.USER,
+            task_stage=self.initial_stage,
+            copy_from_stage=second_stage,
+            copy_all=True
+        )
+
+        task_create_url = reverse("taskstage-create-task", kwargs={"pk": self.initial_stage.id})
+
+        data = {
+            "responses": {"foo": "field"}
+        }
+        response = self.client.post(task_create_url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["responses"], {"username": "CJ", "foo": "field"})

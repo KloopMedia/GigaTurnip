@@ -433,6 +433,10 @@ class TaskPublicSerializer(serializers.ModelSerializer):
         ]
 
 
+class TaskStageCreateTaskSerializer(serializers.Serializer):
+    responses = serializers.JSONField(required=False, default={})
+
+
 class TaskListSerializer(serializers.ModelSerializer):
     stage = serializers.SerializerMethodField()
 

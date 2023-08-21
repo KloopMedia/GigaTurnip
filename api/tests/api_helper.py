@@ -219,7 +219,7 @@ class GigaTurnipTestHelper(APITestCase):
         self.assertFalse(task.reopened)
         self.assertIsNone(task.integrator_group)
         self.assertFalse(task.in_tasks.exists())
-        self.assertIsNone(task.responses)
+        self.assertEqual(task.responses, {})
         self.assertEqual(len(Task.objects.filter(stage=task.stage)), 1)
 
     def check_task_auto_creation(self, task, stage, initial_task):
