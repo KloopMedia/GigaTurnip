@@ -317,7 +317,7 @@ class TaskAccessPolicy(AccessPolicy):
             "action": ["update", "partial_update", "open_previous"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition_expression": "is_assignee and ( is_not_complete or is_task_from_individual_chain )"
+            "condition_expression": "is_superuser or (is_assignee and ( is_not_complete or is_task_from_individual_chain ) )"
         },
         {
             "action": ["uncomplete"],
@@ -358,6 +358,9 @@ class TaskAccessPolicy(AccessPolicy):
     def is_assignee(self, request, view, action):
         task = view.get_object()
         return request.user == task.assignee
+
+    def is_superuser(self, request, view, action):
+        return request.user.is_superuser
 
     def is_stage_public(self, request, view, action):
         return view.get_object().stage.is_public
