@@ -16,6 +16,7 @@ from rest_framework import viewsets, status, mixins
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -755,7 +756,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [
         DjangoFilterBackend,
         ResponsesContainsFilter,
+        OrderingFilter,
     ]
+    ordering_fields = ["created_at", "updated_at"]
     permission_classes = (TaskAccessPolicy,)
 
     def get_queryset(self):
