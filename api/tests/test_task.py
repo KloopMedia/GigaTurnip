@@ -741,3 +741,18 @@ class TaskTest(GigaTurnipTestHelper):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["responses"], {"username": "CJ", "foo": "field"})
+
+    def test_superuser_update(self):
+        case = Case.objects.create()
+        task = Task.objects.create(
+            assignee=self.employee,
+            stage=self.initial_stage,
+            responses={"foo":"boo"},
+            case=case,
+        )
+
+        responses = {"hello": "world!"}
+        self.user.is_superuser = True
+
+        response = self.update_task_responses(task, responses, self.client)
+        self.assertIsInstance(response, Task)
