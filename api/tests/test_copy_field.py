@@ -96,7 +96,7 @@ class CopyFieldTest(GigaTurnipTestHelper):
 
         task = self.create_initial_task()
 
-        self.assertIsNone(task.responses)
+        self.assertEqual(task.responses, {})
 
     def test_copy_field_by_case(self):
         self.initial_stage.json_schema = '{"type": "object","properties": {"name": {"type": "string"},"phone": {"type": "integer"},"address": {"type": "string"}}}'
