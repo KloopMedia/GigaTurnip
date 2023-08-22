@@ -263,7 +263,11 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
         return tasks_for_current_stage.count() > 0
 
     def is_displayed_prev(self, request, view, action) -> bool:
-        return view.get_object() in view.get_queryset
+        return view.get_object() in view.get_queryset()
+
+    def is_manager(self, request, view, action) -> bool:
+        managers = view.get_object().get_campaign().managers.all()
+        return request.user in managers
 
 
 class TaskAccessPolicy(AccessPolicy):
