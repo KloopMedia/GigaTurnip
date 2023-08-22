@@ -116,8 +116,6 @@ class Task(BaseDatesModel, CampaignInterface):
                 task = Task.objects.select_for_update(nowait=True).get(pk=self.id)
             except OperationalError:
                 raise Task.CompletionInProgress
-            # task = Task.objects.select_for_update().filter(id=self.id)[0]
-            # task.complete = True
             if task.complete and not self.stage.chain.is_individual:
                 raise Task.AlreadyCompleted
 
@@ -147,8 +145,6 @@ class Task(BaseDatesModel, CampaignInterface):
                 task = Task.objects.select_for_update(nowait=True).get(pk=self.id)
             except OperationalError:
                 raise Task.AssigneeInProgress
-            # task = Task.objects.select_for_update().filter(id=self.id)[0]
-            # task.complete = True
             if task.assignee:
                 raise Task.AlreadyAssigned
 
