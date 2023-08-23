@@ -274,8 +274,9 @@ class TaskAccessPolicy(AccessPolicy):
     statements = [
         {
             "action": ["destroy"],
-            "principal": "*",
-            "effect": "deny",
+            "principal": "authenticated",
+            "effect": "allow",
+            "condition": "is_manager"
         },
         {
             "action": ["list", "user_activity"],
