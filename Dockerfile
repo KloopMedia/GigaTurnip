@@ -19,5 +19,6 @@ RUN pip install pipenv
 
 COPY ./Pipfile $DockerHOME/Pipfile
 COPY ./Pipfile.lock $DockerHOME/Pipfile.lock
-RUN pipenv install --system --deploy --ignore-pipfile
+RUN pipenv lock
+RUN pipenv install --system --deploy
 COPY . $DockerHOME
