@@ -631,7 +631,7 @@ class CountryAdmin(admin.ModelAdmin):
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", )
     list_filter = (
-        AutocompleteFilterFactory("Parents name", "parents  "),
+        AutocompleteFilterFactory("Parents name", "parents"),
     )
     search_fields = ("name", )
     autocomplete_fields = ("parents", )
