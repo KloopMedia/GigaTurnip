@@ -23,6 +23,34 @@ class TaskCounterTest(GigaTurnipTestHelper):
 
         task_to_check = Task.objects.get(case=task.case, stage=verification_task_stage)
 
-        self.assertEqual(task_to_check.responses["task_count"], 3)
+        self.assertEqual(task_to_check.responses["task_count"], 1)
+
+    def test_task_count_complete(self):
+        verification_task_stage = self.initial_stage.add_stage(TaskStage())
+
+        CountTasksModifier.objects.create(
+            task_stage=verification_task_stage,
+            stage_to_count_tasks_from=self.initial_stage,
+            field_to_write_count_to="task_count"
+        )
+
+        # Task 1
+        task_1 = self.create_task(self.initial_stage)
+        self.complete_task(task_1)
+
+        # Task 2
+        self.create_task(self.initial_stage)
+
+        task_to_check = Task.objects.get(case=task_1.case, stage=verification_task_stage)
+        self.assertEqual(task_to_check.responses["task_count"], 1)
+
+        # Task 3
+        self.create_task(self.initial_stage)
+
+        # Task 4
+        task_4 = self.create_task(self.initial_stage)
+        self.complete_task(task_4)
+        task_to_check = Task.objects.get(case=task_4.case, stage=verification_task_stage)
+        self.assertEqual(task_to_check.responses["task_count"], 2)
 
 

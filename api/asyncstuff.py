@@ -249,7 +249,8 @@ def set_count_tasks_fields(stage, new_task, responses=None):
     responses = responses if responses else {}
     for count_tasks_modifier in stage.count_tasks_modifier.all():
         responses[count_tasks_modifier.field_to_write_count_to] = Task.objects.filter(
-            stage=count_tasks_modifier.stage_to_count_tasks_from).count()
+            stage=count_tasks_modifier.stage_to_count_tasks_from,
+            complete=True).count()
 
     if new_task.responses:
         new_task.responses.update(responses)
