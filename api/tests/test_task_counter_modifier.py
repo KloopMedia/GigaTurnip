@@ -1,4 +1,4 @@
-from api.models import TaskStage, Task
+from api.models import TaskStage, Task, RankLimit
 from api.models.modifiers import CountTasksModifier
 from api.tests import GigaTurnipTestHelper
 
