@@ -21,3 +21,13 @@ class CountTasksModifier(BaseDatesModel):
         help_text="JSON field in the Task to write count to",
         default="task_count"
     )
+
+    count_unique_users = models.BooleanField(
+        help_text="Remove tasks with duplicate user id from count",
+        default=False
+    )
+
+    field_to_write_count_complete = models.TextField(
+        help_text="JSON field in the Task to write count complete tasks",
+        default='task_count_complete'
+    )
