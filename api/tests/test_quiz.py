@@ -515,3 +515,52 @@ class QuizTest(GigaTurnipTestHelper):
         self.assertEqual(task.responses[Quiz.INCORRECT_QUESTIONS], [])
         self.assertTrue(task.complete)
         self.assertEqual(self.user.tasks.count(), 3)
+
+
+    def test_quiz_with_instant_answers(self):
+        task_correct_responses = self.create_initial_task()
+        correct_responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "d"}
+        self.initial_stage.json_schema = {
+            "type": "object",
+            "properties": {
+                "1": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 1", "type": "string"
+                },
+                "2": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 2", "type": "string"
+                },
+                "3": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 3", "type": "string"
+                },
+                "4": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 4", "type": "string"
+                },
+                "5": {
+                    "enum": ["a", "b", "c", "d"], "title": "Question 5", "type": "string"
+                }
+            },
+            "dependencies": {},
+            "required": ["1", "2", "3", "4", "5"]
+        }
+        self.initial_stage.json_schema = json.dumps(self.initial_stage.json_schema)
+        self.initial_stage.save()
+        task_correct_responses = self.complete_task(
+            task_correct_responses,
+            responses=correct_responses)
+        Quiz.objects.create(
+            task_stage=self.initial_stage,
+            correct_responses_task=task_correct_responses,
+            send_answers_with_questions=True
+        )
+        task_creation_api_response = self.get_objects(endpoint="taskstage-create-task",
+                                                      pk=self.initial_stage.pk)
+        print(task_creation_api_response.data)
+        self.assertEqual(task_creation_api_response.data["stage"]["quiz_answers"], correct_responses)
+
+        # task = self.create_initial_task()
+        # responses = {"1": "a", "2": "b", "3": "a", "4": "c", "5": "b"}
+        # task = self.complete_task(task, responses=responses)
+        #
+        # self.assertEqual(task.responses[Quiz.SCORE], 80)
+        # self.assertEqual(Task.objects.count(), 2)
+        # self.assertTrue(task.complete)
