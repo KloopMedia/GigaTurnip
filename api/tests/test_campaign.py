@@ -373,3 +373,36 @@ class CampaignTest(GigaTurnipTestHelper):
         self.assertEqual(content["count"], 2)
         for i in [pepsi["campaign"].id, fanta["campaign"].id]:
             self.assertIn(i, [_["id"] for _ in content["results"]])
+
+    def test_campaign_user_is_joined(self):
+        self.campaign.open = True
+        self.campaign.save()
+
+        # TEST 1 - Anonymous user
+        response = self.get_objects("campaign-detail",
+                                    client=self.unauth_client,
+                                    pk=self.campaign.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["is_joined"], False)
+
+        # TEST 2 - New user
+        new_user = CustomUser.objects.create_user(username="new_new",
+                                                  email='new_new@email.com',
+                                                  password='123')
+
+        new_user_client = self.create_client(new_user)
+
+        response = self.get_objects("campaign-detail",
+                                    client=new_user_client,
+                                    pk=self.campaign.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["is_joined"], False)
+
+        # TEST 3 - New user with rank record
+        RankRecord.objects.create(user=new_user, rank=self.default_rank)
+        response = self.get_objects("campaign-detail",
+                                    client=new_user_client,
+                                    pk=self.campaign.id)
+        self.assertEqual(response.data["is_joined"], True)
