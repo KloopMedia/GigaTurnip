@@ -161,6 +161,19 @@ class CampaignTest(GigaTurnipTestHelper):
         self.assertEqual(
             to_json(response.content)["results"][0]["notifications_count"], 0)
 
+        # Add employee to management
+        self.employee.managed_campaigns.add(self.campaign)
+        response = self.get_objects("campaign-list",
+                                    client=self.employee_client)
+        # Employee must be a manager
+        self.assertEqual(
+            to_json(response.content)["results"][0]["is_manager"], True)
+        response = self.get_objects("campaign-list",
+                                    client=new_user_client)
+        # New user must not be a manager
+        self.assertEqual(
+            to_json(response.content)["results"][0]["is_manager"], False)
+
     def test_campaign_filters_by_language(self):
         campaign_en_data = self.generate_new_basic_campaign(name="Pepsi")
         campaign_ru_data = self.generate_new_basic_campaign(name="Добрый Кола")
