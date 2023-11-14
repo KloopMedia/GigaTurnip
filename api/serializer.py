@@ -33,6 +33,7 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 class CampaignSerializer(serializers.ModelSerializer):
     managers = serializers.SerializerMethodField()
     notifications_count = serializers.SerializerMethodField()
+    is_manager = serializers.SerializerMethodField()
     is_joined = serializers.SerializerMethodField()
 
     class Meta:
@@ -51,6 +52,11 @@ class CampaignSerializer(serializers.ModelSerializer):
         return obj.notifications.filter(
             Q(rank__id__in=user.ranks.values('id'))
             | Q(target_user=user)).count()
+
+    def get_is_manager(self, obj):
+        user = self.context['request'].user
+        managers = obj.get_campaign().managers.all()
+        return user in managers
 
     def get_is_joined(self, obj):
         user = self.context['request'].user
