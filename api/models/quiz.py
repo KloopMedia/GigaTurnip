@@ -43,6 +43,11 @@ class Quiz(BaseDatesModel):
         help_text="If set as true then with questions title users will "
                   "see correct answers."
     )
+    send_answers_with_questions = models.BooleanField(
+        default=False,
+        help_text="If true answers will be sent alongside questions, "
+                  "useful for exercises."
+    )
 
     def is_ready(self):
         return bool(self.correct_responses_task)

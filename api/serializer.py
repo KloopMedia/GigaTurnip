@@ -358,6 +358,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
     )
     campaign = serializers.SerializerMethodField()
     rank_limit = serializers.SerializerMethodField()
+    quiz_answers = serializers.SerializerMethodField()
 
     class Meta:
         model = TaskStage
@@ -367,7 +368,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
             "assign_user_from_stage", "rich_text", "webhook_address", "rank_limit",
             "webhook_payload_field", "webhook_params", "dynamic_jsons_source", "dynamic_jsons_target",
             "webhook_response_field", "allow_go_back", "allow_release",
-            "available_from", "available_to",
+            "available_from", "available_to", "quiz_answers"
             ]
 
     def get_campaign(self, obj):
@@ -393,6 +394,11 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
             "open_limit": max_open,
             "total_limit": max_total,
         }
+
+    def get_quiz_answers(self, obj):
+        if not hasattr(obj, "quiz") or not obj.quiz.send_answers_with_questions:
+            return {}
+        return obj.quiz.correct_responses_task.responses
 
 class TaskStageSerializer(serializers.ModelSerializer,
                           CampaignValidationCheck):
