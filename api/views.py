@@ -56,7 +56,7 @@ from api.serializer import (
     LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer,
     TaskUserSelectableSerializer, TaskCreateSerializer,
-    TaskStageCreateTaskSerializer,
+    TaskStageCreateTaskSerializer, TrackMapSerializer,
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -1389,6 +1389,17 @@ class TrackViewSet(viewsets.ModelViewSet):
         return TrackAccessPolicy.scope_queryset(
             self.request, Track.objects.all()
         )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
+    @action(detail=True, methods=['get'])
+    def get_map(self, request, pk=None):
+        track = self.get_object()
+        serializer = TrackMapSerializer(track)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class CampaignManagementViewSet(viewsets.ModelViewSet):

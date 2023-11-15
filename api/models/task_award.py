@@ -1,7 +1,7 @@
 from django.apps import apps
 from django.db import models
 
-from api.models import BaseDatesModel, CampaignInterface
+from api.models import BaseDatesModel, CampaignInterface, Task, Case
 
 
 class TaskAward(BaseDatesModel, CampaignInterface):
@@ -18,8 +18,9 @@ class TaskAward(BaseDatesModel, CampaignInterface):
     rank = models.ForeignKey(
         "Rank",
         on_delete=models.CASCADE,
+        related_name="task_awards",
         help_text="Rank to create the record with a user. It is a rank that will be given user, as an award who "
-                  "have completed a defined count of tasks")
+                  "have completed a defined count of tasks"),
     stop_chain = models.BooleanField(
         default=False,
         help_text='When rank will obtained by user chain will stop.'
@@ -77,6 +78,13 @@ class TaskAward(BaseDatesModel, CampaignInterface):
             return rank_record
         else:
             return None
+
+    def get_prerequisite_tasks_completions(self, user):
+        tasks = Task.objects.filter(stage=self.task_stage_completion).filter(complete=True).filter(assignee=user)
+        cases = Case.objects.filter(tasks__in=tasks)
+        verification_tasks = Task.objects.filter(stage=self.task_stage_verified).filter(cases=cases).filter(complete=True)
+        cases = cases.filter(tasks__in=verification_tasks)
+        return cases.count()
 
     def __str__(self):
         return f"Completion: {self.task_stage_completion.id} " \

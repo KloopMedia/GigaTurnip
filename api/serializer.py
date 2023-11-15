@@ -830,6 +830,57 @@ class TrackSerializer(serializers.ModelSerializer,
                                           "to this campaign")
 
 
+class TaskAwardMapSerializer(serializers.ModelSerializer):
+    completed_tasks = serializers.SerializerMethodField()
+    implicit_prerequisites = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TaskAward
+        fields = ["task_stage_completion", "task_stage_verified", "count", "completed_tasks", "implicit_prerequisites"]
+        read_only_fields = ["task_stage_completion", "task_stage_verified", "count", "completed_tasks", "implicit_prerequisites"]
+
+    def get_completed_tasks(self, obj):
+        return obj.get_prerequisite_tasks_completions(self.context['request'].user)
+
+    @staticmethod
+    def get_implicit_prerequisites(obj):
+        return obj.task_stage_completion.ranks
+
+
+class RankMapSerializer(serializers.ModelSerializer):
+    task_awards = TaskAwardMapSerializer(read_only=True, many=True)
+    is_acquired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Rank
+        fields = ["id",
+                  "name",
+                  "description",
+                  "task_awards"
+                  "prerequisite_ranks",
+                  "is_acquired",
+                  "avatar"]
+        read_only_fields = ["id",
+                            "name",
+                            "description",
+                            "task_awards",
+                            "prerequisite_ranks",
+                            "is_acquired",
+                            "avatar"]
+
+    def get_is_acquired(self, obj):
+        return RankRecord.objects.filter(rank=obj).filter(user=self.context["request"].user).exists()
+
+
+class TrackMapSerializer(serializers.ModelSerializer):
+    ranks = RankMapSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = Track
+        fields = ["id", "name", "ranks"]
+        read_only_fields = ["id", "name", "ranks"]
+
+
 class CampaignManagementSerializer(serializers.ModelSerializer,
                                    CampaignValidationCheck):
     class Meta:
