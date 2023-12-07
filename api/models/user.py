@@ -28,6 +28,12 @@ class CustomUser(AbstractUser, BaseDatesModel):
         help_text="Is user deleted."
     )
 
+    fcm_token = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="FCM registration token")
+
     def __str__(self):
         if self.login_via_sms:
             return self.phone_number

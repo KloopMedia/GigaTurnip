@@ -21,7 +21,7 @@ from api.models import Campaign, Chain, TaskStage, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
     TaskAward, DynamicJson, TestWebhook, Category, Language, Country, \
-    TranslateKey
+    TranslateKey, CustomUser
 from api.permissions import ManagersOnlyAccessPolicy
 
 
@@ -919,3 +919,9 @@ class CountryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
         fields = ["id", "name"]
+
+
+class FCMTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['fcm_token']
