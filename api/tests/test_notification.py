@@ -7,6 +7,10 @@ from api.constans import AutoNotificationConstants, TaskStageConstants, \
 from api.models import *
 from api.tests import GigaTurnipTestHelper, to_json
 
+from firebase_admin import credentials, messaging
+
+from api.utils.push_notifications import send_push_notification
+
 
 class NotificationTest(GigaTurnipTestHelper):
 
@@ -141,3 +145,8 @@ class NotificationTest(GigaTurnipTestHelper):
                          1)
         self.assertEqual(self.user.notifications.all()[0].title,
                          notification.title)
+
+    def test_push_notification(self):
+        token = 'far0LXGJRHW6cMR7_FD6Nt:APA91bEK2eOy3Yp959sjWqtZ8uzmoTnWr_wQxDcdMOfZttN4ClIyo9_U3koPp6weImaJ9u6yHLvZePEBOP7AlozVeooCyzatLF8FQ1V4fFCfzmUpaC4FZSGXhxp_t2uK2zxh7oxyYWuq'
+
+        send_push_notification(token, 'Hello', 'Body')
