@@ -9,6 +9,8 @@ from api.tests import GigaTurnipTestHelper, to_json
 
 from firebase_admin import credentials, messaging
 
+from api.utils.push_notifications import send_push_notification
+
 
 class NotificationTest(GigaTurnipTestHelper):
 
@@ -145,13 +147,6 @@ class NotificationTest(GigaTurnipTestHelper):
                          notification.title)
 
     def test_push_notification(self):
-        gcm_reg_id = 'far0LXGJRHW6cMR7_FD6Nt:APA91bEK2eOy3Yp959sjWqtZ8uzmoTnWr_wQxDcdMOfZttN4ClIyo9_U3koPp6weImaJ9u6yHLvZePEBOP7AlozVeooCyzatLF8FQ1V4fFCfzmUpaC4FZSGXhxp_t2uK2zxh7oxyYWuq'
+        token = 'far0LXGJRHW6cMR7_FD6Nt:APA91bEK2eOy3Yp959sjWqtZ8uzmoTnWr_wQxDcdMOfZttN4ClIyo9_U3koPp6weImaJ9u6yHLvZePEBOP7AlozVeooCyzatLF8FQ1V4fFCfzmUpaC4FZSGXhxp_t2uK2zxh7oxyYWuq'
 
-        message = messaging.Message(
-            notification=messaging.Notification(
-                title='HELLO',
-                body='TEST BODY'
-            ),
-            token=gcm_reg_id
-        )
-        messaging.send_multicast(message)
+        send_push_notification(token, 'Hello', 'Body')
