@@ -19,7 +19,6 @@ requests = "*"
 jsonschema = "*"
 psycopg2-binary = "*"
 django-admin-autocomplete-filter = "*"
-django-push-notifications = {extras = ["apns", "wp"], version = "*"}
 
 [dev-packages]
 yapf = "*"

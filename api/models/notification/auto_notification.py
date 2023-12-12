@@ -3,6 +3,8 @@ from django.db import models
 from api.constans import AutoNotificationConstants
 from api.models import BaseDatesModel, CampaignInterface
 
+from api.utils.push_notifications import send_push_notification
+
 
 class AutoNotification(BaseDatesModel, CampaignInterface):
     trigger_stage = models.ForeignKey(
@@ -51,6 +53,9 @@ class AutoNotification(BaseDatesModel, CampaignInterface):
         new_notification.sender_task, new_notification.receiver_task = task, receiver_task
         new_notification.trigger_go = self.go
         new_notification.save()
+
+        #send push_notification
+        send_push_notification(u.fcm_token, new_notification.title, new_notification.text)
 
     def get_campaign(self):
         return self.notification.campaign
