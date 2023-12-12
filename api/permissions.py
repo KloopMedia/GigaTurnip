@@ -712,3 +712,17 @@ class CountryAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod
     def scope_queryset(cls, request, qs):
         return qs
+
+
+class UserFCMTokenAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ['update_fcm_token'],
+            "principal": "authenticated",
+            "effect": "allow",
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs.filter(pk=request.user.id)

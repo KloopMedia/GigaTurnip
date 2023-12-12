@@ -37,7 +37,7 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -1804,6 +1804,8 @@ class AuthViewSet(viewsets.GenericViewSet):
 
 
 class FCMTokenViewSet(viewsets.ModelViewSet):
+    permission_classes = (UserFCMTokenAccessPolicy,)
+
     @action(detail=True, methods=['post'])
     def update_fcm_token(self, request, *args, **kwargs):
         serializer = FCMTokenSerializer(data=request.data, partial=True)
