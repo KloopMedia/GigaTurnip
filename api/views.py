@@ -37,7 +37,7 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -56,7 +56,7 @@ from api.serializer import (
     LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer,
     TaskUserSelectableSerializer, TaskCreateSerializer,
-    TaskStageCreateTaskSerializer,
+    TaskStageCreateTaskSerializer, FCMTokenSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -1802,3 +1802,18 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         return Response({'token': token.key}, status=status_code)
 
+
+class FCMTokenViewSet(viewsets.ModelViewSet):
+    permission_classes = (UserFCMTokenAccessPolicy,)
+
+    @action(detail=True, methods=['post'])
+    def update_fcm_token(self, request, *args, **kwargs):
+        serializer = FCMTokenSerializer(data=request.data, partial=True)
+        if serializer.is_valid():
+            user = request.user
+
+            user.fcm_token = serializer.validated_data['fcm_token']
+            user.save()
+
+            return Response({'detail': 'FCM token updated successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

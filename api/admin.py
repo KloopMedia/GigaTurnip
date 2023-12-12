@@ -181,6 +181,10 @@ class CustomUserAdmin(UserAdmin):
     )
     search_fields = ("id", "email", "first_name", "last_name", "username")
 
+    fieldsets = UserAdmin.fieldsets + (
+        ('Push Notifications', {'fields': ('fcm_token',)}),
+    )
+
     def get_actions(self, request):
         actions = super(CustomUserAdmin, self).get_actions(request)
         preference = AdminPreference.objects.filter(campaign__in=request.user.managed_campaigns.all(), user=request.user)

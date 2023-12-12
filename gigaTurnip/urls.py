@@ -96,6 +96,9 @@ router.register(api_v1 + r'countries',
 router.register(api_v1 + r'auth',
                 turnip_app.AuthViewSet,
                 basename='auth')
+router.register(api_v1 + r'fcm',
+                turnip_app.FCMTokenViewSet,
+                basename='fcm')
 
 urlpatterns = [
                   path('admin/', admin.site.urls),
