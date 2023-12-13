@@ -245,6 +245,36 @@ def set_copied_fields(stage, new_task, responses=None):
     return new_task
 
 
+def set_count_tasks_fields(stage, new_task, responses=None):
+    responses = responses if responses else {}
+    for count_tasks_modifier in stage.count_tasks_modifier.all():
+
+        task_query = Task.objects.filter(stage=count_tasks_modifier.stage_to_count_tasks_from)
+
+        if count_tasks_modifier.count_unique_users:
+            task_query = task_query.values('assignee').distinct()
+
+        responses[count_tasks_modifier.field_to_write_count_to] = task_query.count()
+
+        #Complete tasks
+        task_query = Task.objects.filter(stage=count_tasks_modifier.stage_to_count_tasks_from,
+                                         complete=True)
+
+        if count_tasks_modifier.count_unique_users:
+            task_query = task_query.values('assignee').distinct()
+
+        responses[count_tasks_modifier.field_to_write_count_complete] = task_query.count()
+
+    if new_task.responses:
+        new_task.responses.update(responses)
+    else:
+        new_task.responses = responses
+
+    new_task.save()
+
+    return new_task
+
+
 def process_previous_manual_assign(stage, new_task, in_task):
     if stage.assign_user_by == TaskStageConstants.PREVIOUS_MANUAL:
         new_task = assign_by_previous_manual(stage, new_task, in_task)
@@ -285,6 +315,7 @@ def create_new_task(stage, in_task, user=None):
         trigger_on_webhook(stage, new_task)
         set_period(stage, new_task)
         new_task = set_copied_fields(stage, new_task)
+        new_task = set_count_tasks_fields(stage, new_task)
         process_auto_completed_task(stage, new_task)
         new_task = process_previous_manual_assign(stage, new_task, in_task)
 
