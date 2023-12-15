@@ -1,13 +1,15 @@
 from firebase_admin import messaging
 
 
-def send_push_notification(token, title, body):
+def send_push_notification(token, title, body, data):
 
-    message = messaging.Message(
-        notification=messaging.Notification(
-            title=title,
-            body=body
-        ),
-        token=token
-    )
-    messaging.send(message)
+    if token is not None:
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title=title,
+                body=body
+            ),
+            token=token,
+            data=data
+        )
+        messaging.send(message)
