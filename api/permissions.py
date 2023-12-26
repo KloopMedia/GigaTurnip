@@ -213,7 +213,7 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
             "action": ["create_task"],
             "principal": "authenticated",
             "effect": "allow",
-            "condition": "is_stage_user_creatable"
+            "condition_expression": "is_stage_user_creatable or is_stage_fast_track"
         },
         {
             "action": ["public"],
@@ -268,6 +268,11 @@ class TaskStageAccessPolicy(ManagersOnlyAccessPolicy):
     def is_manager(self, request, view, action) -> bool:
         managers = view.get_object().get_campaign().managers.all()
         return request.user in managers
+
+    def is_stage_fast_track(self, request, view, action) -> bool:
+        stage = view.get_object()
+
+        return stage.fast_track_rank is not None
 
 
 class TaskAccessPolicy(AccessPolicy):

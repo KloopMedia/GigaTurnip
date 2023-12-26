@@ -507,6 +507,13 @@ class TaskStageViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             responses = serializer.data["responses"]
+
+            #Check fast_track
+            if request.data.get('fast_track', False):
+                if not RankRecord.objects.filter(rank=stage.fast_track_rank).filter(user=request.user).exists():
+                    RankRecord.objects.create(rank=stage.fast_track_rank, user=request.user)
+
+
         task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
         for copy_field in stage.copy_fields.all():
             task.responses.update(copy_field.copy_response(task))
