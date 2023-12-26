@@ -192,6 +192,15 @@ class TaskStage(Stage, SchemaProvider):
         )
     )
 
+    fast_track_rank = models.ForeignKey(
+        "Rank",
+        related_name="fast_track_rank",
+        blank=True,
+        null=True,
+        on_delete = models.SET_NULL,
+        help_text="Rank that will be given when using fast_track"
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
