@@ -16,7 +16,7 @@ from .models import (
     Webhook, CopyField, StagePublisher, Quiz, ResponseFlattener, TaskAward,
     DynamicJson, PreviousManual, AutoNotification, ConditionalLimit,
     DatetimeSort, ErrorItem, TestWebhook, CampaignLinker, ApproveLink,
-    Language, Category, Country, TranslationAdapter, TranslateKey, Translation
+    Language, Category, Country, TranslationAdapter, TranslateKey, Translation, CountTasksModifier
 )
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -1067,6 +1067,23 @@ class TestWebhookAdmin(admin.ModelAdmin):
     autocomplete_fields = ('expected_task', 'sent_task')
 
 
+class CountTasksModifierAdmin(admin.ModelAdmin):
+    model = CountTasksModifier
+    list_display = (
+        'id',
+        'task_stage',
+        'stage_to_count_tasks_from',
+        'field_to_write_count_to',
+        'count_unique_users',
+        'field_to_write_count_complete'
+    )
+    search_fields = (
+        "task_stage__name",
+        "stage_to_count_tasks_from__name"
+    )
+
+
+
 admin.site.register(Token, TokenAdmin)
 admin.site.register(Country, CountryAdmin)
 admin.site.register(Language, LanguageAdmin)
@@ -1107,3 +1124,4 @@ admin.site.register(AdminPreference, AdminPreferenceAdmin)
 admin.site.register(DatetimeSort, DatetimeSortAdmin)
 admin.site.register(ErrorItem, ErrorItemAdmin)
 admin.site.register(TestWebhook, TestWebhookAdmin)
+admin.site.register(CountTasksModifier, CountTasksModifierAdmin)
