@@ -33,3 +33,4 @@ from .stage import (
     TaskStage, ConditionalStage, SchemaProvider, Stage, StagePublisher
 )
 from .webhook import Webhook, TestWebhook
+from .modifiers.count_tasks_modifier import CountTasksModifier
