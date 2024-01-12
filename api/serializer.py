@@ -33,6 +33,7 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 class CampaignSerializer(serializers.ModelSerializer):
     managers = serializers.SerializerMethodField()
     notifications_count = serializers.SerializerMethodField()
+    unread_notifications_count = serializers.SerializerMethodField()
     is_manager = serializers.SerializerMethodField()
     is_joined = serializers.SerializerMethodField()
 
@@ -52,6 +53,24 @@ class CampaignSerializer(serializers.ModelSerializer):
         return obj.notifications.filter(
             Q(rank__id__in=user.ranks.values('id'))
             | Q(target_user=user)).count()
+
+    def get_unread_notifications_count(self, obj):
+        user = self.context['request'].user
+
+        if user.is_anonymous:
+            return 0
+
+        total_notifications_count = obj.notifications.filter(
+            Q(rank__id__in=user.ranks.values('id')) | Q(target_user=user)
+        ).count()
+
+        read_notifications_count = obj.notifications.filter(
+            notification_statuses__user=user
+        ).count()
+
+        unread_notifications_count = total_notifications_count - read_notifications_count
+
+        return unread_notifications_count
 
     def get_is_manager(self, obj):
         user = self.context['request'].user
