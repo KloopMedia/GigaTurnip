@@ -90,6 +90,8 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Language of the campaign."
     )
 
+    featured = models.BooleanField(default=False, help_text="featured")
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = apps.get_model(

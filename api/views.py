@@ -214,6 +214,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
         "languages__code": ["exact"],
         "categories": ["exact"],
         "countries__name": ["exact"],
+        "featured": ["exact"],
     }
     filter_backends = (
         DjangoFilterBackend, CategoryInFilter,
