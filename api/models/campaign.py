@@ -48,7 +48,7 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Text or url to the SVG"
     )
 
-    descriptor = models.CharField(
+    short_description = models.CharField(
         max_length=128,
         blank=True,
         null=True,
@@ -91,6 +91,11 @@ class Campaign(BaseModel, CampaignInterface):
     )
 
     featured = models.BooleanField(default=False, help_text="featured")
+
+    featured_image = models.TextField(
+        blank=True,
+        help_text="Text or url to the SVG"
+    )
 
     def join(self, request):
         if request.user is not None:
