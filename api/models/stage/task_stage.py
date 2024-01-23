@@ -201,6 +201,13 @@ class TaskStage(Stage, SchemaProvider):
         help_text="Rank that will be given when using fast_track"
     )
 
+    complete_button_text = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text="Text that will be shown on the Complete button"
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration
