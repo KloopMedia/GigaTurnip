@@ -66,7 +66,12 @@ class FirebaseAuthentication(FirebaseAuthentication):
                 f'_get_or_create_local_user - username: {username}'
             )
             try:
-                if email:
+                if not email and not phone_number:
+                    # If both email and phone number are not available, create a user with only username
+                    user = User.objects.create_user(
+                        username=username
+                    )
+                elif email:
                     user = User.objects.create_user(
                         username=username,
                         email=email
