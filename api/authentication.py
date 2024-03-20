@@ -34,6 +34,12 @@ class FirebaseAuthentication(FirebaseAuthentication):
         """
         email = get_firebase_user_email(firebase_user)
         phone_number = get_firebase_user_phone_number(firebase_user)
+        username = \
+            api_settings.FIREBASE_USERNAME_MAPPING_FUNC(firebase_user)
+        log.info(
+            f'_get_or_create_local_user - username: {username}'
+        )
+
         if email:
             log.info(f'_get_or_create_local_user - email: {email}')
         elif phone_number:
@@ -44,6 +50,8 @@ class FirebaseAuthentication(FirebaseAuthentication):
                 user = User.objects.get(email=email)
             elif phone_number:
                 user = User.objects.get(phone_number=phone_number)
+            elif username:
+                user = User.objects.get(username=username)
             log.info(
                 f'_get_or_create_local_user - user.is_active: {user.is_active}'
             )
@@ -60,13 +68,14 @@ class FirebaseAuthentication(FirebaseAuthentication):
             )
             if not api_settings.FIREBASE_CREATE_LOCAL_USER:
                 raise Exception('User is not registered to the application.')
-            username = \
-                api_settings.FIREBASE_USERNAME_MAPPING_FUNC(firebase_user)
-            log.info(
-                f'_get_or_create_local_user - username: {username}'
-            )
+
             try:
-                if email:
+                if not email and not phone_number:
+                    # If both email and phone number are not available, create a user with only username
+                    user = User.objects.create_user(
+                        username=username
+                    )
+                elif email:
                     user = User.objects.create_user(
                         username=username,
                         email=email
