@@ -55,7 +55,11 @@ class AutoNotification(BaseDatesModel, CampaignInterface):
         new_notification.save()
 
         #send push_notification
-        send_push_notification(u.fcm_token, new_notification.title, new_notification.text)
+        push_notification_data = {
+            'campaign_id': str(self.get_campaign().id),
+            'notification_id': str(new_notification.pk)
+        }
+        send_push_notification(u.fcm_token, new_notification.title, new_notification.text, push_notification_data)
 
     def get_campaign(self):
         return self.notification.campaign

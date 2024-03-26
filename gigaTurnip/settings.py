@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-7n1&zuwh^_mk==hho2aj3x%hy@vh!681-e_-@=_@et^lz^x=_)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -113,30 +113,15 @@ WSGI_APPLICATION = 'gigaTurnip.wsgi.application'
 #     }
 # }
 
-DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
-
-    'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'gigaturnip',
-            'USER': 'postgres',
-            'PASSWORD': 'postgres',
-            'HOST': 'localhost',
-            'PORT': '5432',
+if os.getenv("APP_ENGINE_DEPLOY", None):
+    DATABASES = {"default": ast.literal_eval(os.getenv('DB'))}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
-
-    # 'default': {
-    #         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    #         'NAME': os.getenv('GOOGLE_CLOUD_DB_NAME', ''),
-    #         'USER': os.getenv('GOOGLE_CLOUD_DB_USER', ''),
-    #         'PASSWORD': os.getenv('GOOGLE_CLOUD_DB_PASS', ''),
-    #         'HOST': 'localhost',
-    #         'PORT': '3307',
-    #     }
-}
+    }
 
 if os.getenv("LOCAL_DOCKER_DB", None) == "yes":
     DATABASES = {
@@ -155,7 +140,6 @@ if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
 
     DATABASES["default"]["HOST"] = "127.0.0.1"
     DATABASES["default"]["PORT"] = 3306
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -194,15 +178,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+CORS_ORIGIN_ALLOW_ALL = True
+
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',
-    'http://localhost:3001'
+    'https://kloopmedia.github.io',
+    'https://talaybekovna.github.io',
+    'https://atna-lab.github.io',
+    'https://okutool.com'
 ]
 
 REST_FRAMEWORK = {

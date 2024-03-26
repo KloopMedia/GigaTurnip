@@ -1,6 +1,23 @@
 # Project exclude paths
 /venv/
 *.sqlite3
+
+.gcloudignore
+env
+
+.idea
+
+#IMPORTANT
+app.yaml
+main.py
+requirements.txt
+static
+
+__pycache__/
+ *.pyc
+
+
+=======
 ./.env
 .env
 __pycache__
