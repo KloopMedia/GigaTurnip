@@ -496,7 +496,8 @@ class NotificationAccessPolicy(ManagersOnlyAccessPolicy):
     statements = [
         {
             "action": ["list",
-                       "last_task_notifications"],
+                       "last_task_notifications",
+                       "read_all_notifications"],
             "principal": "authenticated",
             "effect": "allow",
         },

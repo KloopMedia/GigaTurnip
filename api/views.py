@@ -1523,6 +1523,15 @@ class NotificationViewSet(viewsets.ModelViewSet):
             .distinct('receiver_task')
         return q
 
+    @action(detail=False)
+    def read_all_notifications(self, request, pk=None):
+        notifications = utils.filter_for_user_notifications(
+            self.filter_queryset(self.get_queryset()), request)
+
+        for notification in notifications:
+            notification.open(request.user)
+        return HttpResponse("Notifications marked as read successfully", status=200)
+
 
 class ResponseFlattenerViewSet(viewsets.ModelViewSet):
     filterset_fields = {
@@ -1604,7 +1613,7 @@ class TaskAwardViewSet(viewsets.ModelViewSet):
 
 class DynamicJsonViewSet(viewsets.ModelViewSet):
     filterset_fields = {
-        'task_stage': ['exact'],
+   #     'task_stage': ['exact'],
     }
 
     permission_classes = (DynamicJsonAccessPolicy,)
