@@ -1525,8 +1525,20 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False)
     def read_all_notifications(self, request, pk=None):
-        notifications = utils.filter_for_user_notifications(
-            self.filter_queryset(self.get_queryset()), request)
+
+        campaign = request.GET.get('campaign')
+
+        if campaign:
+            notifications = utils.filter_for_user_notifications(
+                self.filter_queryset(self.get_queryset()), request)
+
+            notifications = notifications.filter(campaign=campaign)
+        else:
+            notifications = utils.filter_for_user_notifications(
+                self.filter_queryset(self.get_queryset()), request)
+
+        # notifications = utils.filter_for_user_notifications(
+        #     self.filter_queryset(self.get_queryset()), request)
 
         for notification in notifications:
             notification.open(request.user)
