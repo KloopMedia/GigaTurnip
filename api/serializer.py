@@ -21,7 +21,7 @@ from api.models import Campaign, Chain, TaskStage, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
     TaskAward, DynamicJson, TestWebhook, Category, Language, Country, \
-    TranslateKey, CustomUser
+    TranslateKey, CustomUser, Volume
 from api.permissions import ManagersOnlyAccessPolicy
 
 
@@ -967,3 +967,10 @@ class FCMTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['fcm_token']
+
+
+class VolumeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Volume
+        fields = '__all__'

@@ -36,6 +36,15 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         help_text="Order of the stage in chain."
     )
 
+    volumes = models.ManyToManyField(
+        "Volume",
+        related_name="stage_volumes",
+        through="StageVolume",
+        symmetrical=False,
+        blank=True,
+        help_text="List of available volumes"
+    )
+
     def get_campaign(self):
         return self.chain.campaign
 
