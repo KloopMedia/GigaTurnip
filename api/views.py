@@ -28,7 +28,7 @@ from api.models import (
     RankLimit, Track, RankRecord, CampaignManagement,
     Notification, ResponseFlattener, TaskAward,
     DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete, Category,
-    Country, Language
+    Country, Language, Volume
 )
 from api.permissions import (
     CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
@@ -37,7 +37,7 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy, VolumeAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -56,7 +56,7 @@ from api.serializer import (
     LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer,
     TaskUserSelectableSerializer, TaskCreateSerializer,
-    TaskStageCreateTaskSerializer, FCMTokenSerializer
+    TaskStageCreateTaskSerializer, FCMTokenSerializer, VolumeSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -411,7 +411,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         'ranks__users': ['exact'],
         'ranklimits__is_creation_open': ['exact'],
         'ranklimits__total_limit': ['exact', 'lt', 'gt'],
-        'ranklimits__open_limit': ['exact', 'lt', 'gt']
+        'ranklimits__open_limit': ['exact', 'lt', 'gt'],
+        'volumes': ['exact']
     }
 
     def get_serializer_class(self):
@@ -762,6 +763,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         'stage__chain': ['exact'],
         'stage__chain__is_individual': ['exact'],
         'stage__chain__name': ['exact'],
+        'stage__volumes': ['exact'],
         'assignee': ['exact'],
         'assignee__ranks': ['exact'],
         'complete': ['exact'],
@@ -1825,3 +1827,33 @@ class FCMTokenViewSet(viewsets.ModelViewSet):
 
             return Response({'detail': 'FCM token updated successfully'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VolumeViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing Volumes.
+    create:
+    Create a new Volume instance.
+    delete:
+    Delete Volume.
+    read:
+    Get Volume data.
+    update:
+    Update Volume data.
+    partial_update:
+    Partial update Volume data.
+    """
+
+    filterset_fields = {
+        'track_fk': ['exact']
+    }
+
+    serializer_class = VolumeSerializer
+
+    permission_classes = (VolumeAccessPolicy,)
+
+    def get_queryset(self):
+        return VolumeAccessPolicy.scope_queryset(
+            self.request, Volume.objects.all()
+        )

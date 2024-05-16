@@ -731,3 +731,29 @@ class UserFCMTokenAccessPolicy(AccessPolicy):
     @classmethod
     def scope_queryset(cls, request, qs):
         return qs.filter(pk=request.user.id)
+
+
+class VolumeAccessPolicy(ManagersOnlyAccessPolicy):
+
+    statements = [
+        {
+            "action": ["list", "retrieve"],
+            "principal": ["authenticated"],
+            "effect": "allow",
+            "condition": "check_volume_access"
+        },
+    ]
+
+    def check_volume_access(self, request, view, action):
+
+        if view is None:
+            return True
+
+        # Check if the user's ranks include the track's default_rank
+        default_rank = view.get_object().track_fk.default_rank
+        return request.user.ranks.filter(id=default_rank.id).exists()
+
+
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        return queryset
