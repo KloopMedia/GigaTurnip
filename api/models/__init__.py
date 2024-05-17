@@ -34,3 +34,6 @@ from .stage import (
 )
 from .webhook import Webhook, TestWebhook
 from .modifiers.count_tasks_modifier import CountTasksModifier
+
+from .volume import Volume
+from .stage.stage_volume import StageVolume

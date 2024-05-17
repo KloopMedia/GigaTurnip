@@ -16,7 +16,7 @@ from .models import (
     Webhook, CopyField, StagePublisher, Quiz, ResponseFlattener, TaskAward,
     DynamicJson, PreviousManual, AutoNotification, ConditionalLimit,
     DatetimeSort, ErrorItem, TestWebhook, CampaignLinker, ApproveLink,
-    Language, Category, Country, TranslationAdapter, TranslateKey, Translation, CountTasksModifier
+    Language, Category, Country, TranslationAdapter, TranslateKey, Translation, CountTasksModifier, Volume, StageVolume
 )
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -1083,6 +1083,13 @@ class CountTasksModifierAdmin(admin.ModelAdmin):
     )
 
 
+class VolumeAdmin(admin.ModelAdmin):
+    list_display = ("track_fk", 'order')
+
+
+class StageVolumeAdmin(admin.ModelAdmin):
+    list_display = ("stage", 'volume')
+
 
 admin.site.register(Token, TokenAdmin)
 admin.site.register(Country, CountryAdmin)
@@ -1125,3 +1132,5 @@ admin.site.register(DatetimeSort, DatetimeSortAdmin)
 admin.site.register(ErrorItem, ErrorItemAdmin)
 admin.site.register(TestWebhook, TestWebhookAdmin)
 admin.site.register(CountTasksModifier, CountTasksModifierAdmin)
+admin.site.register(Volume, VolumeAdmin)
+admin.site.register(StageVolume, StageVolumeAdmin)
