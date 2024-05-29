@@ -1867,7 +1867,8 @@ class VolumeViewSet(viewsets.ModelViewSet):
     """
 
     filterset_fields = {
-        'track_fk': ['exact']
+        'track_fk': ['exact'],
+        'track_fk__campaign': ['exact']
     }
 
     serializer_class = VolumeSerializer
