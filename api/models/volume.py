@@ -54,6 +54,12 @@ class Volume(BaseModel, models.Model):
         help_text= 'Flag to determine if tags should be shown for the volume'
     )
 
+    show_tags_filter = models.BooleanField(
+        default=False,
+        null=True,
+        help_text='Flag to determine if tags should be shown for the volume (filter)'
+    )
+
     my_tasks_text = models.TextField(
         null=True,
         blank=True,
