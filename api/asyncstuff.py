@@ -310,23 +310,23 @@ def create_new_task(stage, in_task, user=None):
     elif stage._translation_adapter:
         stage._translation_adapter.generate_translation_tasks([in_task])
     else:
-        #Check if the user already has created next stage
-        check_user = None
-        if user:
-            check_user = user
-        elif stage.assign_user_by == TaskStageConstants.STAGE:
-            if stage.assign_user_from_stage is not None:
-                assignee_task = Task.objects \
-                    .filter(stage=stage.assign_user_from_stage) \
-                    .filter(case=in_task.case)
-                check_user = assignee_task[0].assignee
-        tasks_with_same_stage_case_and_user_count = Task.objects.filter(
-            stage=in_task.stage,
-            case=in_task.case,
-            assignee=check_user
-        ).count()
-        if tasks_with_same_stage_case_and_user_count > 0:
-            return None
+        # #Check if the user already has created next stage
+        # check_user = None
+        # if user:
+        #     check_user = user
+        # elif stage.assign_user_by == TaskStageConstants.STAGE:
+        #     if stage.assign_user_from_stage is not None:
+        #         assignee_task = Task.objects \
+        #             .filter(stage=stage.assign_user_from_stage) \
+        #             .filter(case=in_task.case)
+        #         check_user = assignee_task[0].assignee
+        # tasks_with_same_stage_case_and_user_count = Task.objects.filter(
+        #     stage=in_task.stage,
+        #     case=in_task.case,
+        #     assignee=check_user
+        # ).count()
+        # if tasks_with_same_stage_case_and_user_count > 0:
+        #     return None
 
         new_task = process_stage_assign(stage, data, in_task, user)
         new_task = trigger_on_copy_input(stage, new_task, in_task)
