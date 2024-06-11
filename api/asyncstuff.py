@@ -431,6 +431,12 @@ def evaluate_conditional_stage(stage, task, is_limited=False):
             raise CustomApiException(status.HTTP_400_BAD_REQUEST,
                                      f'{ErrorConstants.UNSUPPORTED_TYPE % type_} {ErrorConstants.SEND_TO_MODERATORS}')
 
+    # Check not to create duplicate tasks
+    if stage.prevent_duplicate:
+        next_direct_task = task.get_direct_next()
+        if next_direct_task is not None and not task.stage.chain.is_individual:
+            results.append(False)
+
     return all(results)
 
 
