@@ -394,11 +394,19 @@ def evaluate_conditional_stage(stage, task, is_limited=False):
 
     # Check not to create duplicate tasks
     if stage.prevent_duplicate:
-        out_tasks = task.out_tasks.all()
-        if len(out_tasks) > 1:
-            return False
-        else:
-            return True
+
+        out_stages = stage.out_stages.all()
+        if len(out_stages) > 0:
+            next_task_stage = out_stages[0]
+
+            tasks_with_same_stage_case_and_user_count = Task.objects.filter(
+                stage=next_task_stage,
+                case=task.case,
+                assignee=task.assignee
+            ).count()
+            if tasks_with_same_stage_case_and_user_count > 0:
+                return False
+        return True
 
     if responses is None:
         return False
