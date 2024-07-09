@@ -286,7 +286,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     filterset_fields = {
         "id": ["exact"],
         "campaign": ["exact"],
-        "is_individual": ["exact"]
+        "is_individual": ["exact"],
+        "stages__volumes": ["exact"]
     }
     filter_backends = [
         DjangoFilterBackend,
