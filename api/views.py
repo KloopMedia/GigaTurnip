@@ -463,6 +463,8 @@ class TaskStageViewSet(viewsets.ModelViewSet):
     def user_relevant(self, request):
         # return stages where user can create new task
         q = self.get_queryset()
+        q = q.exclude(chain__is_individual=True)
+
         stages = self.filter_queryset(q)
 
         # filter by highest user ranks
