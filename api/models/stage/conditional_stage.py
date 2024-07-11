@@ -12,4 +12,8 @@ class ConditionalStage(Stage):
         default=False,
         help_text='If True, makes \'in stages\' task incomplete'
     )
+    prevent_duplicate = models.BooleanField(
+        default=False,
+        help_text='If true prevents duplicate task creation'
+    )
 

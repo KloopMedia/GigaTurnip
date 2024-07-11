@@ -310,6 +310,24 @@ def create_new_task(stage, in_task, user=None):
     elif stage._translation_adapter:
         stage._translation_adapter.generate_translation_tasks([in_task])
     else:
+        # #Check if the user already has created next stage
+        # check_user = None
+        # if user:
+        #     check_user = user
+        # elif stage.assign_user_by == TaskStageConstants.STAGE:
+        #     if stage.assign_user_from_stage is not None:
+        #         assignee_task = Task.objects \
+        #             .filter(stage=stage.assign_user_from_stage) \
+        #             .filter(case=in_task.case)
+        #         check_user = assignee_task[0].assignee
+        # tasks_with_same_stage_case_and_user_count = Task.objects.filter(
+        #     stage=in_task.stage,
+        #     case=in_task.case,
+        #     assignee=check_user
+        # ).count()
+        # if tasks_with_same_stage_case_and_user_count > 0:
+        #     return None
+
         new_task = process_stage_assign(stage, data, in_task, user)
         new_task = trigger_on_copy_input(stage, new_task, in_task)
         trigger_on_webhook(stage, new_task)
@@ -373,6 +391,22 @@ def evaluate_conditional_stage(stage, task, is_limited=False):
     rules = rules if rules else []
     responses = task.responses
     results = list()
+
+    # Check not to create duplicate tasks
+    if stage.prevent_duplicate:
+
+        out_stages = stage.out_stages.all()
+        if len(out_stages) > 0:
+            next_task_stage = out_stages[0]
+
+            tasks_with_same_stage_case_and_user_count = Task.objects.filter(
+                stage=next_task_stage,
+                case=task.case,
+                assignee=task.assignee
+            ).count()
+            if tasks_with_same_stage_case_and_user_count > 0:
+                return False
+        return True
 
     if responses is None:
         return False
