@@ -1090,6 +1090,7 @@ class VolumeAdmin(admin.ModelAdmin):
 class StageVolumeAdmin(admin.ModelAdmin):
     list_display = ("stage", 'volume')
 
+    autocomplete_fields = ('stage', 'volume')
     list_filter = (
         AutocompleteFilterFactory("Stage", "stage"),
         AutocompleteFilterFactory("Volume", "volume"),
