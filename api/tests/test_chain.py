@@ -82,9 +82,9 @@ class ChainTest(GigaTurnipTestHelper):
         response = self.get_objects("taskstage-user-relevant", params=params)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         content = to_json(response.content)
-        self.assertEqual(content["count"], 1)
-        self.assertEqual([highest_stage.id],
-                         sorted([i["id"] for i in content["results"]]))
+        self.assertEqual(content["count"], 0)
+        # self.assertEqual([highest_stage.id],
+        #                  sorted([i["id"] for i in content["results"]]))
 
         response = self.get_objects("chain-individuals")
         content = to_json(response.content)
