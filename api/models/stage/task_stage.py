@@ -201,6 +201,22 @@ class TaskStage(Stage, SchemaProvider):
         help_text="Rank that will be given when using fast_track"
     )
 
+    take_task_button_text = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text="Text that will be shown on the take task button"
+    )
+
+    external_renderer_url = models.URLField(
+        null=True,
+        blank=True,
+        max_length=1000,
+        help_text=(
+            "External renderer url"
+        )
+    )
+
     def get_integration(self):
         if hasattr(self, 'integration'):
             return self.integration

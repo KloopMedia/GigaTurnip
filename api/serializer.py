@@ -387,7 +387,7 @@ class TaskStageReadSerializer(serializers.ModelSerializer):
             "assign_user_from_stage", "rich_text", "webhook_address", "rank_limit",
             "webhook_payload_field", "webhook_params", "dynamic_jsons_source", "dynamic_jsons_target",
             "webhook_response_field", "allow_go_back", "allow_release",
-            "available_from", "available_to", "quiz_answers"
+            "available_from", "available_to", "quiz_answers", "take_task_button_text", "external_renderer_url"
             ]
 
     def get_campaign(self, obj):
@@ -429,7 +429,7 @@ class TaskStageSerializer(serializers.ModelSerializer,
                   "available_from", "available_to",
                   "assign_user_from_stage", "rich_text", "webhook_address",
                   "webhook_payload_field", "webhook_params", "stage_type",
-                  "webhook_response_field", "allow_go_back", "allow_release"]
+                  "webhook_response_field", "allow_go_back", "allow_release", "take_task_button_text", "external_renderer_url"]
 
     def validate_chain(self, value):
         """
@@ -448,7 +448,7 @@ class TaskStagePublicSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "json_schema", "ui_schema", "external_metadata",
             "stage_type", "library", "rich_text", "created_at", "updated_at",
-            "available_from", "available_to",
+            "available_from", "available_to", "take_task_button_text", "external_renderer_url"
         ]
         read_only_fields = [
             "id", "name", "description", "json_schema", "ui_schema", "library",
