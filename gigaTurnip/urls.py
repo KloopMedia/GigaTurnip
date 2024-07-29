@@ -15,10 +15,12 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
 from rest_framework.routers import DefaultRouter
 from rest_framework.documentation import include_docs_urls
 from .yasg import urlpatterns as doc_urls
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 import api.views as turnip_app
 import dictionary.views as dictionary_app
@@ -95,10 +97,14 @@ router.register(
     api_v1 + r"levels", dictionary_app.ProficiencyLevelViewSet, basename="level"
 )
 
-urlpatterns = [
-    path("admin/", admin.site.urls),
-    # path('__debug__/', include('debug_toolbar.urls')),
-    path("docs/", include_docs_urls(title="Giga Turnip API Documentation")),
-] + router.urls
+urlpatterns = (
+    static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    + [
+        path("admin/", admin.site.urls),
+        # path('__debug__/', include('debug_toolbar.urls')),
+        path("docs/", include_docs_urls(title="Giga Turnip API Documentation")),
+    ]
+    + router.urls
+)
 
 urlpatterns += doc_urls

@@ -10,6 +10,8 @@ class WordSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    word_count = serializers.IntegerField()
+
     class Meta:
         model = Category
         fields = "__all__"

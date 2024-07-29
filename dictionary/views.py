@@ -1,4 +1,5 @@
 from rest_framework import filters, generics, permissions, viewsets
+from django.db.models import Count
 
 from dictionary.models import Category, ProficiencyLevel, Word
 from dictionary.serializers import (
@@ -15,7 +16,7 @@ class WordViewSet(viewsets.ModelViewSet):
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.annotate(word_count=Count("word"))
     serializer_class = CategorySerializer
 
 
