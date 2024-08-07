@@ -1,4 +1,5 @@
 from django.db import models
+from storages.backends.gcloud import GoogleCloudStorage
 
 
 class ProficiencyLevel(models.Model):
@@ -20,8 +21,8 @@ class Word(models.Model):
     text = models.CharField(max_length=255)
     translation = models.CharField(max_length=255)
     definition = models.TextField(blank=True)
-    audio = models.FileField(upload_to="audios", null=True, blank=True)
-    image = models.FileField(upload_to="images", null=True, blank=True)
+    audio = models.FileField(upload_to="media_journal_bucket/dictionary/audios", null=True, blank=True, storage=GoogleCloudStorage())
+    image = models.FileField(upload_to="media_journal_bucket/dictionary/images", null=True, blank=True, storage=GoogleCloudStorage())
     examples = models.JSONField(null=True, blank=True)
     level = models.ForeignKey(
         ProficiencyLevel, null=True, blank=True, on_delete=models.SET_NULL

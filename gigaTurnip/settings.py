@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "django_q",
     "admin_auto_filters",
     "dictionary.apps.DictionaryConfig",
+    "storages"
 ]
 
 MIDDLEWARE = [

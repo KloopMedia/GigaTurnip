@@ -19,6 +19,8 @@ requests = "*"
 jsonschema = "*"
 psycopg2-binary = "*"
 django-admin-autocomplete-filter = "*"
+django-storages = "*"
+google-cloud-storage = "*"
 
 [dev-packages]
 yapf = "*"
