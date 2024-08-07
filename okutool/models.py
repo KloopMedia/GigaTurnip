@@ -5,7 +5,7 @@ from okutool.constants import QuestionAttachmentType, StageType
 
 class Volume(models.Model):
     title = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(null=True, blank=True)
 
 
 class Stage(models.Model):
@@ -18,8 +18,8 @@ class Stage(models.Model):
             (StageType.TEST, "Test"),
         ],
     )
-    richtext = models.TextField(blank=True)
-    json_form = models.JSONField(blank=True)
+    richtext = models.TextField(null=True, blank=True)
+    json_form = models.JSONField(null=True, blank=True)
     in_stages = models.ManyToManyField(
         "self",
         symmetrical=False,
@@ -55,9 +55,9 @@ class Task(models.Model):
 
 class Question(models.Model):
     stage = models.ForeignKey(Stage, on_delete=models.CASCADE)
-    title = models.TextField(blank=True)
-    form = models.JSONField(blank=True)
-    correct_answer = models.JSONField(blank=True)
+    title = models.TextField(null=True, blank=True)
+    form = models.JSONField(null=True, blank=True)
+    correct_answer = models.JSONField(null=True, blank=True)
 
 
 class QuestionAttachment(models.Model):
