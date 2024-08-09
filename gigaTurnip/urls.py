@@ -15,6 +15,8 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 from rest_framework.documentation import include_docs_urls
@@ -85,10 +87,38 @@ router.register(api_v1 + r"auth", turnip_app.AuthViewSet, basename="auth")
 router.register(api_v1 + r"fcm", turnip_app.FCMTokenViewSet, basename="fcm")
 router.register(api_v1 + r"volumes", turnip_app.VolumeViewSet, basename="volume")
 
+prefix = r"api/okutool/"
+
+router.register(
+    prefix + r"volumes",
+    okutool_app.VolumeViewSet,
+    basename="okutool-volume",
+)
+router.register(
+    prefix + r"stages",
+    okutool_app.StageViewSet,
+    basename="okutool-stage",
+)
+router.register(
+    prefix + r"tasks",
+    okutool_app.TaskViewSet,
+    basename="okutool-task",
+)
+router.register(
+    prefix + r"questions",
+    okutool_app.QuestionViewSet,
+)
+router.register(
+    prefix + r"question-attachments",
+    okutool_app.QuestionAttachmentViewSet,
+)
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     # path('__debug__/', include('debug_toolbar.urls')),
     path("docs/", include_docs_urls(title="Giga Turnip API Documentation")),
 ] + router.urls
+
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 urlpatterns += doc_urls
