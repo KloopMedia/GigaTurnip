@@ -11,26 +11,6 @@ class Volume(models.Model):
         return self.title
 
 
-class StageRelationship(models.Model):
-    from_stage = models.ForeignKey(
-        "Stage",
-        related_name="from_stages",
-        on_delete=models.CASCADE,
-    )
-    to_stage = models.ForeignKey(
-        "Stage",
-        related_name="to_stages",
-        on_delete=models.CASCADE,
-    )
-    group = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = ("from_stage", "to_stage")
-
-    def __str__(self) -> str:
-        return f"{self.from_state} --> {self.to_stage}"
-
-
 class Stage(models.Model):
     volume = models.ForeignKey(Volume, on_delete=models.CASCADE)
     type = models.CharField(
@@ -47,7 +27,6 @@ class Stage(models.Model):
     json_form = models.JSONField(null=True, blank=True)
     in_stages = models.ManyToManyField(
         "self",
-        through="StageRelationship",
         symmetrical=False,
         related_name="out_stages",
         blank=True,

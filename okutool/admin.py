@@ -4,7 +4,6 @@ from okutool.models import (
     Question,
     QuestionAttachment,
     Stage,
-    StageRelationship,
     Task,
     Volume,
 )
@@ -24,14 +23,8 @@ class QuestionAdmin(admin.ModelAdmin):
     inlines = [QuestionAttachmentInline]
 
 
-class InStagesInline(admin.TabularInline):
-    model = StageRelationship
-    extra = 1
-    fk_name = "to_stage"
-
-
 class StageAdmin(admin.ModelAdmin):
-    inlines = [InStagesInline, QuestionInline]
+    inlines = [QuestionInline]
 
 
 admin.site.register(Volume)
