@@ -26,6 +26,7 @@ class StageViewSet(viewsets.ModelViewSet):
     def chained_stages(self, request):
         # Find all stages that don't have any in_stages (root stages)
         root_stages = Stage.objects.filter(in_stages__isnull=True)
+        enable_sampling = request.query_params.get("sample", "false").lower() == "true"
 
         # Function to recursively build the chain
         def build_chain(stage):
@@ -42,7 +43,14 @@ class StageViewSet(viewsets.ModelViewSet):
             chained_stages.extend(build_chain(root_stage))
 
         # Serialize the stages
-        serializer = self.get_serializer(chained_stages, many=True)
+        serializer = self.get_serializer(
+            chained_stages,
+            many=True,
+            context={
+                "enable_sampling": enable_sampling,
+                "request": request,
+            },
+        )
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="get-or-create-task")
@@ -81,6 +89,7 @@ class StageViewSet(viewsets.ModelViewSet):
                     stage__in=previous_stages, assignee=user
                 )
 
+                # Check if there is at least one previous task
                 if not previous_tasks.exists():
                     return Response(
                         {
@@ -143,7 +152,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         if not task.complete:
             task.total_count += 1
             task.last_score = new_score
-            if new_score > 80:
+            if new_score > task.stage.passing_score:
                 task.successful_count += 1
                 task.complete = True
             task.save()

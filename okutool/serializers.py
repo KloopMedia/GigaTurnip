@@ -2,6 +2,7 @@ from okutool.constants import StageType
 from rest_framework import serializers
 from .models import Volume, Stage, Task, Question, QuestionAttachment
 from django.db.models import Q, Count
+from random import sample
 
 
 class VolumeSerializer(serializers.ModelSerializer):
@@ -88,14 +89,29 @@ class QuestionAttachmentSerializer(serializers.ModelSerializer):
 
 class StageSerializer(serializers.ModelSerializer):
     task = serializers.SerializerMethodField()
-    questions = QuestionSerializer(many=True, read_only=True)
+    questions = serializers.SerializerMethodField()
 
     class Meta:
         model = Stage
         fields = "__all__"
 
+    def get_questions(self, obj):
+        question_limit = obj.question_limit
+        enable_sampling = self.context.get("enable_sampling", False)
+
+        if enable_sampling and question_limit > 0:
+            questions = list(obj.questions.all())
+            if question_limit < len(questions):
+                questions = sample(questions, question_limit)
+        else:
+            # Order questions by index when sampling is off
+            questions = obj.questions.order_by("index")
+
+        return QuestionSerializer(questions, many=True).data
+
     def get_task(self, obj):
-        user = self.context["request"].user
+        request = self.context.get("request")
+        user = request.user
         task = Task.objects.filter(stage=obj, assignee=user).first()
         if task:
             return TaskSerializer(task).data

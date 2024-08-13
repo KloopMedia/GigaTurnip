@@ -160,7 +160,11 @@ class TaskViewSetTests(APITestCase):
             title="Volume 1", description="Description of Volume 1"
         )
         self.stage = Stage.objects.create(
-            volume=self.volume, type="TH", richtext="", json_form={}
+            volume=self.volume,
+            type="TH",
+            richtext="",
+            json_form={},
+            passing_score=80,
         )
 
         self.user1 = CustomUser.objects.create_user(

@@ -25,11 +25,16 @@ class Stage(models.Model):
     description = models.TextField(null=True, blank=True)
     richtext = models.TextField(null=True, blank=True)
     json_form = models.JSONField(null=True, blank=True)
+    passing_score = models.IntegerField(default=0)
     in_stages = models.ManyToManyField(
         "self",
         symmetrical=False,
         related_name="out_stages",
         blank=True,
+    )
+    question_limit = models.IntegerField(
+        default=0,
+        help_text="Limit the number of questions shown",
     )
 
     def __str__(self) -> str:
