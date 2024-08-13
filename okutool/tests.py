@@ -224,3 +224,104 @@ class TaskViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["detail"], "new_score is required.")
         self.client.logout()
+
+
+class StageChainingTestCase(APITestCase):
+    def setUp(self):
+        # Create a user to authenticate the request
+        self.user = CustomUser.objects.create_user(
+            username="testuser", password="testpass"
+        )
+
+        self.volume = Volume.objects.create(title="Volume 1", description="Test Volume")
+
+        # Create stages
+        self.stage1 = Stage.objects.create(
+            volume=self.volume, type="TH", richtext="Stage 1"
+        )
+        self.stage2 = Stage.objects.create(
+            volume=self.volume, type="TH", richtext="Stage 2"
+        )
+        self.stage3 = Stage.objects.create(
+            volume=self.volume, type="TH", richtext="Stage 3"
+        )
+        self.stage4 = Stage.objects.create(
+            volume=self.volume, type="TH", richtext="Stage 4"
+        )
+
+        # Set up the stage relationships
+        self.stage2.in_stages.add(self.stage1)  # stage2 follows stage1
+        self.stage3.in_stages.add(self.stage2)  # stage3 follows stage2
+        self.stage4.in_stages.add(self.stage3)  # stage4 follows stage3
+
+        self.task1 = Task.objects.create(
+            assignee=self.user, stage=self.stage1, complete=True
+        )
+
+    def test_chained_stages_order(self):
+        # Authenticate the request
+        self.client.login(username="testuser", password="testpass")
+
+        # Call the chained-stages endpoint
+        url = reverse("okutool-stage-chained-stages")
+        response = self.client.get(url)
+
+        # Ensure the response is 200 OK
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Ensure the stages are returned in the correct order
+        ordered_stage_ids = [
+            self.stage1.id,
+            self.stage2.id,
+            self.stage3.id,
+            self.stage4.id,
+        ]
+
+        returned_stage_ids = [stage["id"] for stage in response.data]
+
+        self.assertEqual(returned_stage_ids, ordered_stage_ids)
+
+    def test_create_task_for_next_stage(self):
+        self.client.login(username="testuser", password="testpass")
+
+        # URL to create or get the task for a specific stage
+        url = reverse("okutool-stage-get-or-create-task", args=[self.stage2.id])
+
+        # Make a GET request to create or retrieve the task for stage2
+        response = self.client.get(url)
+
+        # Ensure the response is 201 Created or 200 OK
+        self.assertIn(
+            response.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK]
+        )
+
+        # Ensure the task is created and assigned to the user
+        task = Task.objects.get(stage=self.stage2, assignee=self.user)
+        self.assertIsNotNone(task)
+        self.assertEqual(task.stage, self.stage2)
+        self.assertEqual(task.assignee, self.user)
+        self.assertEqual(task.complete, False)
+
+    def test_prevent_task_creation_if_previous_task_not_completed(self):
+        # Create a new user to assign tasks
+        self.new_user = CustomUser.objects.create_user(
+            username="newuser", password="newpass"
+        )
+
+        # Authenticate the new user
+        self.client.login(username="newuser", password="newpass")
+
+        # URL to create or get the task for stage2 (should be blocked because stage1 is not complete)
+        url = reverse("okutool-stage-get-or-create-task", args=[self.stage2.id])
+
+        # Make a GET request to create or retrieve the task for stage2
+        response = self.client.get(url)
+
+        # Ensure the response is 400 Bad Request because previous task is not completed
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Ensure no task was created for the new user on stage2
+        task_exists = Task.objects.filter(
+            stage=self.stage2, assignee=self.new_user
+        ).exists()
+        self.assertFalse(task_exists)
