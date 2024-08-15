@@ -1,40 +1,7 @@
 from okutool.constants import StageType
 from rest_framework import serializers
-from .models import Volume, Stage, Task, Question, QuestionAttachment
-from django.db.models import Q, Count
+from .models import Test, Question, QuestionAttachment
 from random import sample
-
-
-class VolumeSerializer(serializers.ModelSerializer):
-    progress = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Volume
-        fields = "__all__"
-
-    def get_progress(self, obj):
-        # Filter stages based on volume and type, and annotate with complete task count
-        stages_with_progress = Stage.objects.filter(
-            volume=obj, type__in=[StageType.THEORY, StageType.TEST]
-        ).annotate(complete_task_count=Count("tasks", filter=Q(tasks__complete=True)))
-
-        # Calculate total and completed tasks
-        total_tasks = stages_with_progress.count()
-        completed_tasks = stages_with_progress.filter(complete_task_count__gt=0).count()
-
-        # Calculate progress as a percentage
-        if total_tasks > 0:
-            progress = (completed_tasks / total_tasks) * 100
-        else:
-            progress = 0
-
-        return progress
-
-
-class TaskSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Task
-        fields = "__all__"
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -87,12 +54,11 @@ class QuestionAttachmentSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class StageSerializer(serializers.ModelSerializer):
-    task = serializers.SerializerMethodField()
+class TestSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()
 
     class Meta:
-        model = Stage
+        model = Test
         fields = "__all__"
 
     def get_questions(self, obj):
@@ -108,11 +74,3 @@ class StageSerializer(serializers.ModelSerializer):
             questions = obj.questions.order_by("index")
 
         return QuestionSerializer(questions, many=True).data
-
-    def get_task(self, obj):
-        request = self.context.get("request")
-        user = request.user
-        task = Task.objects.filter(stage=obj, assignee=user).first()
-        if task:
-            return TaskSerializer(task).data
-        return None

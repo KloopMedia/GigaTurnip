@@ -86,31 +86,12 @@ router.register(api_v1 + r"countries", turnip_app.CountryViewSet, basename="coun
 router.register(api_v1 + r"auth", turnip_app.AuthViewSet, basename="auth")
 router.register(api_v1 + r"fcm", turnip_app.FCMTokenViewSet, basename="fcm")
 router.register(api_v1 + r"volumes", turnip_app.VolumeViewSet, basename="volume")
-
-prefix = r"api/okutool/"
-
+router.register(api_v1 + r"tests", okutool_app.TestViewSet, basename="test")
+router.register(api_v1 + r"questions", okutool_app.QuestionViewSet, basename="question")
 router.register(
-    prefix + r"volumes",
-    okutool_app.VolumeViewSet,
-    basename="okutool-volume",
-)
-router.register(
-    prefix + r"stages",
-    okutool_app.StageViewSet,
-    basename="okutool-stage",
-)
-router.register(
-    prefix + r"tasks",
-    okutool_app.TaskViewSet,
-    basename="okutool-task",
-)
-router.register(
-    prefix + r"questions",
-    okutool_app.QuestionViewSet,
-)
-router.register(
-    prefix + r"question-attachments",
+    api_v1 + r"question-attachments",
     okutool_app.QuestionAttachmentViewSet,
+    basename="question_attachment",
 )
 
 urlpatterns = [
