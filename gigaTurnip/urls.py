@@ -86,6 +86,7 @@ router.register(api_v1 + r"countries", turnip_app.CountryViewSet, basename="coun
 router.register(api_v1 + r"auth", turnip_app.AuthViewSet, basename="auth")
 router.register(api_v1 + r"fcm", turnip_app.FCMTokenViewSet, basename="fcm")
 router.register(api_v1 + r"volumes", turnip_app.VolumeViewSet, basename="volume")
+router.register(api_v1 + r"lessons", okutool_app.StageViewSet, basename="lessons")
 router.register(api_v1 + r"tests", okutool_app.TestViewSet, basename="test")
 router.register(api_v1 + r"questions", okutool_app.QuestionViewSet, basename="question")
 router.register(

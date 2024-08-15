@@ -4,16 +4,24 @@ from okutool.constants import QuestionAttachmentType
 
 
 class Test(models.Model):
-    stage = models.ForeignKey(
+    stage = models.OneToOneField(
         "api.TaskStage",
         on_delete=models.CASCADE,
-        related_name="tests",
+        related_name="test",
     )
     question_limit = models.IntegerField(
         default=0,
         help_text="Limit the number of questions shown",
     )
     passing_score = models.IntegerField(default=0)
+    order_by = models.CharField(
+        max_length=3,
+        default="RND",
+        choices=[
+            ("RND", "Random"),
+            ("IND", "Index"),
+        ],
+    )
 
     def __str__(self) -> str:
         return f"#{self.id} - {self.stage.name}"
