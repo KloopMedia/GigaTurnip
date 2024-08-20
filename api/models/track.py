@@ -1,6 +1,7 @@
 from django.db import models
 
-from api.models import BaseModel, CampaignInterface, TaskStage
+from api.models import BaseModel, CampaignInterface
+from api.models.stage import TaskStage
 
 
 class Track(BaseModel, CampaignInterface):
