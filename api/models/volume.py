@@ -91,3 +91,6 @@ class Volume(BaseModel, models.Model):
             "Text to display for 'Completed Tasks' section related to the volume"
         )
     )
+
+    def __str__(self):
+        return str("Volume: " + self.name)

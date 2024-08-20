@@ -18,6 +18,14 @@ class Track(BaseModel, CampaignInterface):
         null=True,
         help_text="Rank id"
     )
+    registration_stage = models.ForeignKey(
+        "TaskStage",
+        on_delete=models.CASCADE,
+        related_name="tasks",
+        blank=True,
+        null=True,
+        help_text="Registration stage"
+    )
 
     def get_campaign(self):
         return self.campaign
