@@ -22,7 +22,7 @@ class Track(BaseModel, CampaignInterface):
     registration_stage = models.ForeignKey(
         TaskStage,
         on_delete=models.CASCADE,
-        related_name="tasks",
+        related_name="tracks",
         blank=True,
         null=True,
         help_text="Registration stage"
