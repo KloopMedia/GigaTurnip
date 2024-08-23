@@ -6,6 +6,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from jsonschema import validate
+from okutool.models import Test
 from okutool.serializers import TestSerializer
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
@@ -137,6 +138,10 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     reopened = serializers.ListField(child=serializers.IntegerField())
     total_count = serializers.IntegerField()
     complete_count = serializers.IntegerField()
+    is_test = serializers.SerializerMethodField()
+
+    def get_is_test(self, obj):
+        return Test.objects.filter(stage=obj["id"]).exists()
 
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
