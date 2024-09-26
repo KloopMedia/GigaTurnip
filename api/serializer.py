@@ -970,7 +970,18 @@ class FCMTokenSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
+    is_allowed = serializers.SerializerMethodField()
 
     class Meta:
         model = Volume
         fields = '__all__'
+
+    def get_is_allowed(self, obj):
+        user = self.context['request'].user
+        if user.is_anonymous:
+            return False
+
+        user_has_rank_record = user.user_ranks.filter(
+            rank_id=obj.track_fk.default_rank
+        ).exists()
+        return user_has_rank_record
