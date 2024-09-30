@@ -978,7 +978,7 @@ class VolumeSerializer(serializers.ModelSerializer):
         model = Volume
         fields = '__all__'
 
-    def get_is_allowed(self, obj):
+    def get_user_has_default_rank(self, obj):
         user = self.context['request'].user
         if user.is_anonymous:
             return False
