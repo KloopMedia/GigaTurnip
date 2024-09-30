@@ -970,7 +970,9 @@ class FCMTokenSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
-    is_allowed = serializers.SerializerMethodField()
+    user_has_default_rank = serializers.SerializerMethodField()
+    user_has_opening_ranks = serializers.SerializerMethodField()
+    user_has_closing_ranks = serializers.SerializerMethodField()
 
     class Meta:
         model = Volume
@@ -985,3 +987,33 @@ class VolumeSerializer(serializers.ModelSerializer):
             rank_id=obj.track_fk.default_rank
         ).exists()
         return user_has_rank_record
+
+    def get_user_has_opening_ranks(self, obj):
+        # Get the current user from the request context
+        user = self.context['request'].user
+
+        # If the user is anonymous, they do not have any ranks
+        if user.is_anonymous:
+            return False
+
+        # Get the ranks that the user possesses
+        user_ranks = user.user_ranks.values_list('rank_id', flat=True)
+
+        # Check if the user has all the opening ranks required for this volume
+        opening_ranks_needed = obj.opening_ranks.values_list('id', flat=True)
+        return set(opening_ranks_needed).issubset(set(user_ranks))
+
+    def get_user_has_closing_ranks(self, obj):
+        # Get the current user from the request context
+        user = self.context['request'].user
+
+        # If the user is anonymous, they do not have any ranks
+        if user.is_anonymous:
+            return False
+
+        # Get the ranks that the user possesses
+        user_ranks = user.user_ranks.values_list('rank_id', flat=True)
+
+        # Check if the user has all the closing ranks required for this volume
+        closing_ranks_needed = obj.closing_ranks.values_list('id', flat=True)
+        return set(closing_ranks_needed).issubset(set(user_ranks))
