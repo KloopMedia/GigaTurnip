@@ -134,8 +134,8 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     completed = serializers.ListField(child=serializers.IntegerField())
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
-    total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField()
+    # total_count = serializers.IntegerField()
+    # complete_count = serializers.IntegerField()
 
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
@@ -210,7 +210,7 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
     def filter_stages(self, stages):
         result = []
         for st in stages:
-            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
+            if st["skip_empty_individual_tasks"]:
                 continue
             if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
                 continue
