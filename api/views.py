@@ -529,6 +529,47 @@ class TaskStageViewSet(viewsets.ModelViewSet):
         serializer = TaskDefaultSerializer(task)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'])
+    def get_or_create_task(self, request, pk=None):
+        """
+        Get the latest task for the current stage assigned to the request user based on `updated_at`.
+        If no such task exists, create a new one.
+        """
+        stage = self.get_object()
+
+        existing_task = Task.objects.filter(
+            assignee=request.user,
+            stage=stage
+        ).order_by('-updated_at').first()
+
+        if existing_task:
+            serializer = TaskDefaultSerializer(existing_task)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # ToDo объединить с create_task
+        case = Case.objects.create()
+        stage = self.get_object()
+        responses = dict()
+        if request.method == 'POST':
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            responses = serializer.data["responses"]
+
+            # Check fast_track
+            if request.data.get('fast_track', False):
+                if not RankRecord.objects.filter(rank=stage.fast_track_rank).filter(user=request.user).exists():
+                    RankRecord.objects.create(rank=stage.fast_track_rank, user=request.user)
+
+        task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
+        for copy_field in stage.copy_fields.all():
+            task.responses.update(copy_field.copy_response(task))
+        webhook = stage.get_webhook()
+        if webhook and webhook.is_triggered:
+            webhook.trigger(task)
+        task.save()
+        serializer = TaskDefaultSerializer(task)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['get'])
     def schema_fields(self, request, pk=None):
         stage = self.get_object()
