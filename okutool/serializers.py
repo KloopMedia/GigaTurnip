@@ -70,11 +70,11 @@ class TestSerializer(serializers.ModelSerializer):
 
 
 class StageSerializer(serializers.ModelSerializer):
-    test = TestSerializer()
+    test = TestSerializer(read_only=True)
 
     class Meta:
         model = TaskStage
-        fields = ["name", "description", "rich_text", "test"]
+        fields = ["id", "name", "description", "rich_text", "test", "in_stages", "out_stages"]
 
     @staticmethod
     def setup_eager_loading(queryset):

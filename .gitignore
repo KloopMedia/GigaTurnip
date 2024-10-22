@@ -29,7 +29,12 @@ __pycache__
 /requirements.txt
 /static/
 */*/__pycache__
-
+/admin/
+/polymorphic/
+/drf-yasg/
+/rest_framework/
+/django-admin-autocomplete-filter/
+/staticfiles/
 */*/*/__pycache__/
 
 */*/__pycache__/

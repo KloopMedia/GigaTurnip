@@ -31,7 +31,8 @@ class Question(models.Model):
     test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name="questions")
     index = models.PositiveIntegerField(default=0)
     title = models.TextField(null=True, blank=True)
-    form = models.JSONField(null=True, blank=True)
+    json_schema = models.JSONField(null=True, blank=True)
+    ui_schema = models.JSONField(null=True, blank=True)
     correct_answer = models.JSONField(null=True, blank=True)
 
     def __str__(self) -> str:
