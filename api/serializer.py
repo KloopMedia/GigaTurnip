@@ -89,7 +89,8 @@ class CampaignSerializer(serializers.ModelSerializer):
         return user_has_rank_record
 
     def get_registration_stage(self, obj):
-        return obj.default_track.registration_stage
+        registration_stage = obj.default_track.registration_stage
+        return registration_stage.id if registration_stage else None
 
 
 class UserDeleteSerializer(serializers.Serializer):
