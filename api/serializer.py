@@ -36,6 +36,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     unread_notifications_count = serializers.SerializerMethodField()
     is_manager = serializers.SerializerMethodField()
     is_joined = serializers.SerializerMethodField()
+    registration_stage = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
@@ -86,6 +87,10 @@ class CampaignSerializer(serializers.ModelSerializer):
             rank_id=obj.default_track.default_rank
         ).exists()
         return user_has_rank_record
+
+    def get_registration_stage(self, obj):
+        registration_stage = obj.default_track.registration_stage
+        return registration_stage.id if registration_stage else None
 
 
 class UserDeleteSerializer(serializers.Serializer):

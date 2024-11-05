@@ -1,6 +1,7 @@
 from django.db import models
 
 from api.models import BaseModel, CampaignInterface
+from api.models.stage import TaskStage
 
 
 class Track(BaseModel, CampaignInterface):
@@ -17,6 +18,14 @@ class Track(BaseModel, CampaignInterface):
         blank=True,
         null=True,
         help_text="Rank id"
+    )
+    registration_stage = models.ForeignKey(
+        TaskStage,
+        on_delete=models.CASCADE,
+        related_name="tracks",
+        blank=True,
+        null=True,
+        help_text="Registration stage"
     )
 
     def get_campaign(self):
