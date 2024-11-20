@@ -21,7 +21,7 @@ from api.models import Campaign, Chain, TaskStage, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
     TaskAward, DynamicJson, TestWebhook, Category, Language, Country, \
-    TranslateKey, CustomUser, Volume
+    TranslateKey, CustomUser, Volume, Ability, AbilityAward
 from api.permissions import ManagersOnlyAccessPolicy
 
 
@@ -1022,3 +1022,15 @@ class VolumeSerializer(serializers.ModelSerializer):
         # Check if the user has all the closing ranks required for this volume
         closing_ranks_needed = obj.closing_ranks.values_list('id', flat=True)
         return set(closing_ranks_needed).issubset(set(user_ranks))
+
+
+class AbilitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ability
+        fields = '__all__'
+
+
+class AbilityAwardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AbilityAward
+        fields = '__all__'

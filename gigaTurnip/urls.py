@@ -102,6 +102,12 @@ router.register(api_v1 + r'fcm',
 router.register(api_v1 + r'volumes',
                 turnip_app.VolumeViewSet,
                 basename='volume')
+router.register(api_v1 + r'abilities',
+                turnip_app.AbilityViewSet,
+                basename='ability')
+router.register(api_v1 + r'abilityawards',
+                turnip_app.AbilityAwardViewSet,
+                basename='abilityaward')
 
 urlpatterns = [
                   path('admin/', admin.site.urls),

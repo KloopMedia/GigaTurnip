@@ -28,7 +28,7 @@ from api.models import (
     RankLimit, Track, RankRecord, CampaignManagement,
     Notification, ResponseFlattener, TaskAward,
     DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete, Category,
-    Country, Language, Volume
+    Country, Language, Volume, Ability, AbilityAward
 )
 from api.permissions import (
     CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
@@ -37,7 +37,7 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy, VolumeAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy, VolumeAccessPolicy, AbilityAccessPolicy, AbilityAwardAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -56,7 +56,7 @@ from api.serializer import (
     LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer,
     TaskUserSelectableSerializer, TaskCreateSerializer,
-    TaskStageCreateTaskSerializer, FCMTokenSerializer, VolumeSerializer
+    TaskStageCreateTaskSerializer, FCMTokenSerializer, VolumeSerializer, AbilitySerializer, AbilityAwardSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -1881,4 +1881,55 @@ class VolumeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return VolumeAccessPolicy.scope_queryset(
             self.request, Volume.objects.all()
+        )
+
+
+class AbilityViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing Abilities.
+    create:
+    Create a new Ability instance.
+    delete:
+    Delete Ability.
+    read:
+    Get Ability data.
+    update:
+    Update Ability data.
+    partial_update:
+    Partial update Ability data.
+    """
+
+    serializer_class = AbilitySerializer
+
+    permission_classes = (AbilityAccessPolicy,)
+
+    def get_queryset(self):
+        return AbilityAccessPolicy.scope_queryset(
+            self.request, Ability.objects.all()
+        )
+
+class AbilityAwardViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing AbilityAward.
+    create:
+    Create a new AbilityAward instance.
+    delete:
+    Delete AbilityAward.
+    read:
+    Get AbilityAward data.
+    update:
+    Update AbilityAward data.
+    partial_update:
+    Partial update AbilityAward data.
+    """
+
+    serializer_class = AbilityAwardSerializer
+
+    permission_classes = (AbilityAwardAccessPolicy,)
+
+    def get_queryset(self):
+        return AbilityAwardAccessPolicy.scope_queryset(
+            self.request, AbilityAward.objects.all()
         )

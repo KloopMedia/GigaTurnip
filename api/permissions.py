@@ -750,3 +750,31 @@ class VolumeAccessPolicy(AccessPolicy):
         if request.user.is_authenticated:
             return queryset.filter(track_fk__default_rank__in=request.user.ranks.all())
         return queryset.none()
+
+
+class AbilityAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": ["*"],
+            "effect": "allow"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs
+
+
+class AbilityAwardAccessPolicy(AccessPolicy):
+    statements = [
+        {
+            "action": ["list"],
+            "principal": ["*"],
+            "effect": "allow"
+        }
+    ]
+
+    @classmethod
+    def scope_queryset(cls, request, qs):
+        return qs
