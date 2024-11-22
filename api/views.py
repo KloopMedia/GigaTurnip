@@ -1879,6 +1879,5 @@ class VolumeViewSet(viewsets.ModelViewSet):
     permission_classes = (VolumeAccessPolicy,)
 
     def get_queryset(self):
-        return VolumeAccessPolicy.scope_queryset(
-            self.request, Volume.objects.all()
-        )
+        queryset = Volume.objects.filter(closed=False)
+        return VolumeAccessPolicy.scope_queryset(self.request, queryset)
