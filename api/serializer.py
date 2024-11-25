@@ -483,7 +483,6 @@ class TaskStageCreateTaskSerializer(serializers.Serializer):
 
 class TaskListSerializer(serializers.ModelSerializer):
     stage = serializers.SerializerMethodField()
-    test = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -495,15 +494,11 @@ class TaskListSerializer(serializers.ModelSerializer):
             'responses',
             'stage',
             'created_at',
-            'updated_at',
-            'test'
+            'updated_at'
         ]
 
     def get_stage(self, obj):
         return obj['stage_data']
-    
-    def get_test(self, obj):
-        return obj['stage_data']['test']
 
 
 class TaskUserSelectableSerializer(serializers.ModelSerializer):
@@ -584,7 +579,10 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'complete']
         
     def get_test(self, obj):
-        return TestSerializer(obj.stage.test).data
+        try:
+            return TestSerializer(obj.stage.test).data
+        except:
+            return None
 
     def to_representation(self, instance):
         """Replace stage schema with schema from task stage if so configured."""
