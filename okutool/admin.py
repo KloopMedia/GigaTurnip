@@ -25,5 +25,5 @@ class StageAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
 
 
-admin.site.register(Test)
+admin.site.register(Test, StageAdmin)
 admin.site.register(Question, QuestionAdmin)

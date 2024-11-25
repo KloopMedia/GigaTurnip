@@ -137,12 +137,7 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
     total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField()
-    test = serializers.SerializerMethodField()
-
-    def get_test(self, obj):
-        data = Test.objects.filter(stage=obj["id"]).first()
-        return TestSerializer(data).data
+    complete_count = serializers.IntegerField() 
 
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
