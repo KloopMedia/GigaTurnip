@@ -97,6 +97,34 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Text or url to the SVG"
     )
 
+    start_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Date when the course will start"
+    )
+
+    course_completetion_rank = models.ForeignKey(
+        "Rank",
+        blank=True, 
+        null=True,
+        help_text="Check if user has the rank, to determine course completion",
+        on_delete=models.SET_NULL,
+    )
+
+    def is_course_completed(self, request):
+        """
+        Check if the user has completed the course by verifying the existence
+        of a rank record for the user with the specified rank.
+        """
+        user = request.user
+        if user:
+            RankRecord = apps.get_model("api", "RankRecord")
+            return RankRecord.objects.filter(
+                user=user,
+                rank=self.course_completetion_rank
+            ).exists()
+        return False
+
     def join(self, request):
         if request.user is not None:
             rank_record, created = apps.get_model(
