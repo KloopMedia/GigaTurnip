@@ -22,16 +22,4 @@ __pycache__/
 .env
 __pycache__
 *.egg-info
-.idea/
-/.gcloudignore
-/app.yaml
-/main.py
-/requirements.txt
-/static/
-*/*/__pycache__
 
-*/*/*/__pycache__/
-
-*/*/__pycache__/
-
-*/__pycache__/

@@ -37,3 +37,6 @@ from .modifiers.count_tasks_modifier import CountTasksModifier
 
 from .volume import Volume
 from .stage.stage_volume import StageVolume
+from .ability.ability import Ability
+from .ability.ability_award import AbilityAward
+from .stage.stage_ability import StageAbilityAward

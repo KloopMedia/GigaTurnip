@@ -45,6 +45,15 @@ class Stage(PolymorphicModel, BaseModel, CampaignInterface):
         help_text="List of available volumes"
     )
 
+    ability_awards = models.ManyToManyField(
+        'AbilityAward',
+        through='StageAbilityAward',
+        related_name='stage_ability_awards',
+        symmetrical=False,
+        blank=True,
+        help_text="List of ability awards"
+    )
+
     def get_campaign(self):
         return self.chain.campaign
 

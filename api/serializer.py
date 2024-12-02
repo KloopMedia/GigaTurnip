@@ -6,6 +6,8 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from jsonschema import validate
+from okutool.models import Test
+from okutool.serializers import TestSerializer
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
@@ -21,7 +23,7 @@ from api.models import Campaign, Chain, TaskStage, \
     Task, Rank, RankLimit, Track, RankRecord, CampaignManagement, Notification, \
     NotificationStatus, ResponseFlattener, \
     TaskAward, DynamicJson, TestWebhook, Category, Language, Country, \
-    TranslateKey, CustomUser, Volume
+    TranslateKey, CustomUser, Volume, Ability, AbilityAward
 from api.permissions import ManagersOnlyAccessPolicy
 
 
@@ -37,6 +39,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     is_manager = serializers.SerializerMethodField()
     is_joined = serializers.SerializerMethodField()
     is_completed = serializers.SerializerMethodField()
+    registration_stage = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
@@ -87,10 +90,14 @@ class CampaignSerializer(serializers.ModelSerializer):
             rank_id=obj.default_track.default_rank
         ).exists()
         return user_has_rank_record
-    
+
     def get_is_completed(self, obj):
         request = self.context['request']
         return obj.is_course_completed(request)
+
+    def get_registration_stage(self, obj):
+        registration_stage = obj.default_track.registration_stage
+        return registration_stage.id if registration_stage else None
 
 
 
@@ -140,8 +147,8 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     completed = serializers.ListField(child=serializers.IntegerField())
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
-    total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField()
+    # total_count = serializers.IntegerField()
+    # complete_count = serializers.IntegerField()
 
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
@@ -216,7 +223,7 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
     def filter_stages(self, stages):
         result = []
         for st in stages:
-            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
+            if st["skip_empty_individual_tasks"]:
                 continue
             if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
                 continue
@@ -498,11 +505,14 @@ class TaskListSerializer(serializers.ModelSerializer):
             'responses',
             'stage',
             'created_at',
-            'updated_at',
+            'updated_at'
         ]
 
     def get_stage(self, obj):
         return obj['stage_data']
+
+    def get_test(self, obj):
+        return obj['stage_data']['test']
 
 
 class TaskUserSelectableSerializer(serializers.ModelSerializer):
@@ -568,6 +578,7 @@ class TaskEditSerializer(serializers.ModelSerializer):
 
 class TaskDefaultSerializer(serializers.ModelSerializer):
     stage = TaskStageReadSerializer(read_only=True)
+    test = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -580,6 +591,12 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'reopened',
                             'force_complete',
                             'complete']
+
+    def get_test(self, obj):
+        try:
+            return TestSerializer(obj.stage.test).data
+        except:
+            return None
 
     def to_representation(self, instance):
         """Replace stage schema with schema from task stage if so configured."""
@@ -976,7 +993,62 @@ class FCMTokenSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
+    user_has_default_rank = serializers.SerializerMethodField()
+    user_has_opening_ranks = serializers.SerializerMethodField()
+    user_has_closing_ranks = serializers.SerializerMethodField()
 
     class Meta:
         model = Volume
+        fields = '__all__'
+
+    def get_user_has_default_rank(self, obj):
+        user = self.context['request'].user
+        if user.is_anonymous:
+            return False
+
+        user_has_rank_record = user.user_ranks.filter(
+            rank_id=obj.track_fk.default_rank
+        ).exists()
+        return user_has_rank_record
+
+    def get_user_has_opening_ranks(self, obj):
+        # Get the current user from the request context
+        user = self.context['request'].user
+
+        # If the user is anonymous, they do not have any ranks
+        if user.is_anonymous:
+            return False
+
+        # Get the ranks that the user possesses
+        user_ranks = user.user_ranks.values_list('rank_id', flat=True)
+
+        # Check if the user has all the opening ranks required for this volume
+        opening_ranks_needed = obj.opening_ranks.values_list('id', flat=True)
+        return set(opening_ranks_needed).issubset(set(user_ranks))
+
+    def get_user_has_closing_ranks(self, obj):
+        # Get the current user from the request context
+        user = self.context['request'].user
+
+        # If the user is anonymous, they do not have any ranks
+        if user.is_anonymous:
+            return False
+
+        # Get the ranks that the user possesses
+        user_ranks = user.user_ranks.values_list('rank_id', flat=True)
+
+        # Check if the user has all the closing ranks required for this volume
+        closing_ranks_needed = obj.closing_ranks.values_list('id', flat=True)
+        return set(closing_ranks_needed).issubset(set(user_ranks))
+
+
+class AbilitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ability
+        fields = '__all__'
+
+
+class AbilityAwardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AbilityAward
         fields = '__all__'

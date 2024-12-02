@@ -16,7 +16,8 @@ from .models import (
     Webhook, CopyField, StagePublisher, Quiz, ResponseFlattener, TaskAward,
     DynamicJson, PreviousManual, AutoNotification, ConditionalLimit,
     DatetimeSort, ErrorItem, TestWebhook, CampaignLinker, ApproveLink,
-    Language, Category, Country, TranslationAdapter, TranslateKey, Translation, CountTasksModifier, Volume, StageVolume
+    Language, Category, Country, TranslationAdapter, TranslateKey, Translation, CountTasksModifier, Volume, StageVolume,
+    Ability, AbilityAward, StageAbilityAward
 )
 from django.contrib import messages
 from django.utils.translation import ngettext
@@ -1096,6 +1097,16 @@ class StageVolumeAdmin(admin.ModelAdmin):
         #AutocompleteFilterFactory("Volume", "volume"),
     )
 
+class AbilityAdmin(admin.ModelAdmin):
+    list_display = ("id",)
+
+class AbilityAwardAdmin(admin.ModelAdmin):
+    list_display = ("id", 'ability', 'award_type', 'amount')
+
+class StageAbilityAwardAdmin(admin.ModelAdmin):
+    list_display = ("id", 'stage', 'ability_award')
+
+
 
 admin.site.register(Token, TokenAdmin)
 admin.site.register(Country, CountryAdmin)
@@ -1140,3 +1151,6 @@ admin.site.register(TestWebhook, TestWebhookAdmin)
 admin.site.register(CountTasksModifier, CountTasksModifierAdmin)
 admin.site.register(Volume, VolumeAdmin)
 admin.site.register(StageVolume, StageVolumeAdmin)
+admin.site.register(Ability, AbilityAdmin)
+admin.site.register(AbilityAward, AbilityAwardAdmin)
+admin.site.register(StageAbilityAward, StageAbilityAwardAdmin)

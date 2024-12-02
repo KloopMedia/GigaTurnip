@@ -14,12 +14,15 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 from rest_framework.documentation import include_docs_urls
 from .yasg import urlpatterns as doc_urls
 
 import api.views as turnip_app
+import okutool.views as okutool_app
 
 api_v1 = r'api/v1/'
 
@@ -102,6 +105,20 @@ router.register(api_v1 + r'fcm',
 router.register(api_v1 + r'volumes',
                 turnip_app.VolumeViewSet,
                 basename='volume')
+router.register(api_v1 + r'abilities',
+                turnip_app.AbilityViewSet,
+                basename='ability')
+router.register(api_v1 + r'abilityawards',
+                turnip_app.AbilityAwardViewSet,
+                basename='abilityaward')
+router.register(api_v1 + r"lessons", okutool_app.StageViewSet, basename="lessons")
+router.register(api_v1 + r"tests", okutool_app.TestViewSet, basename="test")
+router.register(api_v1 + r"questions", okutool_app.QuestionViewSet, basename="question")
+router.register(
+    api_v1 + r"question-attachments",
+    okutool_app.QuestionAttachmentViewSet,
+    basename="question_attachment",
+)
 
 urlpatterns = [
                   path('admin/', admin.site.urls),

@@ -28,7 +28,7 @@ from api.models import (
     RankLimit, Track, RankRecord, CampaignManagement,
     Notification, ResponseFlattener, TaskAward,
     DynamicJson, CustomUser, TestWebhook, Webhook, UserDelete, Category,
-    Country, Language, Volume
+    Country, Language, Volume, Ability, AbilityAward
 )
 from api.permissions import (
     CampaignAccessPolicy, ChainAccessPolicy, TaskStageAccessPolicy,
@@ -37,7 +37,7 @@ from api.permissions import (
     CampaignManagementAccessPolicy, NotificationAccessPolicy,
     ResponseFlattenerAccessPolicy, TaskAwardAccessPolicy,
     DynamicJsonAccessPolicy, UserAccessPolicy, UserStatisticAccessPolicy,
-    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy, VolumeAccessPolicy
+    CategoryAccessPolicy, CountryAccessPolicy, LanguageAccessPolicy, UserFCMTokenAccessPolicy, VolumeAccessPolicy, AbilityAccessPolicy, AbilityAwardAccessPolicy
 )
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
@@ -56,7 +56,7 @@ from api.serializer import (
     LanguageListSerializer, ChainIndividualsSerializer,
     RankGroupedByTrackSerializer, TaskPublicSerializer,
     TaskUserSelectableSerializer, TaskCreateSerializer,
-    TaskStageCreateTaskSerializer, FCMTokenSerializer, VolumeSerializer
+    TaskStageCreateTaskSerializer, FCMTokenSerializer, VolumeSerializer, AbilitySerializer, AbilityAwardSerializer
 )
 from api.utils import utils
 from .api_exceptions import CustomApiException
@@ -341,8 +341,8 @@ class ChainViewSet(viewsets.ModelViewSet):
                 completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=True).values_list("id", flat=True)),
                 opened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
                 reopened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False, reopened=True).values_list("id", flat=True)),
-                total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
-                complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
+                # total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
+                # complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
         )
 
         qs = qs.values("id", "name", "order_in_individuals").annotate(
@@ -360,8 +360,8 @@ class ChainViewSet(viewsets.ModelViewSet):
                         assign_type="assign_user_by",
                         out_stages="all_out_stages",
                         in_stages="all_in_stages",
-                        total_count="total_count",
-                        complete_count="complete_count"
+                        # total_count="total_count",
+                        # complete_count="complete_count"
                     )
                 )
             ),
@@ -518,6 +518,47 @@ class TaskStageViewSet(viewsets.ModelViewSet):
                 if not RankRecord.objects.filter(rank=stage.fast_track_rank).filter(user=request.user).exists():
                     RankRecord.objects.create(rank=stage.fast_track_rank, user=request.user)
 
+
+        task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
+        for copy_field in stage.copy_fields.all():
+            task.responses.update(copy_field.copy_response(task))
+        webhook = stage.get_webhook()
+        if webhook and webhook.is_triggered:
+            webhook.trigger(task)
+        task.save()
+        serializer = TaskDefaultSerializer(task)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def get_or_create_task(self, request, pk=None):
+        """
+        Get the latest task for the current stage assigned to the request user based on `updated_at`.
+        If no such task exists, create a new one.
+        """
+        stage = self.get_object()
+
+        existing_task = Task.objects.filter(
+            assignee=request.user,
+            stage=stage
+        ).order_by('-updated_at').first()
+
+        if existing_task:
+            serializer = TaskDefaultSerializer(existing_task)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # ToDo объединить с create_task
+        case = Case.objects.create()
+        stage = self.get_object()
+        responses = dict()
+        if request.method == 'POST':
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            responses = serializer.data["responses"]
+
+            # Check fast_track
+            if request.data.get('fast_track', False):
+                if not RankRecord.objects.filter(rank=stage.fast_track_rank).filter(user=request.user).exists():
+                    RankRecord.objects.create(rank=stage.fast_track_rank, user=request.user)
 
         task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
         for copy_field in stage.copy_fields.all():
@@ -820,6 +861,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
+                test="stage__test",
             )
         ).values('id',
                  'complete',
@@ -1879,6 +1921,56 @@ class VolumeViewSet(viewsets.ModelViewSet):
     permission_classes = (VolumeAccessPolicy,)
 
     def get_queryset(self):
-        return VolumeAccessPolicy.scope_queryset(
-            self.request, Volume.objects.all()
+        queryset = Volume.objects.filter(closed=False)
+        return VolumeAccessPolicy.scope_queryset(self.request, queryset)
+
+
+class AbilityViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing Abilities.
+    create:
+    Create a new Ability instance.
+    delete:
+    Delete Ability.
+    read:
+    Get Ability data.
+    update:
+    Update Ability data.
+    partial_update:
+    Partial update Ability data.
+    """
+
+    serializer_class = AbilitySerializer
+
+    permission_classes = (AbilityAccessPolicy,)
+
+    def get_queryset(self):
+        return AbilityAccessPolicy.scope_queryset(
+            self.request, Ability.objects.all()
+        )
+
+class AbilityAwardViewSet(viewsets.ModelViewSet):
+    """
+    list:
+    Return a list of all the existing AbilityAward.
+    create:
+    Create a new AbilityAward instance.
+    delete:
+    Delete AbilityAward.
+    read:
+    Get AbilityAward data.
+    update:
+    Update AbilityAward data.
+    partial_update:
+    Partial update AbilityAward data.
+    """
+
+    serializer_class = AbilityAwardSerializer
+
+    permission_classes = (AbilityAwardAccessPolicy,)
+
+    def get_queryset(self):
+        return AbilityAwardAccessPolicy.scope_queryset(
+            self.request, AbilityAward.objects.all()
         )

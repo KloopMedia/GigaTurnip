@@ -97,6 +97,17 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Text or url to the SVG"
     )
 
+    new_task_view_mode = models.BooleanField(
+        default=False,
+        help_text="Use new task view mode"
+    )
+    contact_us_link = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Link to 'Contact Us' button"
+    )
+
     start_date = models.DateField(
         blank=True,
         null=True,
@@ -105,7 +116,7 @@ class Campaign(BaseModel, CampaignInterface):
 
     course_completetion_rank = models.ForeignKey(
         "Rank",
-        blank=True, 
+        blank=True,
         null=True,
         help_text="Check if user has the rank, to determine course completion",
         on_delete=models.SET_NULL,
