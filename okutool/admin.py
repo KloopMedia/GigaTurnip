@@ -1,5 +1,8 @@
 from django.contrib import admin
 
+from api.admin import TaskAdmin
+from api.utils.utils import filter_by_admin_preference
+
 from okutool.models import (
     Question,
     QuestionAttachment,
@@ -20,10 +23,21 @@ class QuestionInline(admin.StackedInline):
 class QuestionAdmin(admin.ModelAdmin):
     inlines = [QuestionAttachmentInline]
 
+def get_queryset(self, request):
+    queryset = super(QuestionAdmin, self).get_queryset(request)
+    return filter_by_admin_preference(queryset, request, "test__stage__chain__")
 
 class StageAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
 
+class TestAdmin(admin.ModelAdmin):
+    inlines = [QuestionInline]
 
-admin.site.register(Test, StageAdmin)
+    def get_queryset(self, request):
+        queryset = super(TestAdmin, self).get_queryset(request)
+        return filter_by_admin_preference(queryset, request, "stage__chain__")
+
+
+admin.site.register(Test, TestAdmin)
 admin.site.register(Question, QuestionAdmin)
+
