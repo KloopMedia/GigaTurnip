@@ -39,6 +39,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     is_manager = serializers.SerializerMethodField()
     is_joined = serializers.SerializerMethodField()
     registration_stage = serializers.SerializerMethodField()
+    is_completed = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
@@ -89,6 +90,10 @@ class CampaignSerializer(serializers.ModelSerializer):
             rank_id=obj.default_track.default_rank
         ).exists()
         return user_has_rank_record
+
+    def get_is_completed(self, obj):
+        request = self.context['request']
+        return obj.is_course_completed(request)
 
     def get_registration_stage(self, obj):
         registration_stage = obj.default_track.registration_stage
@@ -142,7 +147,7 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
     total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField() 
+    complete_count = serializers.IntegerField()
 
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
@@ -582,7 +587,7 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'reopened',
                             'force_complete',
                             'complete']
-        
+
     def get_test(self, obj):
         try:
             return TestSerializer(obj.stage.test).data
