@@ -820,6 +820,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
+                test="stage__test",
             )
         ).values('id',
                  'complete',

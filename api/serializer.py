@@ -6,6 +6,8 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from jsonschema import validate
+from okutool.models import Test
+from okutool.serializers import TestSerializer
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
@@ -140,7 +142,7 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
     total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField()
+    complete_count = serializers.IntegerField() 
 
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
@@ -497,7 +499,7 @@ class TaskListSerializer(serializers.ModelSerializer):
             'responses',
             'stage',
             'created_at',
-            'updated_at',
+            'updated_at'
         ]
 
     def get_stage(self, obj):
@@ -567,6 +569,7 @@ class TaskEditSerializer(serializers.ModelSerializer):
 
 class TaskDefaultSerializer(serializers.ModelSerializer):
     stage = TaskStageReadSerializer(read_only=True)
+    test = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -579,6 +582,12 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'reopened',
                             'force_complete',
                             'complete']
+        
+    def get_test(self, obj):
+        try:
+            return TestSerializer(obj.stage.test).data
+        except:
+            return None
 
     def to_representation(self, instance):
         """Replace stage schema with schema from task stage if so configured."""
