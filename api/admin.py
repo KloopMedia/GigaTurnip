@@ -553,6 +553,7 @@ class TaskAdmin(admin.ModelAdmin):
         "case",
         "stage",
         "assignee",
+        "assignee_id",
         "created_at",
         "updated_at"
     )
@@ -574,6 +575,7 @@ class TaskAdmin(admin.ModelAdmin):
         "case__id",
         "stage__name",
         "assignee__email",
+        "assignee__id",
         "stage__chain__name",
         "stage__chain__campaign__name"
     )
