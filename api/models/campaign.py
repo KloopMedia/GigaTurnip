@@ -128,7 +128,7 @@ class Campaign(BaseModel, CampaignInterface):
         of a rank record for the user with the specified rank.
         """
         user = request.user
-        if user:
+        if user and not user.is_anonymous:
             RankRecord = apps.get_model("api", "RankRecord")
             return RankRecord.objects.filter(
                 user=user,
