@@ -143,33 +143,9 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     assign_type = serializers.CharField()
     out_stages = serializers.ListField(child=serializers.IntegerField())
     in_stages = serializers.ListField(child=serializers.IntegerField())
-    #in_stages = serializers.SerializerMethodField()
-    #alt_out_stages = serializers.SerializerMethodField()
     completed = serializers.ListField(child=serializers.IntegerField())
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
-
-    # def get_in_stages(self, obj):
-    #     # Get all stages from the current chain
-    #     in_stages = []
-
-    #     # Get the chains of the current stage
-    #     chains = self.parent.parent.instance
-    #     current_chain = None
-
-    #     for chain in chains:
-    #         for stage in chain['data']:
-    #             if stage['id'] == obj['id']:
-    #                 current_chain = chain
-    #                 break
-        
-    #     # Find this stage's ID in other stages' out_stages within the same chain
-    #     if current_chain:
-    #         for stage in current_chain['data']:
-    #             if obj['id'] in stage['out_stages'] and stage['id'] != obj['id']:
-    #                 in_stages.append(stage['id'])
-        
-    #     return in_stages
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
     stages_data = TaskStageChainInfoSerializer(source="data", many=True)
@@ -221,15 +197,6 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
         ts_nodes = {i["id"]: nodes[i["id"]] for i in stages}
 
-        # print("\nLooking for first stage...")
-        # first_stage = []
-        # for i in nodes.values():
-        #     print(f"Checking stage: {i}")
-        #     print("Stage", i)
-        #     if i["in_stages"] == [None]:
-        #         first_stage.append(i)
-        #         print(f"Found first stage: {i}")
-
         first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
         if not first_stage:
             return stages
@@ -260,62 +227,37 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
                 continue
             result.append(stage)
         return result
-    
-    def calculate_in_stages(self, data):
+
+    def calculate_in_stages(self, data, conditionals=None):
         # Calculate in_stages for all stages in the chain
-        for stage in data:
+        all_stages = data.copy()
+        
+        # Add conditionals to the stages list if provided
+        if conditionals:
+            all_stages.extend(conditionals)
+            
+        for stage in data:  # Only update regular stages, not conditionals
             stage['in_stages'] = [
                 other_stage['id'] 
-                for other_stage in data
+                for other_stage in all_stages  # Check both regular and conditional stages
                 if (stage['id'] in other_stage.get('out_stages', []) and stage['id'] != other_stage['id'])
             ]
         return data
 
     def to_representation(self, instance):
-
-        user = self.context["request"].user
-
-        data = instance["data"]
-        data = self.calculate_in_stages(data)
-        print("Data", data)
+        stages_data = instance["data"]
+        stages_data = self.calculate_in_stages(stages_data, instance["conditionals"])
         order_type = instance["order_in_individuals"]
         # if order_type == ChainConstants.CHRONOLOGICALLY:
         #     data = self.order_by_created_at(instance["data"])
         if order_type == ChainConstants.GRAPH_FLOW:
-            data = self.order_by_graph_flow(data, instance["conditionals"])
+            stages_data = self.order_by_graph_flow(stages_data, instance["conditionals"])
         elif order_type == ChainConstants.ORDER:
-            data = self.order_by_order(data)
+            stages_data = self.order_by_order(stages_data)
 
-        data = self.filter_stages(data)
+        stages_data = self.filter_stages(stages_data)
 
-        instance["data"] = data
-
-        # stages = dict()
-        # for i in data:
-        #     if i["total_count"] == 0 and i["complete_count"] == 0:
-        #         continue
-        #
-        #     stages[i["id"]] = {
-        #         "completed": [],
-        #         "reopened": [],
-        #         "opened": [],
-        #     }
-        #
-        # tasks = user.tasks.filter(stage__in=list(stages.keys())).values("id", "stage", "reopened", "complete")
-        # for task in tasks:
-        #     if task["reopened"]:
-        #         stages[task["stage"]]["reopened"].append(task["id"])
-        #
-        #     if task["complete"]:
-        #         stages[task["stage"]]["completed"].append(task["id"])
-        #     else:
-        #         stages[task["stage"]]["opened"].append(task["id"])
-        #
-        # for st in instance["data"]:
-        #     if st["id"] in stages:
-        #         st.update(stages[st["id"]])
-        #     else:
-        #         st.update({"completed": [],"reopened": [],"opened": [],})
+        instance["data"] = stages_data
 
         return super(ChainIndividualsSerializer, self).to_representation(instance)
 

@@ -11,6 +11,7 @@ from django.db.models import (
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from api.models.stage.stage import Stage
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
 from rest_framework.authtoken.models import Token
@@ -333,7 +334,7 @@ class ChainViewSet(viewsets.ModelViewSet):
         ).select_related("stage")
 
          # Get out_stage IDs in a separate, optimized subquery
-        out_stages_subquery = TaskStage.objects.filter(
+        out_stages_subquery = Stage.objects.filter(
             in_stages=OuterRef('id')
         ).values_list('id', flat=True)
 
