@@ -13,7 +13,7 @@ WORKDIR $DockerHOME
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-RUN apt-get update -y --no-install-recommends
+#RUN apt-get update -y --no-install-recommends
 
 RUN pip install pipenv
 

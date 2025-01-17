@@ -6,11 +6,12 @@ from datetime import timedelta
 import requests
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import (
-    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,Exists
 )
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from api.models.stage.stage import Stage
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
 from rest_framework.authtoken.models import Token
@@ -291,7 +292,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     }
     filter_backends = [
         DjangoFilterBackend,
-        IndividualChainCompleteFilter,
+        #IndividualChainCompleteFilter,
     ]
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
@@ -316,8 +317,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
         qs = self.get_queryset()
-        qs = self.filter_queryset(qs.select_related("campaign")) \
-            .filter(is_individual=True).prefetch_related("stages")
+        qs = qs.select_related("campaign").filter(is_individual=True).prefetch_related("stages")
         user = request.user
 
         # filter by highest user ranks
@@ -333,17 +333,94 @@ class ChainViewSet(viewsets.ModelViewSet):
             stage__in=qs.values("stages")
         ).select_related("stage")
 
-        task_stages_query = TaskStage.objects.prefetch_related("out_stages",
-            "in_stages").select_related("tasks").filter(chain=OuterRef("id")) \
+         # Get out_stage IDs in a separate, optimized subquery
+        out_stages_subquery = Stage.objects.filter(
+            in_stages=OuterRef('id')
+        ).values_list('id', flat=True)
+
+        # Get in_stage IDs in a separate, optimized subquery
+        # in_stages_subquery = TaskStage.objects.filter(
+        #     out_stages=OuterRef('id')
+        # ).values_list('id', flat=True)
+
+        task_stages_query = TaskStage.objects.select_related("tasks").filter(chain=OuterRef("id")) \
             .annotate(
-                all_out_stages=ArrayAgg("out_stages", distinct=True),
-                all_in_stages=ArrayAgg("in_stages", distinct=True),
+                all_out_stages=ArraySubquery(out_stages_subquery),
+                #all_in_stages=ArraySubquery(in_stages_subquery),
+                #all_out_stages=ArrayAgg("out_stages__id", distinct=True),
+                #all_in_stages=ArrayAgg("in_stages", distinct=True),
                 completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=True).values_list("id", flat=True)),
+                #not_completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
                 opened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
                 reopened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False, reopened=True).values_list("id", flat=True)),
-                # total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
-                # complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
-        )
+                #total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
+                #complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
+            )
+
+
+         # Check if we need to filter by completion status
+        completed_param = request.query_params.get('completed', '').lower()
+        if completed_param in ['true', 'false']:
+            # Convert string parameter to boolean
+            completed_filter = (completed_param == 'true')
+
+            # This subquery finds stages that:
+            # 1. Belong to the current chain (chain=OuterRef('id'))
+            # 2. Are marked as required for chain completion (complete_individual_chain=True)
+            # 3. Don't have a completed task from the current user
+            incomplete_required_stages = TaskStage.objects.filter(
+                chain=OuterRef('id'),  # Links to the main query's chain
+                complete_individual_chain=True  # Only stages required for completion
+            ).exclude(
+                # Exclude stages where user has completed tasks
+                id__in=user_tasks.filter(complete=True).values('stage_id')
+            )
+
+            if completed_filter:  # When completed=true
+                # Return chains that have NO incomplete required stages
+                # ~Q(Exists()) means "does not exist"
+                # In other words: all required stages have completed tasks
+                qs = qs.filter(~Q(Exists(incomplete_required_stages)))
+            else:  # When completed=false
+                # Return chains that have AT LEAST ONE incomplete required stage
+                # Exists() means "there is at least one"
+                # In other words: some required stages don't have completed tasks
+                qs = qs.filter(Exists(incomplete_required_stages))
+
+
+        # # Handle completion filtering
+        # completed_param = request.query_params.get('completed', '').lower()
+        # if completed_param in ['true', 'false']:
+        #     completed_filter = (completed_param == 'true')
+        #     completion_subquery = TaskStage.objects.filter(
+        #         chain=OuterRef('id'),
+        #         complete_individual_chain=True
+        #     ).annotate(
+        #         has_complete_task=ExCase(
+        #             When(id__in=user_tasks.filter(complete=True).values('stage_id'), then=Value(True)),
+        #             default=Value(False),
+        #             output_field=TextField(),
+        #         )
+        #     ).values('has_complete_task')
+
+        #     if completed_filter:
+        #         qs = qs.filter(~Q(Exists(
+        #             TaskStage.objects.filter(
+        #                 chain=OuterRef('id'),
+        #                 complete_individual_chain=True
+        #             ).exclude(
+        #                 id__in=user_tasks.filter(complete=True).values('stage_id')
+        #             )
+        #         )))
+        #     else:
+        #         qs = qs.filter(Exists(
+        #             TaskStage.objects.filter(
+        #                 chain=OuterRef('id'),
+        #                 complete_individual_chain=True
+        #             ).exclude(
+        #                 id__in=user_tasks.filter(complete=True).values('stage_id')
+        #             )
+        #         ))
 
         qs = qs.values("id", "name", "order_in_individuals").annotate(
             data=ArraySubquery(
@@ -355,13 +432,14 @@ class ChainViewSet(viewsets.ModelViewSet):
                         created_at="created_at",
                         skip_empty_individual_tasks="skip_empty_individual_tasks",
                         completed="completed",
+                        #not_completed="not_completed",
                         opened="opened",
                         reopened="reopened",
                         assign_type="assign_user_by",
                         out_stages="all_out_stages",
-                        in_stages="all_in_stages",
-                        # total_count="total_count",
-                        # complete_count="complete_count"
+                        #in_stages="all_in_stages",
+                        #total_count="total_count",
+                        #complete_count="complete_count"
                     )
                 )
             ),

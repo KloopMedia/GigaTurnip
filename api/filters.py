@@ -121,6 +121,49 @@ class CategoryInFilter(BaseFilterBackend):
         return params
 
 
+# class IndividualChainCompleteFilter(BaseFilterBackend):
+#     search_param = "completed"
+
+#     def filter_queryset(self, request, queryset, view):
+#         completed_param = request.query_params.get(self.search_param, '').lower()
+#         if completed_param not in ['true', 'false']:
+#             return queryset
+
+#         completed_filter_param = (completed_param == 'true')
+
+#         # Get all relevant stages first
+#         stages_with_completion = queryset.filter(
+#             stages__taskstage__complete_individual_chain=True
+#         ).values_list('id', 'stages__taskstage__id')
+
+#         if not stages_with_completion:
+#             return queryset
+
+#         # Get chain IDs and their stage IDs
+#         chain_stages = {}
+#         for chain_id, stage_id in stages_with_completion:
+#             if stage_id:  # Ensure stage_id is not None
+#                 chain_stages.setdefault(chain_id, set()).add(stage_id)
+
+#         # Get completion status for all relevant stages in one query
+#         Task = apps.get_model(app_label="api", model_name="Task")
+#         completed_stages = set(
+#             Task.objects.filter(
+#                 assignee=request.user,
+#                 stage_id__in={stage_id for stages in chain_stages.values() for stage_id in stages},
+#                 complete=True
+#             ).values_list('stage_id', flat=True).distinct()
+#         )
+
+#         # Filter chains based on completion status
+#         completed_chain_ids = {
+#             chain_id 
+#             for chain_id, stage_ids in chain_stages.items()
+#             if completed_filter_param == (all(stage_id in completed_stages for stage_id in stage_ids))
+#         }
+
+#         return queryset.filter(id__in=completed_chain_ids)
+    
 class IndividualChainCompleteFilter(BaseFilterBackend):
     search_param = "completed"
 
@@ -147,4 +190,5 @@ class IndividualChainCompleteFilter(BaseFilterBackend):
             queryset = queryset.filter(id__in=annotated_chains.filter(Q(completed=False) | Q(completed__isnull=True)).values("id"))
 
         return queryset
+
 
