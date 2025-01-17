@@ -141,14 +141,35 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField()
     assign_type = serializers.CharField()
-    in_stages = serializers.ListField(child=serializers.IntegerField())
     out_stages = serializers.ListField(child=serializers.IntegerField())
+    in_stages = serializers.ListField(child=serializers.IntegerField())
+    #in_stages = serializers.SerializerMethodField()
+    #alt_out_stages = serializers.SerializerMethodField()
     completed = serializers.ListField(child=serializers.IntegerField())
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
-    total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField()
 
+    # def get_in_stages(self, obj):
+    #     # Get all stages from the current chain
+    #     in_stages = []
+
+    #     # Get the chains of the current stage
+    #     chains = self.parent.parent.instance
+    #     current_chain = None
+
+    #     for chain in chains:
+    #         for stage in chain['data']:
+    #             if stage['id'] == obj['id']:
+    #                 current_chain = chain
+    #                 break
+        
+    #     # Find this stage's ID in other stages' out_stages within the same chain
+    #     if current_chain:
+    #         for stage in current_chain['data']:
+    #             if obj['id'] in stage['out_stages'] and stage['id'] != obj['id']:
+    #                 in_stages.append(stage['id'])
+        
+    #     return in_stages
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
     stages_data = TaskStageChainInfoSerializer(source="data", many=True)
@@ -199,6 +220,16 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
             nodes[key]["out_stages"] = result_out_stages
 
         ts_nodes = {i["id"]: nodes[i["id"]] for i in stages}
+
+        # print("\nLooking for first stage...")
+        # first_stage = []
+        # for i in nodes.values():
+        #     print(f"Checking stage: {i}")
+        #     print("Stage", i)
+        #     if i["in_stages"] == [None]:
+        #         first_stage.append(i)
+        #         print(f"Found first stage: {i}")
+
         first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
         if not first_stage:
             return stages
@@ -221,26 +252,39 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
     def filter_stages(self, stages):
         result = []
-        for st in stages:
-            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
+        for stage in stages:
+            if (stage["skip_empty_individual_tasks"] and 
+                (len(stage["opened"]) == 0 and len(stage["completed"]) == 0)):
                 continue
-            if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
+            if stage["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
                 continue
-            result.append(st)
+            result.append(stage)
         return result
+    
+    def calculate_in_stages(self, data):
+        # Calculate in_stages for all stages in the chain
+        for stage in data:
+            stage['in_stages'] = [
+                other_stage['id'] 
+                for other_stage in data
+                if (stage['id'] in other_stage.get('out_stages', []) and stage['id'] != other_stage['id'])
+            ]
+        return data
 
     def to_representation(self, instance):
 
         user = self.context["request"].user
 
         data = instance["data"]
+        data = self.calculate_in_stages(data)
+        print("Data", data)
         order_type = instance["order_in_individuals"]
         # if order_type == ChainConstants.CHRONOLOGICALLY:
         #     data = self.order_by_created_at(instance["data"])
         if order_type == ChainConstants.GRAPH_FLOW:
-            data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
+            data = self.order_by_graph_flow(data, instance["conditionals"])
         elif order_type == ChainConstants.ORDER:
-            data = self.order_by_order(instance["data"])
+            data = self.order_by_order(data)
 
         data = self.filter_stages(data)
 
