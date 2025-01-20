@@ -317,6 +317,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
         qs = self.get_queryset()
+        qs = self.filter_queryset(qs)
         qs = qs.filter(is_individual=True).select_related("campaign").prefetch_related("stages")
         user = request.user
 
