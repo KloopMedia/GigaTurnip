@@ -317,7 +317,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
         qs = self.get_queryset()
-        qs = qs.select_related("campaign").filter(is_individual=True).prefetch_related("stages")
+        qs = qs.filter(is_individual=True).select_related("campaign").prefetch_related("stages")
         user = request.user
 
         # filter by highest user ranks
@@ -387,7 +387,7 @@ class ChainViewSet(viewsets.ModelViewSet):
                 # In other words: some required stages don't have completed tasks
                 qs = qs.filter(Exists(incomplete_required_stages))
 
-        qs = qs.values("id", "name", "order_in_individuals").annotate(
+        qs = qs.values("id", "name", "order_in_individuals", "campaign").annotate(
             data=ArraySubquery(
                 task_stages_query.values(
                     info=JSONObject(
