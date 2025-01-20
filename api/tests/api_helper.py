@@ -8,6 +8,9 @@ from django.conf import settings
 
 from api.models import Rank, RankRecord, CustomUser, RankLimit, Campaign, \
     Track, Chain, Language, Category, Country, TaskStage, Task
+from drf_yasg.generators import OpenAPISchemaGenerator
+from drf_yasg import openapi
+from urllib.parse import urlparse
 
 def to_json(string):
     return json.loads(string)
@@ -38,6 +41,19 @@ def get_schema():
     return schema
 
 class GigaTurnipTestHelper(APITestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Create info object for Swagger schema
+        info = openapi.Info(
+            title="GigaTurnip API",
+            default_version='v1',
+            description="API for GigaTurnip application",
+        )
+        
+        # Generate schema once for all tests
+        generator = OpenAPISchemaGenerator(info=info)
+        cls.schema = generator.get_schema()
 
     def create_client(self, u):
         client = APIClient()
@@ -182,18 +198,117 @@ class GigaTurnipTestHelper(APITestCase):
         
         super().tearDown()
 
+    def compare_with_swagger_spec(self, url, response_data):
+        """Compare response data with Swagger specification"""
+        try:
+            # Convert Django's URL to Swagger path format
+            # e.g., '/api/chain/individuals/' -> '/api/chain/individuals/'
+            parsed_url = urlparse(url)
+            swagger_path = parsed_url.path
+
+            print("SWAGGER PATH", swagger_path)
+
+            print("\nAvailable Swagger Paths:")
+            print("------------------------")
+            for path, path_object in sorted(self.schema.paths.items()):
+                print(f"\n📍 {path}")
+                for method in ['get', 'post', 'put', 'patch', 'delete']:
+                    method_spec = getattr(path_object, method, None)
+                    if method_spec:
+                        print(f"  └── {method.upper()}")
+                        # if method_spec.description:
+                        #     print(f"      └── Description: {method_spec.description}")
+                        # if method_spec.responses:
+                        #     print("      └── Responses:")
+                        #     for status_code, response in method_spec.responses.items():
+                        #         print(f"          └── {status_code}: {response.description}")
+            
+            print("\nCurrent endpoint:", swagger_path)
+            print("------------------------")
+            
+            # Get the endpoint spec from Swagger
+            path_spec = self.schema.paths.get(swagger_path)
+            if not path_spec:
+                print(f"Warning: No Swagger documentation found for {swagger_path}")
+                return
+                
+            # Get GET method specification
+            get_spec = getattr(path_spec, 'get', None)
+            if not get_spec:
+                print(f"Warning: No GET method documentation found for {swagger_path}")
+                return
+                
+            # Get response specification for 200 status
+            response_spec = get_spec.responses.get('200', None)
+            if not response_spec or not response_spec.schema:
+                print(f"Warning: No 200 response schema found for {swagger_path}")
+                return
+
+            # Validate response structure
+            self._validate_response(response_data, response_spec.schema, path=swagger_path)
+            print("VALIDATED")
+
+        except Exception as e:
+            print(f"Warning: Swagger validation failed for {url}: {str(e)}")
+
+    def _validate_response(self, data, spec, path='', parent_path=''):
+        """Recursively validate response against schema"""
+        current_path = f"{parent_path}.{path}" if parent_path else path
+        
+        # Handle different types of specifications
+        if hasattr(spec, 'properties'):
+            # Object validation
+            for field_name, field_spec in spec.properties.items():
+                if field_name not in data:
+                    print(f"Warning: Missing field '{field_name}' in response at {current_path}")
+                else:
+                    self._validate_response(data[field_name], field_spec, 
+                                         path=field_name, parent_path=current_path)
+                    
+        elif hasattr(spec, 'items'):
+            # Array validation
+            if not isinstance(data, (list, tuple)):
+                print(f"Warning: Expected array but got {type(data)} at {current_path}")
+            elif data and spec.items:
+                # Validate first item as example
+                self._validate_response(data[0], spec.items, 
+                                     parent_path=f"{current_path}[0]")
+                
+        elif hasattr(spec, 'type'):
+            # Type validation
+            expected_type = spec.type
+            if expected_type == 'string' and not isinstance(data, str):
+                print(f"Warning: Expected string but got {type(data)} at {current_path}")
+            elif expected_type == 'integer' and not isinstance(data, int):
+                print(f"Warning: Expected integer but got {type(data)} at {current_path}")
+            elif expected_type == 'number' and not isinstance(data, (int, float)):
+                print(f"Warning: Expected number but got {type(data)} at {current_path}")
+            elif expected_type == 'boolean' and not isinstance(data, bool):
+                print(f"Warning: Expected boolean but got {type(data)} at {current_path}")
+
     def get_objects(self, endpoint, params=None, client=None, pk=None):
         c = client
         if c is None:
             c = self.client
+        
         if pk:
             url = reverse(endpoint, kwargs={"pk": pk})
         else:
             url = reverse(endpoint)
+            
         if params:
-            return c.get(url, data=params)
+            response = c.get(url, data=params)
         else:
-            return c.get(url)
+            response = c.get(url)
+            
+        # Validate response if successful
+        if response.status_code == 200:
+            try:
+                self.compare_with_swagger_spec(url, response.data)
+            except Exception as e:
+                print(f"Warning: Response validation failed: {str(e)}")
+                
+        return response
 
     def create_task(self, stage, client=None):
         c = client
