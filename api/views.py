@@ -64,7 +64,7 @@ from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import (
     ResponsesContainsFilter,
-    CategoryInFilter, IndividualChainCompleteFilter,
+    CategoryInFilter, #IndividualChainCompleteFilter,
 )
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
@@ -317,7 +317,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
         qs = self.get_queryset()
-        qs = qs.select_related("campaign").filter(is_individual=True).prefetch_related("stages")
+        qs = self.filter_queryset(qs)
+        qs = qs.filter(is_individual=True).select_related("campaign").prefetch_related("stages")
         user = request.user
 
         # filter by highest user ranks
@@ -387,42 +388,7 @@ class ChainViewSet(viewsets.ModelViewSet):
                 # In other words: some required stages don't have completed tasks
                 qs = qs.filter(Exists(incomplete_required_stages))
 
-
-        # # Handle completion filtering
-        # completed_param = request.query_params.get('completed', '').lower()
-        # if completed_param in ['true', 'false']:
-        #     completed_filter = (completed_param == 'true')
-        #     completion_subquery = TaskStage.objects.filter(
-        #         chain=OuterRef('id'),
-        #         complete_individual_chain=True
-        #     ).annotate(
-        #         has_complete_task=ExCase(
-        #             When(id__in=user_tasks.filter(complete=True).values('stage_id'), then=Value(True)),
-        #             default=Value(False),
-        #             output_field=TextField(),
-        #         )
-        #     ).values('has_complete_task')
-
-        #     if completed_filter:
-        #         qs = qs.filter(~Q(Exists(
-        #             TaskStage.objects.filter(
-        #                 chain=OuterRef('id'),
-        #                 complete_individual_chain=True
-        #             ).exclude(
-        #                 id__in=user_tasks.filter(complete=True).values('stage_id')
-        #             )
-        #         )))
-        #     else:
-        #         qs = qs.filter(Exists(
-        #             TaskStage.objects.filter(
-        #                 chain=OuterRef('id'),
-        #                 complete_individual_chain=True
-        #             ).exclude(
-        #                 id__in=user_tasks.filter(complete=True).values('stage_id')
-        #             )
-        #         ))
-
-        qs = qs.values("id", "name", "order_in_individuals").annotate(
+        qs = qs.values("id", "name", "order_in_individuals", "campaign").annotate(
             data=ArraySubquery(
                 task_stages_query.values(
                     info=JSONObject(

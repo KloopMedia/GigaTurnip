@@ -150,10 +150,11 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
     stages_data = TaskStageChainInfoSerializer(source="data", many=True)
+    campaign = serializers.IntegerField()
 
     class Meta:
         model = Chain
-        fields = ["id", "name", "stages_data"]
+        fields = ["id", "name", "stages_data", "campaign"]
 
 
     def find_order(self, node, visited, stack, nodes):

@@ -721,3 +721,93 @@ class ChainTest(GigaTurnipTestHelper):
         # Final stage should be pointed to by conditional
         self.assertEqual(final["in_stages"], [conditional_stage.id]) # wrong number of in stages
         self.assertEqual(final["out_stages"], []) # wrong number of out stages
+
+
+    def test_chain_individuals_campaign_filter(self):
+        """Test filtering individual chains by campaign"""
+        # Create first campaign with individual chain
+        campaign1_data = self.generate_new_basic_campaign("Campaign 1")
+        chain1 = Chain.objects.create(
+            name="Individual Chain 1",
+            campaign=campaign1_data["campaign"],
+            is_individual=True,
+            order_in_individuals=ChainConstants.CHRONOLOGICALLY
+        )
+        
+        # Create first stage for chain1
+        first_stage1 = TaskStage.objects.create(
+            name="First Stage",
+            chain=chain1,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True
+        )
+        
+        # Create final stage for chain1
+        final_stage1 = first_stage1.add_stage(
+            TaskStage(
+                name="Final Stage",
+                x_pos=2,
+                y_pos=1,
+                complete_individual_chain=True
+            )
+        )
+        
+        # Create second campaign with individual chain
+        campaign2_data = self.generate_new_basic_campaign("Campaign 2")
+        chain2 = Chain.objects.create(
+            name="Individual Chain 2",
+            campaign=campaign2_data["campaign"],
+            is_individual=True,
+            order_in_individuals=ChainConstants.CHRONOLOGICALLY
+        )
+        
+        # Create first stage for chain2
+        first_stage2 = TaskStage.objects.create(
+            name="First Stage",
+            chain=chain2,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True
+        )
+        
+        # Create final stage for chain2
+        final_stage2 = first_stage2.add_stage(
+            TaskStage(
+                name="Final Stage",
+                x_pos=2,
+                y_pos=1,
+                complete_individual_chain=True
+            )
+        )
+        
+        # Prepare client for all stages
+        [self.prepare_client(stage, user=self.user) for stage in 
+        [first_stage1, final_stage1, first_stage2, final_stage2]]
+        
+        # Add user to both campaigns
+        # self.user.managed_campaigns.add(campaign1_data["campaign"])
+        # self.user.managed_campaigns.add(campaign2_data["campaign"])
+        
+        # Test filtering by first campaign
+        response = self.get_objects(
+            "chain-individuals", 
+            params={"campaign": campaign1_data["campaign"].id}
+        )
+        
+        print("\nResponse Data:")
+        print(json.dumps(response.data, indent=2, ensure_ascii=False))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], chain1.id)
+        
+        # Test filtering by second campaign
+        response = self.get_objects(
+            "chain-individuals", 
+            params={"campaign": campaign2_data["campaign"].id}
+        )
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], chain2.id)
