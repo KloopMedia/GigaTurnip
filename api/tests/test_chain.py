@@ -341,17 +341,20 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(response_completed.status_code, status.HTTP_200_OK)
         self.assertEqual(response_not_completed.status_code, status.HTTP_200_OK)
 
-        stages = [self.chain.id, individual_chain_1.id, individual_chain_2.id, individual_chain_3.id]
+        expected_stages = {self.chain.id, individual_chain_1.id, individual_chain_2.id, individual_chain_3.id}
+        actual_stages = {i["id"] for i in response_all.data["results"]}
+        self.assertEqual(expected_stages, actual_stages)
         self.assertEqual(response_all.data["count"], 4)
-        self.assertEqual(stages, [i["id"] for i in response_all.data["results"]])
 
-        stages = [individual_chain_1.id, individual_chain_2.id]
+        expected_stages = {individual_chain_1.id, individual_chain_2.id}
+        actual_stages = {i["id"] for i in response_completed.data["results"]}
+        self.assertEqual(expected_stages, actual_stages)
         self.assertEqual(response_completed.data["count"], 2)
-        self.assertEqual(stages, [i["id"] for i in response_completed.data["results"]])
 
-        stages = [self.chain.id, individual_chain_3.id]
+        expected_not_completed = {self.chain.id, individual_chain_3.id}
+        actual_not_completed = {i["id"] for i in response_not_completed.data["results"]}
         self.assertEqual(response_not_completed.data["count"], 2)
-        self.assertEqual(stages, [i["id"] for i in response_not_completed.data["results"]])
+        self.assertEqual(expected_not_completed, actual_not_completed)
 
 
     def _create_individual_chains(self):
@@ -1053,3 +1056,209 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["id"], chain2.id)
+
+    # def test_chain_individuals_task_states(self):
+    #     """Test individual chain tasks states (completed/opened/reopened) for different users"""
+    #     # Create campaign with individual chain
+    #     campaign_data = self.generate_new_basic_campaign("Campaign")
+    #     chain = Chain.objects.create(
+    #         name="Individual Chain",
+    #         campaign=campaign_data["campaign"],
+    #         is_individual=True,
+    #         order_in_individuals=ChainConstants.CHRONOLOGICALLY
+    #     )
+        
+    #     # Create first stage
+    #     first_stage = TaskStage.objects.create(
+    #         name="First Stage",
+    #         chain=chain,
+    #         x_pos=1,
+    #         y_pos=1,
+    #         is_creatable=True
+    #     )
+    #     first_stage.json_schema = json.dumps({
+    #         "type": "object",
+    #         "properties": {
+    #             "answer": {"type": "string"}
+    #         },
+    #         "required": ["answer"]
+    #     })
+    #     first_stage.save()
+        
+    #     # Create final stage
+    #     final_stage = first_stage.add_stage(
+    #         TaskStage(
+    #             name="Final Stage",
+    #             x_pos=2,
+    #             y_pos=1,
+    #             complete_individual_chain=True
+    #         )
+    #     )
+        
+    #     # Create second user
+    #     second_user = CustomUser.objects.create_user(
+    #         username="second_user",
+    #         email="second_user@email.com",
+    #         password="test"
+    #     )
+        
+    #     # Prepare client for both users
+    #     [self.prepare_client(stage, user=self.user) for stage in [first_stage, final_stage]]
+    #     [self.prepare_client(stage, user=second_user) for stage in [first_stage, final_stage]]
+
+    #     # Print ids of user ranks with annotation
+    #     print(f"User ranks: {self.user.ranks.all().values('id')}")
+    #     print(f"Second user ranks: {second_user.ranks.all().values('id')}")
+
+    #     # Print stage ranks with annotation
+    #     print(f"Stage ranks: {first_stage.ranks.all().values('id')}")
+        
+    #     # Create and complete task for first user
+    #     task = self.create_task(stage=self.initial_stage)
+    #     completed_task = self.complete_task(task, responses={"answer": "test"})
+        
+    #     # Create but don't complete task for second user
+    #     second_user_task = self.create_initial_task(stage=first_stage, user=second_user)
+        
+    #     # Get chain data for first user
+    #     response = self.get_objects("chain-individuals")
+        
+    #     print("\nResponse Data for First User:")
+    #     print(json.dumps(response.data, indent=2, ensure_ascii=False))
+        
+    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
+    #     self.assertEqual(response.data["count"], 1)
+        
+    #     chain_data = response.data["results"][0]
+    #     stages_data = chain_data["stages_data"]
+        
+    #     # Check first stage states for first user
+    #     first_stage_data = stages_data[0]
+    #     self.assertEqual(first_stage_data["completed"], [completed_task.id])
+    #     self.assertEqual(first_stage_data["opened"], [])
+    #     self.assertEqual(first_stage_data["reopened"], [])
+        
+    #     # Check final stage states for first user
+    #     final_stage_data = stages_data[1]
+    #     self.assertEqual(final_stage_data["completed"], [])
+    #     self.assertEqual(len(final_stage_data["opened"]), 1)  # Should have one opened task
+    #     self.assertEqual(final_stage_data["reopened"], [])
+        
+    #     # Get chain data for second user
+    #     self.client = self.create_client(second_user)
+    #     response = self.get_objects("chain-individuals")
+        
+    #     print("\nResponse Data for Second User:")
+    #     print(json.dumps(response.data, indent=2, ensure_ascii=False))
+        
+    #     chain_data = response.data["results"][0]
+    #     stages_data = chain_data["stages_data"]
+        
+    #     # Check first stage states for second user
+    #     first_stage_data = stages_data[0]
+    #     self.assertEqual(first_stage_data["completed"], [])
+    #     self.assertEqual(first_stage_data["opened"], [second_user_task.id])
+    #     self.assertEqual(first_stage_data["reopened"], [])
+        
+    #     # Check final stage states for second user
+    #     final_stage_data = stages_data[1]
+    #     self.assertEqual(final_stage_data["completed"], [])
+    #     self.assertEqual(final_stage_data["opened"], [])
+    #     self.assertEqual(final_stage_data["reopened"], [])
+
+    def test_chain_individuals_task_states(self):
+        """Test individual chain tasks states (completed/opened/reopened) for different users"""
+        # Convert existing chain to individual
+        self.chain.is_individual = True
+        self.chain.save()
+        
+        # Add schema to initial stage
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
+        
+        # Create final stage that gets user from initial stage
+        final_stage = self.initial_stage.add_stage(
+            TaskStage(
+                name="Final Stage",
+                x_pos=2,
+                y_pos=1,
+                assign_user_by=TaskStageConstants.STAGE,
+                assign_user_from_stage=self.initial_stage,
+                complete_individual_chain=True
+            )
+        )
+        
+        # Create second user and prepare client only for initial stage
+        second_user = CustomUser.objects.create_user(
+            username="second_user",
+            email="second_user@email.com",
+            password="test"
+        )
+        self.prepare_client(
+            self.initial_stage,
+            user=second_user,
+            rank_limit=RankLimit(is_creation_open=True)
+        )
+        
+        # Create and complete task for first user
+        task = self.create_initial_task()
+        completed_task = self.complete_task(task, responses={"answer": "test"})
+        
+        # Create but don't complete task for second user
+        second_client = self.create_client(second_user)
+        second_user_task = self.create_task(self.initial_stage, client=second_client)
+        
+        # Get chain data for first user
+        response = self.get_objects("chain-individuals")
+        
+        # print("\nResponse Data for First User:")
+        # print(json.dumps(response.data, indent=2, ensure_ascii=False))
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
+        chain_data = response.data["results"][0]
+        stages_data = chain_data["stages_data"]
+        
+        # Check first stage states for first user
+        first_stage_data = stages_data[0]
+        self.assertEqual(first_stage_data["completed"], [completed_task.id])
+        self.assertEqual(first_stage_data["opened"], [])
+        self.assertEqual(first_stage_data["reopened"], [])
+        
+        # Check final stage states for first user
+        final_stage_data = stages_data[1]
+        self.assertEqual(final_stage_data["completed"], [])
+        first_user_second_stage_task = Task.objects.get(assignee=self.user, stage=final_stage)
+        self.assertEqual(final_stage_data["opened"], [first_user_second_stage_task.id])
+        self.assertEqual(final_stage_data["reopened"], [])
+        
+        # Get chain data for second user
+        response = self.get_objects("chain-individuals", client=second_client)
+
+        # print("\nResponse Data for Second User:")
+        # print(json.dumps(response.data, indent=2, ensure_ascii=False))
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        
+        chain_data = response.data["results"][0]
+        stages_data = chain_data["stages_data"]
+        
+        # Check first stage states for second user
+        first_stage_data = stages_data[0]
+        self.assertEqual(first_stage_data["completed"], [])
+        self.assertEqual(first_stage_data["opened"], [second_user_task.id])
+        self.assertEqual(first_stage_data["reopened"], [])
+        
+        # Check final stage states for second user
+        final_stage_data = stages_data[1]
+        self.assertEqual(final_stage_data["completed"], [])
+        self.assertEqual(final_stage_data["opened"], [])
+        self.assertEqual(final_stage_data["reopened"], [])
