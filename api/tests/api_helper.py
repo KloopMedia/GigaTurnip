@@ -173,12 +173,12 @@ class GigaTurnipTestHelper(APITestCase):
                 if data['time'] > 0.001:  # Highlight slow queries (>100ms)
                     print(f"\nSlow query ({data['time']:.3f}s):")
                     print(sql)
-                elif data['count'] > 1:
-                    print(f"\nDuplicate query ({data['count']} times, total time: {data['time']:.3f}s):")
-                    # print(sql)
-                # else:
-                #     print(f"\nNormal Query ({data['time']:.3f}s):")
-                #     # print(sql)
+                # elif data['count'] > 1:
+                #     print(f"\nDuplicate query ({data['count']} times, total time: {data['time']:.3f}s):")
+                    #print(sql)
+                #else:
+                    #print(f"\nNormal Query ({data['time']:.3f}s):")
+                    #print(sql)
         
         super().tearDown()
 

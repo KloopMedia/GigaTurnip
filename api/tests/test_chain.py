@@ -1057,7 +1057,7 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["id"], chain2.id)
         
-        
+
     def test_chain_individuals_task_states(self):
         """Test individual chain tasks states (completed/opened/reopened) for different users"""
         # Convert existing chain to individual
@@ -1152,3 +1152,83 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(final_stage_data["completed"], [])
         self.assertEqual(final_stage_data["opened"], [])
         self.assertEqual(final_stage_data["reopened"], [])
+
+    def test_chain_individuals_rank_filter(self):
+        """Test that individual chains endpoint only shows chains with matching ranks"""
+        # Convert existing chain to individual and add schema
+        self.chain.is_individual = True
+        self.chain.save()
+        
+        self.initial_stage.json_schema = json.dumps({
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"}
+            },
+            "required": ["answer"]
+        })
+        self.initial_stage.save()
+        
+        # Create second chain in the same campaign
+        second_chain = Chain.objects.create(
+            name="Second Individual Chain",
+            campaign=self.campaign,
+            is_individual=True,
+            order_in_individuals=ChainConstants.CHRONOLOGICALLY
+        )
+        
+        # Create stage with different rank for second chain
+        different_rank = Rank.objects.create(
+            name="Different Rank",
+            track=self.default_track
+        )
+        
+        second_chain_stage = TaskStage.objects.create(
+            name="Stage with Different Rank",
+            chain=second_chain,
+            x_pos=1,
+            y_pos=1,
+            is_creatable=True,
+            json_schema=json.dumps({
+                "type": "object",
+                "properties": {
+                    "answer": {"type": "string"}
+                },
+                "required": ["answer"]
+            })
+        )
+        
+        # Create rank limit for the new stage with different rank
+        RankLimit.objects.create(
+            rank=different_rank,
+            stage=second_chain_stage,
+            is_creation_open=True
+        )
+        
+        # Get chain data for user (should only see first chain)
+        response = self.get_objects("chain-individuals")
+
+        # print("\nResponse Data for First User:")
+        # print(json.dumps(response.data, indent=2, ensure_ascii=False))
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.chain.id)
+        
+        # Create new user with the different rank
+        different_rank_user = CustomUser.objects.create_user(
+            username="different_rank_user",
+            email="different_rank_user@email.com",
+            password="test"
+        )
+        RankRecord.objects.create(
+            user=different_rank_user,
+            rank=different_rank
+        )
+        different_client = self.create_client(different_rank_user)
+        
+        # Get chain data for different rank user (should only see second chain)
+        response = self.get_objects("chain-individuals", client=different_client)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], second_chain.id)
