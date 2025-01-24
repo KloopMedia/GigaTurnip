@@ -321,6 +321,34 @@ class ChainViewSet(viewsets.ModelViewSet):
         qs = qs.filter(is_individual=True).select_related("campaign").prefetch_related("stages")
         user = request.user
 
+        #Filter chains that have stages with rank limits matching user's ranks
+        
+        # print("chain queryset before filter:")
+        # print(qs)
+
+        # print("All stages from the main queryset before filter:")
+        # print(qs.values("stages"))
+
+        # user_ranks = user.ranks.all()
+
+        # First get chains that have at least one stage with matching rank
+        # chains_with_matching_ranks = qs.filter(
+        #     stages__in=TaskStage.objects.filter(
+        #         ranklimits__rank__in=user_ranks
+        #     )
+        # ).values("id")
+
+        # qs = qs.filter(id__in=chains_with_matching_ranks)
+
+        # print("chain queryset after filter:")
+        # print(qs)
+
+
+        rank_limits = RankLimit.objects.filter(rank__in=user.ranks.all())
+        all_available_chains = rank_limits.values_list('stage__chain', flat=True).distinct()
+        
+        qs = qs.filter(id__in=all_available_chains).distinct()
+
         # filter by highest user ranks
         if request.query_params.get("by_highest_ranks"):
             ranks = request.user.get_highest_ranks_by_track()
@@ -329,10 +357,20 @@ class ChainViewSet(viewsets.ModelViewSet):
                     "stage__chain")
             )
 
+        
+        # print("All stages from the main queryset after filter:")
+        # print(qs.values("stages"))
+
         user_tasks = Task.objects.filter(
             assignee_id=user.id,
             stage__in=qs.values("stages")
         ).select_related("stage")
+
+        # print("All tasks queryset with all fields:")
+        # print(Task.objects.all().values("id", "assignee", "stage", "complete", "reopened"))
+
+        # print("user_tasks queryset:")
+        # print(user_tasks)
 
          # Get out_stage IDs in a separate, optimized subquery
         out_stages_subquery = Stage.objects.filter(
