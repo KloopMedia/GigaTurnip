@@ -261,7 +261,28 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
         instance["data"] = stages_data
 
         return super(ChainIndividualsSerializer, self).to_representation(instance)
+    
+class TextbookStageSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    order = serializers.IntegerField()
+    created_at = serializers.DateTimeField()
+    out_stages = serializers.ListField(child=serializers.IntegerField())
 
+class TextbookChainSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    campaign = serializers.IntegerField()
+    stages_data = TextbookStageSerializer(many=True, source='data')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Sort stages by order field
+        representation['stages_data'] = sorted(
+            representation['stages_data'],
+            key=lambda x: x['order']
+        )
+        return representation
 
 class ConditionalStageSerializer(serializers.ModelSerializer,
                                  CampaignValidationCheck):

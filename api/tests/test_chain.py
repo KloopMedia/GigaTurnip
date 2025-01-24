@@ -1232,3 +1232,72 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["id"], second_chain.id)
+
+    def test_textbook_chains(self):
+        """Test getting textbook chains with rich text stages"""
+        # Create a textbook chain
+        textbook_chain = Chain.objects.create(
+            name="Python Tutorial",
+            campaign=self.campaign,
+            is_text_book=True
+        )
+        
+        # Create stages with rich text in different order
+        stage_2 = TaskStage.objects.create(
+            chain=textbook_chain,
+            name="Variables and Types",
+            order=2,
+            rich_text="Learn about Python variables and data types",
+            x_pos=1,
+            y_pos=1
+        )
+        
+        stage_1 = TaskStage.objects.create(
+            chain=textbook_chain,
+            name="Introduction",
+            order=1,
+            rich_text="Introduction to Python programming",
+            x_pos=1,
+            y_pos=1
+        )
+        
+        # Create stage without rich text (should be excluded)
+        stage_3 = TaskStage.objects.create(
+            chain=textbook_chain,
+            name="Empty Stage",
+            order=3,
+            rich_text="",
+            x_pos=1,
+            y_pos=1
+        )
+        
+        # Link stages
+        stage_1.add_stage(stage_2).add_stage(stage_3)
+        
+        response = self.get_objects("chain-textbooks")
+
+        # print("\nResponse Data for Textbook Chain:")
+        # print(json.dumps(response.data, indent=2, ensure_ascii=False))
+        
+        # Verify successful response
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Verify we get exactly one textbook chain
+        self.assertEqual(response.data["count"], 1)
+        
+        chain_data = response.data["results"][0]
+        # Verify correct chain ID is returned
+        self.assertEqual(chain_data["id"], textbook_chain.id)
+        
+        stages_data = chain_data["stages_data"]
+        # Verify only stages with rich text are included (empty stage excluded)
+        self.assertEqual(len(stages_data), 2)
+        
+        # Verify first stage data
+        self.assertEqual(stages_data[0]["id"], stage_1.id)  # Should be stage_1 due to order=1
+        self.assertEqual(stages_data[0]["order"], 1)  # Verify correct order
+        self.assertEqual(stages_data[0]["out_stages"], [stage_2.id])  # Verify stage connection
+        
+        # Verify second stage data
+        self.assertEqual(stages_data[1]["id"], stage_2.id)  # Should be stage_2 due to order=2
+        self.assertEqual(stages_data[1]["order"], 2)  # Verify correct order
+        self.assertEqual(stages_data[1]["out_stages"], [stage_3.id])  # Verify one outgoing connection

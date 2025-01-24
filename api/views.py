@@ -43,7 +43,7 @@ from api.permissions import (
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
     ConditionalStageSerializer, CaseSerializer, RankSerializer,
-    RankLimitSerializer, TrackSerializer, RankRecordSerializer,
+    RankLimitSerializer, TextbookChainSerializer, TrackSerializer, RankRecordSerializer,
     TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer,
     TestWebhookSerializer, TaskStageReadSerializer,
     CampaignManagementSerializer, NotificationListSerializer,
@@ -302,6 +302,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "individuals":
             return ChainIndividualsSerializer
+        if self.action == "textbooks":
+            return TextbookChainSerializer
         return ChainSerializer
 
     @action(detail=True)
@@ -464,6 +466,45 @@ class ChainViewSet(viewsets.ModelViewSet):
             )
         )
         return qs
+    
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def textbooks(self, request):
+        """Get all textbook chains (accessible to any logged-in user)"""
+        qs = self.get_queryset()
+        qs = self.filter_queryset(qs)
+        qs = qs.filter(is_text_book=True).select_related("campaign").prefetch_related("stages")
+        
+        # Get stages data without task-related information, only including stages with rich_text
+        task_stages_query = TaskStage.objects.filter(
+            chain=OuterRef("id"),
+            rich_text__isnull=False  # Exclude null rich_text
+        ).exclude(
+            rich_text=""  # Exclude empty rich_text
+        ).annotate(
+            all_out_stages=ArraySubquery(
+                Stage.objects.filter(
+                    in_stages=OuterRef('id')
+                ).values_list('id', flat=True)
+            )
+        )
+
+        qs = qs.values("id", "name", "order_in_individuals", "campaign").annotate(
+            data=ArraySubquery(
+                task_stages_query.values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        order="order",
+                        created_at="created_at",
+                        out_stages="all_out_stages",
+                        # rich_text="rich_text"  # Include rich_text in response
+                    )
+                )
+            )
+        )
+        return qs
+
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
