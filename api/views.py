@@ -498,7 +498,7 @@ class ChainViewSet(viewsets.ModelViewSet):
                         order="order",
                         created_at="created_at",
                         out_stages="all_out_stages",
-                        # rich_text="rich_text"  # Include rich_text in response
+                        rich_text="rich_text"  # Include rich_text in response
                     )
                 )
             )
