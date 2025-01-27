@@ -141,7 +141,7 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     def __init__(self):
         self.statements += [{
-            "action": ["get_graph", "individuals"],
+            "action": ["get_graph", "individuals", "textbooks"],
             "principal": "authenticated",
             "effect": "allow"
 
@@ -159,6 +159,8 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
             #         ranklimits__rank__in=user_ranks
             #     )
             # ).distinct()
+            return queryset
+        elif action == "textbooks":
             return queryset
         
         rank_limits = RankLimit.objects.filter(rank__in=request.user.ranks.all())

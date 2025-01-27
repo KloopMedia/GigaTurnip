@@ -13,6 +13,14 @@ class Chain(BaseModel, CampaignInterface):
     )
     is_individual = models.BooleanField(
         default=False,
+        help_text="If true, this chain is an individual chain."
+    )
+
+    is_text_book = models.BooleanField(
+        default=False,
+        help_text=("If true, this chain is a text book, which means its stages "
+                    "containing rich text will accessible at once to any logged in user "
+                    "but without any tasks, tests, or progress tracking.")
     )
 
     ORDER_TYPE_CHOICES = [
