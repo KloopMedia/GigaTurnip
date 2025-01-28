@@ -1235,6 +1235,9 @@ class ChainTest(GigaTurnipTestHelper):
 
     def test_textbook_chains(self):
         """Test getting textbook chains with rich text stages"""
+        rich_text = "Learn about Python variables and data types"
+        rich_text_2 = "Introduction to Python programming"
+        
         # Create a textbook chain
         textbook_chain = Chain.objects.create(
             name="Python Tutorial",
@@ -1247,7 +1250,7 @@ class ChainTest(GigaTurnipTestHelper):
             chain=textbook_chain,
             name="Variables and Types",
             order=2,
-            rich_text="Learn about Python variables and data types",
+            rich_text=rich_text_2,
             x_pos=1,
             y_pos=1
         )
@@ -1256,7 +1259,7 @@ class ChainTest(GigaTurnipTestHelper):
             chain=textbook_chain,
             name="Introduction",
             order=1,
-            rich_text="Introduction to Python programming",
+            rich_text=rich_text,
             x_pos=1,
             y_pos=1
         )
@@ -1296,8 +1299,10 @@ class ChainTest(GigaTurnipTestHelper):
         self.assertEqual(stages_data[0]["id"], stage_1.id)  # Should be stage_1 due to order=1
         self.assertEqual(stages_data[0]["order"], 1)  # Verify correct order
         self.assertEqual(stages_data[0]["out_stages"], [stage_2.id])  # Verify stage connection
+        self.assertEqual(stages_data[0]["rich_text"], rich_text)  # Verify rich text content
         
         # Verify second stage data
         self.assertEqual(stages_data[1]["id"], stage_2.id)  # Should be stage_2 due to order=2
         self.assertEqual(stages_data[1]["order"], 2)  # Verify correct order
         self.assertEqual(stages_data[1]["out_stages"], [stage_3.id])  # Verify one outgoing connection
+        self.assertEqual(stages_data[1]["rich_text"], rich_text_2)  # Verify rich text content

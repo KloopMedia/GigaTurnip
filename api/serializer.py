@@ -269,6 +269,7 @@ class TextbookStageSerializer(serializers.Serializer):
     order = serializers.IntegerField()
     created_at = serializers.DateTimeField()
     out_stages = serializers.ListField(child=serializers.IntegerField())
+    rich_text = serializers.CharField()
 
 class TextbookChainSerializer(serializers.Serializer):
     id = serializers.IntegerField()
