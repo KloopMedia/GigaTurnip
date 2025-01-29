@@ -3,6 +3,8 @@ from uuid import uuid4
 
 from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase, APIClient
+from django.db import connection
+from django.conf import settings
 
 from api.models import Rank, RankRecord, CustomUser, RankLimit, Campaign, \
     Track, Chain, Language, Category, Country, TaskStage, Task
@@ -107,6 +109,11 @@ class GigaTurnipTestHelper(APITestCase):
         }
 
     def setUp(self):
+        print("setUp")
+        # Enable query logging for tests
+        settings.DEBUG = True
+        # Clear any queries from setup
+        #reset_queries()
         self.lang = Language.objects.create(
             name="English",
             code="en"
@@ -144,6 +151,36 @@ class GigaTurnipTestHelper(APITestCase):
             self.initial_stage,
             self.user,
             RankLimit(is_creation_open=True))
+
+    def tearDown(self):
+        # Print query statistics after each test
+        queries = len(connection.queries)
+        if queries > 0:
+            print(f"\n{self._testMethodName}")
+            print(f"Number of queries: {queries}")
+            # Track duplicate queries
+            duplicates = {}
+            for query in connection.queries:
+                sql = query['sql']
+                if sql in duplicates:
+                    duplicates[sql]['count'] += 1
+                    duplicates[sql]['time'] += float(query['time'])
+                else:
+                    duplicates[sql] = {'count': 1, 'time': float(query['time'])}
+            
+            # Print duplicates and slow queries
+            for sql, data in duplicates.items():
+                if data['time'] > 0.001:  # Highlight slow queries (>100ms)
+                    print(f"\nSlow query ({data['time']:.3f}s):")
+                    print(sql)
+                # elif data['count'] > 1:
+                #     print(f"\nDuplicate query ({data['count']} times, total time: {data['time']:.3f}s):")
+                    #print(sql)
+                #else:
+                    #print(f"\nNormal Query ({data['time']:.3f}s):")
+                    #print(sql)
+        
+        super().tearDown()
 
     def get_objects(self, endpoint, params=None, client=None, pk=None):
         c = client

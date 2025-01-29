@@ -92,5 +92,11 @@ class Volume(BaseModel, models.Model):
         )
     )
 
+    closed = models.BooleanField(
+        default=False,
+        null=True,
+        help_text='Flag to determine if Volume closed'
+    )
+
     def __str__(self):
         return str("Volume: " + self.name)

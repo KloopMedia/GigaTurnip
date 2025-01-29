@@ -141,7 +141,7 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     def __init__(self):
         self.statements += [{
-            "action": ["get_graph", "individuals"],
+            "action": ["get_graph", "individuals", "textbooks"],
             "principal": "authenticated",
             "effect": "allow"
 
@@ -149,13 +149,42 @@ class ChainAccessPolicy(ManagersOnlyAccessPolicy):
 
     @classmethod
     def scope_queryset(cls, request, queryset):
+         # Get the action from the request
+        action = request.parser_context['view'].action
+        if action == "individuals":
+             # Filter chains that have stages with rank limits matching user's ranks
+            # user_ranks = request.user.ranks.all()
+            # queryset = queryset.filter(
+            #     stages__in=TaskStage.objects.filter(
+            #         ranklimits__rank__in=user_ranks
+            #     )
+            # ).distinct()
+            return queryset
+        elif action == "textbooks":
+            return queryset
+        
         rank_limits = RankLimit.objects.filter(rank__in=request.user.ranks.all())
         all_available_chains = rank_limits.values_list('stage__chain', flat=True).distinct()
         return queryset.filter(
            Q(campaign__campaign_managements__user=request.user) |
            Q(id__in=all_available_chains)
         ).distinct()
-
+    
+    # @classmethod
+    # def scope_queryset(cls, request, queryset):
+    #      # Get the action from the request
+    #     action = request.parser_context['view'].action
+        
+    #     rank_limits = RankLimit.objects.filter(rank__in=request.user.ranks.all())
+    #     all_available_chains = rank_limits.values_list('stage__chain', flat=True).distinct()
+        
+    #     if action == "individuals":
+    #         return queryset.filter(id__in=all_available_chains).distinct()
+        
+    #     return queryset.filter(
+    #        Q(campaign__campaign_managements__user=request.user) |
+    #        Q(id__in=all_available_chains)
+    #     ).distinct()
 
 class ConditionalStageAccessPolicy(ManagersOnlyAccessPolicy):
     @classmethod

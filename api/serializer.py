@@ -6,6 +6,8 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from jsonschema import validate
+from okutool.models import Test
+from okutool.serializers import TestSerializer
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
@@ -36,6 +38,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     unread_notifications_count = serializers.SerializerMethodField()
     is_manager = serializers.SerializerMethodField()
     is_joined = serializers.SerializerMethodField()
+    is_completed = serializers.SerializerMethodField()
     registration_stage = serializers.SerializerMethodField()
 
     class Meta:
@@ -88,9 +91,14 @@ class CampaignSerializer(serializers.ModelSerializer):
         ).exists()
         return user_has_rank_record
 
+    def get_is_completed(self, obj):
+        request = self.context['request']
+        return obj.is_course_completed(request)
+
     def get_registration_stage(self, obj):
         registration_stage = obj.default_track.registration_stage
         return registration_stage.id if registration_stage else None
+
 
 
 class UserDeleteSerializer(serializers.Serializer):
@@ -134,21 +142,19 @@ class TaskStageChainInfoSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField()
     assign_type = serializers.CharField()
-    in_stages = serializers.ListField(child=serializers.IntegerField())
     out_stages = serializers.ListField(child=serializers.IntegerField())
+    in_stages = serializers.ListField(child=serializers.IntegerField())
     completed = serializers.ListField(child=serializers.IntegerField())
     opened = serializers.ListField(child=serializers.IntegerField())
     reopened = serializers.ListField(child=serializers.IntegerField())
-    total_count = serializers.IntegerField()
-    complete_count = serializers.IntegerField()
-
 
 class ChainIndividualsSerializer(serializers.ModelSerializer):
     stages_data = TaskStageChainInfoSerializer(source="data", many=True)
+    campaign = serializers.IntegerField()
 
     class Meta:
         model = Chain
-        fields = ["id", "name", "stages_data"]
+        fields = ["id", "name", "stages_data", "campaign"]
 
 
     def find_order(self, node, visited, stack, nodes):
@@ -192,6 +198,7 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
             nodes[key]["out_stages"] = result_out_stages
 
         ts_nodes = {i["id"]: nodes[i["id"]] for i in stages}
+
         first_stage = [i for i in nodes.values() if i["in_stages"] == [None]]
         if not first_stage:
             return stages
@@ -214,60 +221,70 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
     def filter_stages(self, stages):
         result = []
-        for st in stages:
-            if st["skip_empty_individual_tasks"] and (not st["total_count"] and not st["complete_count"]):
+        for stage in stages:
+            if (stage["skip_empty_individual_tasks"] and
+                (len(stage["opened"]) == 0 and len(stage["completed"]) == 0)):
                 continue
-            if st["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
+            if stage["assign_type"] == TaskStageConstants.AUTO_COMPLETE:
                 continue
-            result.append(st)
+            result.append(stage)
         return result
 
+    def calculate_in_stages(self, data, conditionals=None):
+        # Calculate in_stages for all stages in the chain
+        all_stages = data.copy()
+
+        # Add conditionals to the stages list if provided
+        if conditionals:
+            all_stages.extend(conditionals)
+
+        for stage in data:  # Only update regular stages, not conditionals
+            stage['in_stages'] = [
+                other_stage['id']
+                for other_stage in all_stages  # Check both regular and conditional stages
+                if (stage['id'] in other_stage.get('out_stages', []) and stage['id'] != other_stage['id'])
+            ]
+        return data
+
     def to_representation(self, instance):
-
-        user = self.context["request"].user
-
-        data = instance["data"]
+        stages_data = instance["data"]
+        stages_data = self.calculate_in_stages(stages_data, instance["conditionals"])
         order_type = instance["order_in_individuals"]
         # if order_type == ChainConstants.CHRONOLOGICALLY:
         #     data = self.order_by_created_at(instance["data"])
         if order_type == ChainConstants.GRAPH_FLOW:
-            data = self.order_by_graph_flow(instance["data"], instance["conditionals"])
+            stages_data = self.order_by_graph_flow(stages_data, instance["conditionals"])
         elif order_type == ChainConstants.ORDER:
-            data = self.order_by_order(instance["data"])
+            stages_data = self.order_by_order(stages_data)
 
-        data = self.filter_stages(data)
+        stages_data = self.filter_stages(stages_data)
 
-        instance["data"] = data
-
-        # stages = dict()
-        # for i in data:
-        #     if i["total_count"] == 0 and i["complete_count"] == 0:
-        #         continue
-        #
-        #     stages[i["id"]] = {
-        #         "completed": [],
-        #         "reopened": [],
-        #         "opened": [],
-        #     }
-        #
-        # tasks = user.tasks.filter(stage__in=list(stages.keys())).values("id", "stage", "reopened", "complete")
-        # for task in tasks:
-        #     if task["reopened"]:
-        #         stages[task["stage"]]["reopened"].append(task["id"])
-        #
-        #     if task["complete"]:
-        #         stages[task["stage"]]["completed"].append(task["id"])
-        #     else:
-        #         stages[task["stage"]]["opened"].append(task["id"])
-        #
-        # for st in instance["data"]:
-        #     if st["id"] in stages:
-        #         st.update(stages[st["id"]])
-        #     else:
-        #         st.update({"completed": [],"reopened": [],"opened": [],})
+        instance["data"] = stages_data
 
         return super(ChainIndividualsSerializer, self).to_representation(instance)
+    
+class TextbookStageSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    order = serializers.IntegerField()
+    created_at = serializers.DateTimeField()
+    out_stages = serializers.ListField(child=serializers.IntegerField())
+    rich_text = serializers.CharField()
 
+class TextbookChainSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    campaign = serializers.IntegerField()
+    stages_data = TextbookStageSerializer(many=True, source='data')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Sort stages by order field
+        representation['stages_data'] = sorted(
+            representation['stages_data'],
+            key=lambda x: x['order']
+        )
+        return representation
 
 class ConditionalStageSerializer(serializers.ModelSerializer,
                                  CampaignValidationCheck):
@@ -497,11 +514,14 @@ class TaskListSerializer(serializers.ModelSerializer):
             'responses',
             'stage',
             'created_at',
-            'updated_at',
+            'updated_at'
         ]
 
     def get_stage(self, obj):
         return obj['stage_data']
+
+    def get_test(self, obj):
+        return obj['stage_data']['test']
 
 
 class TaskUserSelectableSerializer(serializers.ModelSerializer):
@@ -567,6 +587,7 @@ class TaskEditSerializer(serializers.ModelSerializer):
 
 class TaskDefaultSerializer(serializers.ModelSerializer):
     stage = TaskStageReadSerializer(read_only=True)
+    test = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -579,6 +600,12 @@ class TaskDefaultSerializer(serializers.ModelSerializer):
                             'reopened',
                             'force_complete',
                             'complete']
+
+    def get_test(self, obj):
+        try:
+            return TestSerializer(obj.stage.test).data
+        except:
+            return None
 
     def to_representation(self, instance):
         """Replace stage schema with schema from task stage if so configured."""

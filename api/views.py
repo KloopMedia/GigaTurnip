@@ -6,11 +6,12 @@ from datetime import timedelta
 import requests
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import (
-    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,
+    Count, Q, Subquery, F, When, Value, TextField, OuterRef, Case as ExCase,Exists
 )
 from django.db.models.functions import JSONObject
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from api.models.stage.stage import Stage
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
 from rest_framework.authtoken.models import Token
@@ -42,7 +43,7 @@ from api.permissions import (
 from api.serializer import (
     CampaignSerializer, ChainSerializer, TaskStageSerializer,
     ConditionalStageSerializer, CaseSerializer, RankSerializer,
-    RankLimitSerializer, TrackSerializer, RankRecordSerializer,
+    RankLimitSerializer, TextbookChainSerializer, TrackSerializer, RankRecordSerializer,
     TaskEditSerializer, TaskDefaultSerializer, TaskRequestAssignmentSerializer,
     TestWebhookSerializer, TaskStageReadSerializer,
     CampaignManagementSerializer, NotificationListSerializer,
@@ -63,7 +64,7 @@ from .api_exceptions import CustomApiException
 from .constans import ErrorConstants, TaskStageConstants
 from .filters import (
     ResponsesContainsFilter,
-    CategoryInFilter, IndividualChainCompleteFilter,
+    CategoryInFilter, #IndividualChainCompleteFilter,
 )
 from api.utils.utils import paginate
 from .utils.django_expressions import ArraySubquery
@@ -291,7 +292,7 @@ class ChainViewSet(viewsets.ModelViewSet):
     }
     filter_backends = [
         DjangoFilterBackend,
-        IndividualChainCompleteFilter,
+        #IndividualChainCompleteFilter,
     ]
     def get_queryset(self):
         return ChainAccessPolicy.scope_queryset(
@@ -301,6 +302,8 @@ class ChainViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "individuals":
             return ChainIndividualsSerializer
+        if self.action == "textbooks":
+            return TextbookChainSerializer
         return ChainSerializer
 
     @action(detail=True)
@@ -316,9 +319,37 @@ class ChainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"])
     def individuals(self, request):
         qs = self.get_queryset()
-        qs = self.filter_queryset(qs.select_related("campaign")) \
-            .filter(is_individual=True).prefetch_related("stages")
+        qs = self.filter_queryset(qs)
+        qs = qs.filter(is_individual=True).select_related("campaign").prefetch_related("stages")
         user = request.user
+
+        #Filter chains that have stages with rank limits matching user's ranks
+
+        # print("chain queryset before filter:")
+        # print(qs)
+
+        # print("All stages from the main queryset before filter:")
+        # print(qs.values("stages"))
+
+        # user_ranks = user.ranks.all()
+
+        # First get chains that have at least one stage with matching rank
+        # chains_with_matching_ranks = qs.filter(
+        #     stages__in=TaskStage.objects.filter(
+        #         ranklimits__rank__in=user_ranks
+        #     )
+        # ).values("id")
+
+        # qs = qs.filter(id__in=chains_with_matching_ranks)
+
+        # print("chain queryset after filter:")
+        # print(qs)
+
+
+        rank_limits = RankLimit.objects.filter(rank__in=user.ranks.all())
+        all_available_chains = rank_limits.values_list('stage__chain', flat=True).distinct()
+
+        qs = qs.filter(id__in=all_available_chains).distinct()
 
         # filter by highest user ranks
         if request.query_params.get("by_highest_ranks"):
@@ -328,24 +359,76 @@ class ChainViewSet(viewsets.ModelViewSet):
                     "stage__chain")
             )
 
+
+        # print("All stages from the main queryset after filter:")
+        # print(qs.values("stages"))
+
         user_tasks = Task.objects.filter(
             assignee_id=user.id,
             stage__in=qs.values("stages")
         ).select_related("stage")
 
-        task_stages_query = TaskStage.objects.prefetch_related("out_stages",
-            "in_stages").select_related("tasks").filter(chain=OuterRef("id")) \
+        # print("All tasks queryset with all fields:")
+        # print(Task.objects.all().values("id", "assignee", "stage", "complete", "reopened"))
+
+        # print("user_tasks queryset:")
+        # print(user_tasks)
+
+         # Get out_stage IDs in a separate, optimized subquery
+        out_stages_subquery = Stage.objects.filter(
+            in_stages=OuterRef('id')
+        ).values_list('id', flat=True)
+
+        # Get in_stage IDs in a separate, optimized subquery
+        # in_stages_subquery = TaskStage.objects.filter(
+        #     out_stages=OuterRef('id')
+        # ).values_list('id', flat=True)
+
+        task_stages_query = TaskStage.objects.select_related("tasks").filter(chain=OuterRef("id")) \
             .annotate(
-                all_out_stages=ArrayAgg("out_stages", distinct=True),
-                all_in_stages=ArrayAgg("in_stages", distinct=True),
+                all_out_stages=ArraySubquery(out_stages_subquery),
+                #all_in_stages=ArraySubquery(in_stages_subquery),
+                #all_out_stages=ArrayAgg("out_stages__id", distinct=True),
+                #all_in_stages=ArrayAgg("in_stages", distinct=True),
                 completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=True).values_list("id", flat=True)),
+                #not_completed=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
                 opened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False).values_list("id", flat=True)),
                 reopened=ArraySubquery(user_tasks.filter(stage_id=OuterRef("id"), complete=False, reopened=True).values_list("id", flat=True)),
-                total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
-                complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
-        )
+                #total_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"))),
+                #complete_count=Count("tasks", filter=Q(tasks__case__in=user_tasks.values("case"), tasks__complete=True))
+            )
 
-        qs = qs.values("id", "name", "order_in_individuals").annotate(
+
+         # Check if we need to filter by completion status
+        completed_param = request.query_params.get('completed', '').lower()
+        if completed_param in ['true', 'false']:
+            # Convert string parameter to boolean
+            completed_filter = (completed_param == 'true')
+
+            # This subquery finds stages that:
+            # 1. Belong to the current chain (chain=OuterRef('id'))
+            # 2. Are marked as required for chain completion (complete_individual_chain=True)
+            # 3. Don't have a completed task from the current user
+            incomplete_required_stages = TaskStage.objects.filter(
+                chain=OuterRef('id'),  # Links to the main query's chain
+                complete_individual_chain=True  # Only stages required for completion
+            ).exclude(
+                # Exclude stages where user has completed tasks
+                id__in=user_tasks.filter(complete=True).values('stage_id')
+            )
+
+            if completed_filter:  # When completed=true
+                # Return chains that have NO incomplete required stages
+                # ~Q(Exists()) means "does not exist"
+                # In other words: all required stages have completed tasks
+                qs = qs.filter(~Q(Exists(incomplete_required_stages)))
+            else:  # When completed=false
+                # Return chains that have AT LEAST ONE incomplete required stage
+                # Exists() means "there is at least one"
+                # In other words: some required stages don't have completed tasks
+                qs = qs.filter(Exists(incomplete_required_stages))
+
+        qs = qs.values("id", "name", "order_in_individuals", "campaign").annotate(
             data=ArraySubquery(
                 task_stages_query.values(
                     info=JSONObject(
@@ -355,13 +438,14 @@ class ChainViewSet(viewsets.ModelViewSet):
                         created_at="created_at",
                         skip_empty_individual_tasks="skip_empty_individual_tasks",
                         completed="completed",
+                        #not_completed="not_completed",
                         opened="opened",
                         reopened="reopened",
                         assign_type="assign_user_by",
                         out_stages="all_out_stages",
-                        in_stages="all_in_stages",
-                        total_count="total_count",
-                        complete_count="complete_count"
+                        #in_stages="all_in_stages",
+                        #total_count="total_count",
+                        #complete_count="complete_count"
                     )
                 )
             ),
@@ -382,6 +466,45 @@ class ChainViewSet(viewsets.ModelViewSet):
             )
         )
         return qs
+
+    @paginate
+    @action(detail=False, methods=["GET"])
+    def textbooks(self, request):
+        """Get all textbook chains (accessible to any logged-in user)"""
+        qs = self.get_queryset()
+        qs = self.filter_queryset(qs)
+        qs = qs.filter(is_text_book=True).select_related("campaign").prefetch_related("stages")
+
+        # Get stages data without task-related information, only including stages with rich_text
+        task_stages_query = TaskStage.objects.filter(
+            chain=OuterRef("id"),
+            rich_text__isnull=False  # Exclude null rich_text
+        ).exclude(
+            rich_text=""  # Exclude empty rich_text
+        ).annotate(
+            all_out_stages=ArraySubquery(
+                Stage.objects.filter(
+                    in_stages=OuterRef('id')
+                ).values_list('id', flat=True)
+            )
+        )
+
+        qs = qs.values("id", "name", "order_in_individuals", "campaign").annotate(
+            data=ArraySubquery(
+                task_stages_query.values(
+                    info=JSONObject(
+                        id="id",
+                        name="name",
+                        order="order",
+                        created_at="created_at",
+                        out_stages="all_out_stages",
+                        rich_text="rich_text"  # Include rich_text in response
+                    )
+                )
+            )
+        )
+        return qs
+
 
 
 class TaskStageViewSet(viewsets.ModelViewSet):
@@ -518,6 +641,47 @@ class TaskStageViewSet(viewsets.ModelViewSet):
                 if not RankRecord.objects.filter(rank=stage.fast_track_rank).filter(user=request.user).exists():
                     RankRecord.objects.create(rank=stage.fast_track_rank, user=request.user)
 
+
+        task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
+        for copy_field in stage.copy_fields.all():
+            task.responses.update(copy_field.copy_response(task))
+        webhook = stage.get_webhook()
+        if webhook and webhook.is_triggered:
+            webhook.trigger(task)
+        task.save()
+        serializer = TaskDefaultSerializer(task)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def get_or_create_task(self, request, pk=None):
+        """
+        Get the latest task for the current stage assigned to the request user based on `updated_at`.
+        If no such task exists, create a new one.
+        """
+        stage = self.get_object()
+
+        existing_task = Task.objects.filter(
+            assignee=request.user,
+            stage=stage
+        ).order_by('-updated_at').first()
+
+        if existing_task:
+            serializer = TaskDefaultSerializer(existing_task)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # ToDo объединить с create_task
+        case = Case.objects.create()
+        stage = self.get_object()
+        responses = dict()
+        if request.method == 'POST':
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            responses = serializer.data["responses"]
+
+            # Check fast_track
+            if request.data.get('fast_track', False):
+                if not RankRecord.objects.filter(rank=stage.fast_track_rank).filter(user=request.user).exists():
+                    RankRecord.objects.create(rank=stage.fast_track_rank, user=request.user)
 
         task = Task(stage=stage, assignee=request.user, case=case, responses=responses)
         for copy_field in stage.copy_fields.all():
@@ -820,6 +984,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 campaign="stage__chain__campaign",
                 card_json_schema="stage__card_json_schema",
                 card_ui_schema="stage__card_ui_schema",
+                test="stage__test",
             )
         ).values('id',
                  'complete',
@@ -1879,9 +2044,8 @@ class VolumeViewSet(viewsets.ModelViewSet):
     permission_classes = (VolumeAccessPolicy,)
 
     def get_queryset(self):
-        return VolumeAccessPolicy.scope_queryset(
-            self.request, Volume.objects.all()
-        )
+        queryset = Volume.objects.filter(closed=False)
+        return VolumeAccessPolicy.scope_queryset(self.request, queryset)
 
 
 class AbilityViewSet(viewsets.ModelViewSet):

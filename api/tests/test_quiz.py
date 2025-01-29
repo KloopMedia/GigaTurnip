@@ -554,7 +554,7 @@ class QuizTest(GigaTurnipTestHelper):
         )
         task_creation_api_response = self.get_objects(endpoint="taskstage-create-task",
                                                       pk=self.initial_stage.pk)
-        print(task_creation_api_response.data)
+        
         self.assertEqual(task_creation_api_response.data["stage"]["quiz_answers"], correct_responses)
 
         # task = self.create_initial_task()
