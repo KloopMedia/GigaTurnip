@@ -122,19 +122,19 @@ class Campaign(BaseModel, CampaignInterface):
         on_delete=models.SET_NULL,
     )
 
-    def is_course_completed(self, request):
-        """
-        Check if the user has completed the course by verifying the existence
-        of a rank record for the user with the specified rank.
-        """
-        user = request.user
-        if user and not user.is_anonymous:
-            RankRecord = apps.get_model("api", "RankRecord")
-            return RankRecord.objects.filter(
-                user=user,
-                rank=self.course_completetion_rank
-            ).exists()
-        return False
+    # def is_course_completed(self, request):
+    #     """
+    #     Check if the user has completed the course by verifying the existence
+    #     of a rank record for the user with the specified rank.
+    #     """
+    #     user = request.user
+    #     if user and not user.is_anonymous:
+    #         RankRecord = apps.get_model("api", "RankRecord")
+    #         return RankRecord.objects.filter(
+    #             user=user,
+    #             rank=self.course_completetion_rank
+    #         ).exists()
+    #     return False
 
     def join(self, request):
         if request.user is not None:

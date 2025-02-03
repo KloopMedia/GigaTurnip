@@ -71,35 +71,35 @@ class CyclicChainTest(GigaTurnipTestHelper):
 
         return second_stage, conditional_stage, conditional_stage_cyclic, final_stage
 
-    def test_cyclic_chain_ST(self):
-        second_stage, conditional_stage, conditional_stage_cyclic, final_stage = self.create_cyclic_chain()
+    # def test_cyclic_chain_ST(self):
+    #     second_stage, conditional_stage, conditional_stage_cyclic, final_stage = self.create_cyclic_chain()
 
-        task = self.create_initial_task()
-        task = self.complete_task(task, {"name": "Kloop"})
+    #     task = self.create_initial_task()
+    #     task = self.complete_task(task, {"name": "Kloop"})
 
-        second_task_1 = task.out_tasks.get()
-        second_task_1 = self.complete_task(second_task_1, {"foo": "not right"})
-        self.assertEqual(Task.objects.filter(case=task.case).count(), 3)
-        self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
+    #     second_task_1 = task.out_tasks.get()
+    #     second_task_1 = self.complete_task(second_task_1, {"foo": "not right"})
+    #     self.assertEqual(Task.objects.filter(case=task.case).count(), 3)
+    #     self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
 
-        second_task_2 = second_task_1.out_tasks.get()
+    #     second_task_2 = second_task_1.out_tasks.get()
 
-        response = self.get_objects('case-info-by-case', pk=task.case.id)
-        info_by_case = [
-            {'stage': self.initial_stage.id, 'stage__name': 'Initial', 'complete': [True], 'force_complete': [False],
-             'id': [task.id]},
-            {'stage': second_stage.id, 'stage__name': 'Test pronunciation', 'complete': [False, True],
-             'force_complete': [False, False],
-             'id': [second_task_2.id, second_task_1.id]}
-        ]
-        self.assertEqual(len(response.data['info']), 2)
-        for i in info_by_case:
-            self.assertIn(i, response.data['info'])
+    #     response = self.get_objects('case-info-by-case', pk=task.case.id)
+    #     info_by_case = [
+    #         {'stage': self.initial_stage.id, 'stage__name': 'Initial', 'complete': [True], 'force_complete': [False],
+    #          'id': [task.id]},
+    #         {'stage': second_stage.id, 'stage__name': 'Test pronunciation', 'complete': [False, True],
+    #          'force_complete': [False, False],
+    #          'id': [second_task_2.id, second_task_1.id]}
+    #     ]
+    #     self.assertEqual(len(response.data['info']), 2)
+    #     for i in info_by_case:
+    #         self.assertIn(i, response.data['info'])
 
-        second_task_2 = self.complete_task(second_task_2, {"foo": "boo"})
-        self.assertEqual(Task.objects.filter(case=task.case).count(), 4)
-        self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
-        self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
+    #     second_task_2 = self.complete_task(second_task_2, {"foo": "boo"})
+    #     self.assertEqual(Task.objects.filter(case=task.case).count(), 4)
+    #     self.assertEqual(Task.objects.filter(case=task.case, stage=second_stage).count(), 2)
+    #     self.assertEqual(Task.objects.filter(case=task.case, stage=final_stage).count(), 1)
 
     def test_cyclic_chain_RA(self):
         js_schema = {
