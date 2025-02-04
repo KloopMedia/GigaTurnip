@@ -44,8 +44,9 @@ class CampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = base_model_fields + ['logo', 'sms_phone', 'sms_complete_task_allow', 'is_joined', 
-                                      'is_completed', 'featured_image', 'contact_us_link', 'new_task_view_mode', 
-                                      'registration_stage', 'start_date']
+                                      'is_completed', 'featured_image', 'contact_us_link', 
+                                      'new_task_view_mode', 'registration_stage', 'start_date', 
+                                      'short_description']
 
     # def get_managers(self, obj):
     #     if self.context['request'].user.is_anonymous:
