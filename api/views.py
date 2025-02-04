@@ -2019,5 +2019,50 @@ class VolumeViewSet(viewsets.ModelViewSet):
     permission_classes = (VolumeAccessPolicy,)
 
     def get_queryset(self):
-        queryset = Volume.objects.filter(closed=False)
-        return VolumeAccessPolicy.scope_queryset(self.request, queryset)
+        user = self.request.user
+
+        qs = Volume.objects.filter(closed=False)
+        qs = VolumeAccessPolicy.scope_queryset(self.request, qs)
+
+        if user.is_authenticated:
+            # Annotate default rank check
+            # qs = qs.annotate(
+            #     user_has_default_rank=Exists(
+            #         RankRecord.objects.filter(
+            #             user=user,
+            #             rank_id=OuterRef('track_fk__default_rank')
+            #         )
+            #     )
+            # )
+            
+            # According to the access policy, user will only see volumes with matching default rank
+            qs = qs.annotate(user_has_default_rank=Value(True))
+            
+            # Annotate opening ranks check - check if user has AT LEAST ONE matching rank
+            qs = qs.annotate(
+                user_has_opening_ranks=Exists(
+                    RankRecord.objects.filter(
+                        user=user,
+                        rank__opened_volumes=OuterRef('pk')
+                    )
+                )
+            )
+            
+            # Similar logic for closing ranks
+            qs = qs.annotate(
+                user_has_closing_ranks=Exists(
+                    RankRecord.objects.filter(
+                        user=user,
+                        rank__closed_volumes=OuterRef('pk')
+                    )
+                )
+            )
+        else:
+            # For anonymous users, all rank checks are False
+            qs = qs.annotate(
+                user_has_default_rank=Value(False),
+                user_has_opening_ranks=Value(False),
+                user_has_closing_ranks=Value(False)
+            )
+
+        return qs
