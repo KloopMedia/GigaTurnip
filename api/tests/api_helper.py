@@ -109,7 +109,7 @@ class GigaTurnipTestHelper(APITestCase):
         }
 
     def setUp(self):
-        print("setUp")
+        print(f"\n{self._testMethodName}")
         # Enable query logging for tests
         settings.DEBUG = True
         # Clear any queries from setup
@@ -156,7 +156,6 @@ class GigaTurnipTestHelper(APITestCase):
         # Print query statistics after each test
         queries = len(connection.queries)
         if queries > 0:
-            print(f"\n{self._testMethodName}")
             print(f"Number of queries: {queries}")
             # Track duplicate queries
             duplicates = {}
@@ -173,12 +172,12 @@ class GigaTurnipTestHelper(APITestCase):
                 if data['time'] > 0.001:  # Highlight slow queries (>100ms)
                     print(f"\nSlow query ({data['time']:.3f}s):")
                     print(sql)
-                # elif data['count'] > 1:
-                #     print(f"\nDuplicate query ({data['count']} times, total time: {data['time']:.3f}s):")
+                elif data['count'] > 1:
+                    print(f"\nDuplicate query ({data['count']} times, total time: {data['time']:.3f}s):")
                     #print(sql)
-                #else:
-                    #print(f"\nNormal Query ({data['time']:.3f}s):")
-                    #print(sql)
+                # else:
+                #     print(f"\nNormal Query ({data['time']:.3f}s):")
+                    #print(sql)§
         
         super().tearDown()
 
@@ -190,6 +189,7 @@ class GigaTurnipTestHelper(APITestCase):
             url = reverse(endpoint, kwargs={"pk": pk})
         else:
             url = reverse(endpoint)
+        print("URL: ", url)
         if params:
             return c.get(url, data=params)
         else:

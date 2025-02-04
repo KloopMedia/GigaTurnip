@@ -33,71 +33,55 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 
 
 class CampaignSerializer(serializers.ModelSerializer):
-    managers = serializers.SerializerMethodField()
-    notifications_count = serializers.SerializerMethodField()
-    unread_notifications_count = serializers.SerializerMethodField()
-    is_manager = serializers.SerializerMethodField()
-    is_joined = serializers.SerializerMethodField()
-    registration_stage = serializers.SerializerMethodField()
-    is_completed = serializers.SerializerMethodField()
+    # managers = serializers.SerializerMethodField()
+    # notifications_count = serializers.SerializerMethodField()
+    # unread_notifications_count = serializers.SerializerMethodField()
+    # is_manager = serializers.SerializerMethodField()
+    is_joined = serializers.BooleanField()
+    registration_stage = serializers.IntegerField(required=False, allow_null=True)
+    is_completed = serializers.BooleanField()
 
     class Meta:
         model = Campaign
-        fields = '__all__'
+        fields = base_model_fields + ['logo', 'sms_phone', 'sms_complete_task_allow', 'is_joined', 
+                                      'is_completed', 'featured_image', 'contact_us_link', 'new_task_view_mode', 
+                                      'registration_stage', 'start_date']
 
-    def get_managers(self, obj):
-        if self.context['request'].user.is_anonymous:
-            return
-        return obj.managers.values_list(flat=True)
+    # def get_managers(self, obj):
+    #     if self.context['request'].user.is_anonymous:
+    #         return
+    #     return obj.managers.values_list(flat=True)
 
-    def get_notifications_count(self, obj):
-        user = self.context['request'].user
-        if user.is_anonymous:
-            return 0
-        return obj.notifications.filter(
-            Q(rank__id__in=user.ranks.values('id'))
-            | Q(target_user=user)).count()
+    # def get_notifications_count(self, obj):
+    #     user = self.context['request'].user
+    #     if user.is_anonymous:
+    #         return 0
+    #     return obj.notifications.filter(
+    #         Q(rank__id__in=user.ranks.values('id'))
+    #         | Q(target_user=user)).count()
 
-    def get_unread_notifications_count(self, obj):
-        user = self.context['request'].user
+    # def get_unread_notifications_count(self, obj):
+    #     user = self.context['request'].user
 
-        if user.is_anonymous:
-            return 0
+    #     if user.is_anonymous:
+    #         return 0
 
-        total_notifications_count = obj.notifications.filter(
-            Q(rank__id__in=user.ranks.values('id')) | Q(target_user=user)
-        ).count()
+    #     total_notifications_count = obj.notifications.filter(
+    #         Q(rank__id__in=user.ranks.values('id')) | Q(target_user=user)
+    #     ).count()
 
-        read_notifications_count = obj.notifications.filter(
-            notification_statuses__user=user
-        ).count()
+    #     read_notifications_count = obj.notifications.filter(
+    #         notification_statuses__user=user
+    #     ).count()
 
-        unread_notifications_count = total_notifications_count - read_notifications_count
+    #     unread_notifications_count = total_notifications_count - read_notifications_count
 
-        return unread_notifications_count
+    #     return unread_notifications_count
 
-    def get_is_manager(self, obj):
-        user = self.context['request'].user
-        managers = obj.get_campaign().managers.all()
-        return user in managers
-
-    def get_is_joined(self, obj):
-        user = self.context['request'].user
-        if user.is_anonymous:
-            return False
-
-        user_has_rank_record = user.user_ranks.filter(
-            rank_id=obj.default_track.default_rank
-        ).exists()
-        return user_has_rank_record
-
-    def get_is_completed(self, obj):
-        request = self.context['request']
-        return obj.is_course_completed(request)
-
-    def get_registration_stage(self, obj):
-        registration_stage = obj.default_track.registration_stage
-        return registration_stage.id if registration_stage else None
+    # def get_is_manager(self, obj):
+    #     user = self.context['request'].user
+    #     managers = obj.get_campaign().managers.all()
+    #     return user in managers
 
 
 class UserDeleteSerializer(serializers.Serializer):

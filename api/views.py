@@ -222,9 +222,25 @@ class CampaignViewSet(viewsets.ModelViewSet):
     )
 
     def get_queryset(self):
-        return CampaignAccessPolicy.scope_queryset(
+        qs = CampaignAccessPolicy.scope_queryset(
             self.request, Campaign.objects.all()
         )
+        user = self.request.user
+        if user.is_authenticated:
+            # Prefetch user ranks to avoid N+1 queries
+            user_ranks = user.user_ranks.values_list('id', flat=True)
+            qs = qs.annotate(is_joined=Exists(
+                RankRecord.objects.filter(rank_id=OuterRef('default_track__default_rank'), user=user)
+            )).annotate(is_completed=Exists(
+                RankRecord.objects.filter(rank_id=OuterRef('course_completetion_rank'), user=user)
+            ))
+        else:
+            qs = qs.annotate(is_joined=Value(False))
+            qs = qs.annotate(is_completed=Value(False))
+        qs = qs.annotate(registration_stage=Subquery(
+                Track.objects.filter(id=OuterRef('default_track')).values('registration_stage')[:1]
+        ))
+        return qs
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -235,7 +251,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(
             self.get_queryset()
-        ).filter(visible=True).prefetch_related("managers", "notifications")
+        ).filter(visible=True)
         return qs
 
     @action(detail=True, methods=['post', 'get'])
