@@ -18,7 +18,7 @@ class Volume(BaseModel, models.Model):
 
     opening_ranks = models.ManyToManyField(
         "Rank",
-        related_name='opening_ranks',
+        related_name='opened_volumes',
         help_text=(
             "Ranks needed to open this volume"
         )
@@ -26,7 +26,7 @@ class Volume(BaseModel, models.Model):
 
     closing_ranks = models.ManyToManyField(
         "Rank",
-        related_name='closing_ranks',
+        related_name='closed_volumes',
         help_text=(
             "Ranks needed to close this volume"
         )

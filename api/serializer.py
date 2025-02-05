@@ -33,71 +33,56 @@ schema_provider_fields = ['json_schema', 'ui_schema', 'card_json_schema', 'card_
 
 
 class CampaignSerializer(serializers.ModelSerializer):
-    managers = serializers.SerializerMethodField()
-    notifications_count = serializers.SerializerMethodField()
-    unread_notifications_count = serializers.SerializerMethodField()
-    is_manager = serializers.SerializerMethodField()
-    is_joined = serializers.SerializerMethodField()
-    is_completed = serializers.SerializerMethodField()
-    registration_stage = serializers.SerializerMethodField()
+    # managers = serializers.SerializerMethodField()
+    # notifications_count = serializers.SerializerMethodField()
+    # unread_notifications_count = serializers.SerializerMethodField()
+    # is_manager = serializers.SerializerMethodField()
+    is_joined = serializers.BooleanField()
+    registration_stage = serializers.IntegerField(required=False, allow_null=True)
+    is_completed = serializers.BooleanField()
 
     class Meta:
         model = Campaign
-        fields = '__all__'
+        fields = base_model_fields + ['logo', 'sms_phone', 'sms_complete_task_allow', 'is_joined', 
+                                      'is_completed', 'featured_image', 'contact_us_link', 
+                                      'new_task_view_mode', 'registration_stage', 'start_date', 
+                                      'short_description']
 
-    def get_managers(self, obj):
-        if self.context['request'].user.is_anonymous:
-            return
-        return obj.managers.values_list(flat=True)
+    # def get_managers(self, obj):
+    #     if self.context['request'].user.is_anonymous:
+    #         return
+    #     return obj.managers.values_list(flat=True)
 
-    def get_notifications_count(self, obj):
-        user = self.context['request'].user
-        if user.is_anonymous:
-            return 0
-        return obj.notifications.filter(
-            Q(rank__id__in=user.ranks.values('id'))
-            | Q(target_user=user)).count()
+    # def get_notifications_count(self, obj):
+    #     user = self.context['request'].user
+    #     if user.is_anonymous:
+    #         return 0
+    #     return obj.notifications.filter(
+    #         Q(rank__id__in=user.ranks.values('id'))
+    #         | Q(target_user=user)).count()
 
-    def get_unread_notifications_count(self, obj):
-        user = self.context['request'].user
+    # def get_unread_notifications_count(self, obj):
+    #     user = self.context['request'].user
 
-        if user.is_anonymous:
-            return 0
+    #     if user.is_anonymous:
+    #         return 0
 
-        total_notifications_count = obj.notifications.filter(
-            Q(rank__id__in=user.ranks.values('id')) | Q(target_user=user)
-        ).count()
+    #     total_notifications_count = obj.notifications.filter(
+    #         Q(rank__id__in=user.ranks.values('id')) | Q(target_user=user)
+    #     ).count()
 
-        read_notifications_count = obj.notifications.filter(
-            notification_statuses__user=user
-        ).count()
+    #     read_notifications_count = obj.notifications.filter(
+    #         notification_statuses__user=user
+    #     ).count()
 
-        unread_notifications_count = total_notifications_count - read_notifications_count
+    #     unread_notifications_count = total_notifications_count - read_notifications_count
 
-        return unread_notifications_count
+    #     return unread_notifications_count
 
-    def get_is_manager(self, obj):
-        user = self.context['request'].user
-        managers = obj.get_campaign().managers.all()
-        return user in managers
-
-    def get_is_joined(self, obj):
-        user = self.context['request'].user
-        if user.is_anonymous:
-            return False
-
-        user_has_rank_record = user.user_ranks.filter(
-            rank_id=obj.default_track.default_rank
-        ).exists()
-        return user_has_rank_record
-
-    def get_is_completed(self, obj):
-        request = self.context['request']
-        return obj.is_course_completed(request)
-
-    def get_registration_stage(self, obj):
-        registration_stage = obj.default_track.registration_stage
-        return registration_stage.id if registration_stage else None
+    # def get_is_manager(self, obj):
+    #     user = self.context['request'].user
+    #     managers = obj.get_campaign().managers.all()
+    #     return user in managers
 
 
 
@@ -1002,53 +987,53 @@ class FCMTokenSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
-    user_has_default_rank = serializers.SerializerMethodField()
-    user_has_opening_ranks = serializers.SerializerMethodField()
-    user_has_closing_ranks = serializers.SerializerMethodField()
+    user_has_default_rank = serializers.BooleanField()
+    user_has_opening_ranks = serializers.BooleanField()
+    user_has_closing_ranks = serializers.BooleanField()
 
     class Meta:
         model = Volume
         fields = '__all__'
 
-    def get_user_has_default_rank(self, obj):
-        user = self.context['request'].user
-        if user.is_anonymous:
-            return False
+    # def get_user_has_default_rank(self, obj):
+    #     user = self.context['request'].user
+    #     if user.is_anonymous:
+    #         return False
 
-        user_has_rank_record = user.user_ranks.filter(
-            rank_id=obj.track_fk.default_rank
-        ).exists()
-        return user_has_rank_record
+    #     user_has_rank_record = user.user_ranks.filter(
+    #         rank_id=obj.track_fk.default_rank
+    #     ).exists()
+    #     return user_has_rank_record
 
-    def get_user_has_opening_ranks(self, obj):
-        # Get the current user from the request context
-        user = self.context['request'].user
+    # def get_user_has_opening_ranks(self, obj):
+    #     # Get the current user from the request context
+    #     user = self.context['request'].user
 
-        # If the user is anonymous, they do not have any ranks
-        if user.is_anonymous:
-            return False
+    #     # If the user is anonymous, they do not have any ranks
+    #     if user.is_anonymous:
+    #         return False
 
-        # Get the ranks that the user possesses
-        user_ranks = user.user_ranks.values_list('rank_id', flat=True)
+    #     # Get the ranks that the user possesses
+    #     user_ranks = user.user_ranks.values_list('rank_id', flat=True)
 
-        # Check if the user has all the opening ranks required for this volume
-        opening_ranks_needed = obj.opening_ranks.values_list('id', flat=True)
-        return set(opening_ranks_needed).issubset(set(user_ranks))
+    #     # Check if the user has all the opening ranks required for this volume
+    #     opening_ranks_needed = obj.opening_ranks.values_list('id', flat=True)
+    #     return set(opening_ranks_needed).issubset(set(user_ranks))
 
-    def get_user_has_closing_ranks(self, obj):
-        # Get the current user from the request context
-        user = self.context['request'].user
+    # def get_user_has_closing_ranks(self, obj):
+    #     # Get the current user from the request context
+    #     user = self.context['request'].user
 
-        # If the user is anonymous, they do not have any ranks
-        if user.is_anonymous:
-            return False
+    #     # If the user is anonymous, they do not have any ranks
+    #     if user.is_anonymous:
+    #         return False
 
-        # Get the ranks that the user possesses
-        user_ranks = user.user_ranks.values_list('rank_id', flat=True)
+    #     # Get the ranks that the user possesses
+    #     user_ranks = user.user_ranks.values_list('rank_id', flat=True)
 
-        # Check if the user has all the closing ranks required for this volume
-        closing_ranks_needed = obj.closing_ranks.values_list('id', flat=True)
-        return set(closing_ranks_needed).issubset(set(user_ranks))
+    #     # Check if the user has all the closing ranks required for this volume
+    #     closing_ranks_needed = obj.closing_ranks.values_list('id', flat=True)
+    #     return set(closing_ranks_needed).issubset(set(user_ranks))
 
 
 class AbilitySerializer(serializers.ModelSerializer):

@@ -222,9 +222,25 @@ class CampaignViewSet(viewsets.ModelViewSet):
     )
 
     def get_queryset(self):
-        return CampaignAccessPolicy.scope_queryset(
+        qs = CampaignAccessPolicy.scope_queryset(
             self.request, Campaign.objects.all()
         )
+        user = self.request.user
+        if user.is_authenticated:
+            # Prefetch user ranks to avoid N+1 queries
+            user_ranks = user.user_ranks.values_list('id', flat=True)
+            qs = qs.annotate(is_joined=Exists(
+                RankRecord.objects.filter(rank_id=OuterRef('default_track__default_rank'), user=user)
+            )).annotate(is_completed=Exists(
+                RankRecord.objects.filter(rank_id=OuterRef('course_completetion_rank'), user=user)
+            ))
+        else:
+            qs = qs.annotate(is_joined=Value(False))
+            qs = qs.annotate(is_completed=Value(False))
+        qs = qs.annotate(registration_stage=Subquery(
+                Track.objects.filter(id=OuterRef('default_track')).values('registration_stage')[:1]
+        ))
+        return qs
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -235,7 +251,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         qs = self.filter_queryset(
             self.get_queryset()
-        ).filter(visible=True).prefetch_related("managers", "notifications")
+        ).filter(visible=True)
         return qs
 
     @action(detail=True, methods=['post', 'get'])
@@ -2044,9 +2060,53 @@ class VolumeViewSet(viewsets.ModelViewSet):
     permission_classes = (VolumeAccessPolicy,)
 
     def get_queryset(self):
-        queryset = Volume.objects.filter(closed=False)
-        return VolumeAccessPolicy.scope_queryset(self.request, queryset)
+        user = self.request.user
 
+        qs = Volume.objects.filter(closed=False)
+        qs = VolumeAccessPolicy.scope_queryset(self.request, qs)
+
+        if user.is_authenticated:
+            # Annotate default rank check
+            # qs = qs.annotate(
+            #     user_has_default_rank=Exists(
+            #         RankRecord.objects.filter(
+            #             user=user,
+            #             rank_id=OuterRef('track_fk__default_rank')
+            #         )
+            #     )
+            # )
+            
+            # According to the access policy, user will only see volumes with matching default rank
+            qs = qs.annotate(user_has_default_rank=Value(True))
+            
+            # Annotate opening ranks check - check if user has AT LEAST ONE matching rank
+            qs = qs.annotate(
+                user_has_opening_ranks=Exists(
+                    RankRecord.objects.filter(
+                        user=user,
+                        rank__opened_volumes=OuterRef('pk')
+                    )
+                )
+            )
+            
+            # Similar logic for closing ranks
+            qs = qs.annotate(
+                user_has_closing_ranks=Exists(
+                    RankRecord.objects.filter(
+                        user=user,
+                        rank__closed_volumes=OuterRef('pk')
+                    )
+                )
+            )
+        else:
+            # For anonymous users, all rank checks are False
+            qs = qs.annotate(
+                user_has_default_rank=Value(False),
+                user_has_opening_ranks=Value(False),
+                user_has_closing_ranks=Value(False)
+            )
+
+        return qs
 
 class AbilityViewSet(viewsets.ModelViewSet):
     """
