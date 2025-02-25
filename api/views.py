@@ -444,7 +444,7 @@ class ChainViewSet(viewsets.ModelViewSet):
                 # In other words: some required stages don't have completed tasks
                 qs = qs.filter(Exists(incomplete_required_stages))
 
-        qs = qs.values("id", "name", "order_in_individuals", "campaign").annotate(
+        qs = qs.values("id", "name", "order_in_individuals", "campaign", "new_task_view_mode").annotate(
             data=ArraySubquery(
                 task_stages_query.values(
                     info=JSONObject(
