@@ -45,7 +45,7 @@ class CampaignSerializer(serializers.ModelSerializer):
         model = Campaign
         fields = base_model_fields + ['logo', 'sms_phone', 'sms_complete_task_allow', 'is_joined', 
                                       'is_completed', 'featured_image', 'contact_us_link', 
-                                      'new_task_view_mode', 'registration_stage', 'start_date', 
+                                      'registration_stage', 'start_date',
                                       'short_description']
 
     # def get_managers(self, obj):
@@ -110,7 +110,7 @@ class ChainSerializer(serializers.ModelSerializer,
                       CampaignValidationCheck):
     class Meta:
         model = Chain
-        fields = base_model_fields + ['campaign']
+        fields = base_model_fields + ['campaign', 'new_task_view_mode']
 
     def validate_campaign(self, value):
         """
