@@ -138,7 +138,7 @@ class ChainIndividualsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chain
-        fields = ["id", "name", "stages_data", "campaign"]
+        fields = ["id", "name", "stages_data", "campaign", 'new_task_view_mode']
 
 
     def find_order(self, node, visited, stack, nodes):
