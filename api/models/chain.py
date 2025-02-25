@@ -23,6 +23,11 @@ class Chain(BaseModel, CampaignInterface):
                     "but without any tasks, tests, or progress tracking.")
     )
 
+    new_task_view_mode = models.BooleanField(
+        default=False,
+        help_text="Use new task view mode"
+    )
+
     ORDER_TYPE_CHOICES = [
         (ChainConstants.CHRONOLOGICALLY, 'Chronologically'),
         (ChainConstants.GRAPH_FLOW, 'By Graph order'),

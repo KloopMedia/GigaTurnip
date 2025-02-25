@@ -97,10 +97,6 @@ class Campaign(BaseModel, CampaignInterface):
         help_text="Text or url to the SVG"
     )
 
-    new_task_view_mode = models.BooleanField(
-        default=False,
-        help_text="Use new task view mode"
-    )
     contact_us_link = models.CharField(
         max_length=255,
         null=True,
