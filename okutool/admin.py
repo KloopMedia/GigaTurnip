@@ -7,6 +7,7 @@ from okutool.models import (
     QuestionAttachment,
     Test,
 )
+from admin_auto_filters.filters import AutocompleteFilterFactory
 
 
 class QuestionAttachmentInline(admin.TabularInline):
@@ -29,6 +30,10 @@ class QuestionAdmin(admin.ModelAdmin):
 
 class TestAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
+    autocomplete_fields = ('stage',)
+    list_filter = (
+        AutocompleteFilterFactory("Stage", "stage"),
+    )
 
     def get_queryset(self, request):
         queryset = super(TestAdmin, self).get_queryset(request)
